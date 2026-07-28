@@ -1,0 +1,36 @@
+# ============================================================
+#  .gitignore — AlphaScalp
+#  On versionne le CODE ; jamais les secrets, la base, ni les
+#  données utilisateurs (clés d'abonnés, emails...).
+# ============================================================
+
+# --- Secrets & jetons ---
+*.env
+.env
+.env.*
+token.txt
+*_token.txt
+*secret*
+
+# --- Base de données (contient les clés/abonnés = données perso) ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Données utilisateurs / rapports générés ---
+users/
+ReportHistory.xlsx
+# performance.html est généré automatiquement par alphascalp_showcase.py
+performance.html
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Divers ---
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

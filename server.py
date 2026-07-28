@@ -1,0 +1,465 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+AlphaScalp — Serveur de licence + relais de signaux (MVP bêta)
+==============================================================
+
+Rôle :
+  1. Recevoir les signaux du BOT MAÎTRE (ouverture / fermeture de position)
+  2. Les relayer aux FOLLOWERS *uniquement si leur clé d'abonnement est active*
+  3. Gérer les clés (créer / activer / désactiver) via une petite page admin
+
+Conçu pour la phase bêta : tout en démo, abonnement "gratuit" simulé par le
+toggle manuel actif/inactif. Le jour du passage payant, on remplace ce toggle
+par un webhook Stripe qui bascule le champ `active` — le reste ne bouge pas.
+
+Lancer :
+    pip install fastapi uvicorn
+    python server.py
+    # → http://127.0.0.1:8000/admin?token=<ADMIN_TOKEN>
+
+Config par variables d'environnement (sinon valeurs par défaut de dev) :
+    ALPHASCALP_MASTER_TOKEN   jeton du bot maître (POST /api/signal)
+    ALPHASCALP_ADMIN_TOKEN    jeton de la page admin
+    ALPHASCALP_DB             chemin de la base SQLite
+"""
+
+import os
+import secrets
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
+
+# ─────────────────────────────────────────────────────────────
+# CONFIG
+# ─────────────────────────────────────────────────────────────
+MASTER_TOKEN = os.environ.get("ALPHASCALP_MASTER_TOKEN", "master-dev-changeme")
+ADMIN_TOKEN  = os.environ.get("ALPHASCALP_ADMIN_TOKEN",  "admin-dev-changeme")
+DB_PATH      = os.environ.get("ALPHASCALP_DB",           "alphascalp.db")
+
+app = FastAPI(title="AlphaScalp Server", version="0.1.0")
+
+
+# ─────────────────────────────────────────────────────────────
+# BASE DE DONNÉES
+# ─────────────────────────────────────────────────────────────
+@contextmanager
+def db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init_db():
+    with db() as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS clients (
+            api_key     TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            plan        TEXT NOT NULL DEFAULT 'beta',
+            active      INTEGER NOT NULL DEFAULT 1,
+            created_at  TEXT NOT NULL,
+            last_seen   TEXT
+        );
+        CREATE TABLE IF NOT EXISTS signals (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            action      TEXT NOT NULL,           -- 'open' | 'close'
+            ref_id      TEXT NOT NULL,           -- identifiant logique du trade (ticket maître)
+            symbol      TEXT NOT NULL,
+            direction   TEXT,                    -- 'BUY' | 'SELL' (sur open)
+            volume_ref  REAL,                    -- volume du maître (le follower adaptera au sien)
+            price       REAL,
+            sl          REAL,
+            tp          REAL,
+            regime      TEXT,                    -- info contextuelle (TREND/RANGE...)
+            created_at  TEXT NOT NULL
+        );
+        """)
+        # [28/07] Migration sûre : colonne email pour l'inscription publique.
+        # ALTER TABLE ADD COLUMN est idempotent si on avale l'erreur "duplicate".
+        try:
+            conn.execute("ALTER TABLE clients ADD COLUMN email TEXT")
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# ─────────────────────────────────────────────────────────────
+# MODÈLES
+# ─────────────────────────────────────────────────────────────
+class SignalIn(BaseModel):
+    action: str                       # 'open' ou 'close'
+    ref_id: str                       # ticket / id logique du trade maître
+    symbol: str
+    direction: Optional[str] = None
+    volume_ref: Optional[float] = None
+    price: Optional[float] = None
+    sl: Optional[float] = None
+    tp: Optional[float] = None
+    regime: Optional[str] = None
+
+
+# ─────────────────────────────────────────────────────────────
+# AUTH HELPERS
+# ─────────────────────────────────────────────────────────────
+def require_master(x_master_token: Optional[str]):
+    if not x_master_token or not secrets.compare_digest(x_master_token, MASTER_TOKEN):
+        raise HTTPException(status_code=401, detail="Jeton maître invalide")
+
+
+def require_admin(token: Optional[str]):
+    if not token or not secrets.compare_digest(token, ADMIN_TOKEN):
+        raise HTTPException(status_code=401, detail="Jeton admin invalide")
+
+
+def get_client(api_key: Optional[str]) -> sqlite3.Row:
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Clé API manquante")
+    with db() as conn:
+        row = conn.execute("SELECT * FROM clients WHERE api_key = ?", (api_key,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=401, detail="Clé API inconnue")
+        conn.execute("UPDATE clients SET last_seen = ? WHERE api_key = ?", (now_iso(), api_key))
+    return row
+
+
+# ─────────────────────────────────────────────────────────────
+# API — BOT MAÎTRE (publie les signaux)
+# ─────────────────────────────────────────────────────────────
+@app.post("/api/signal")
+def publish_signal(sig: SignalIn, x_master_token: Optional[str] = Header(None)):
+    require_master(x_master_token)
+    if sig.action not in ("open", "close"):
+        raise HTTPException(status_code=400, detail="action doit être 'open' ou 'close'")
+    with db() as conn:
+        cur = conn.execute(
+            """INSERT INTO signals
+               (action, ref_id, symbol, direction, volume_ref, price, sl, tp, regime, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (sig.action, sig.ref_id, sig.symbol, sig.direction, sig.volume_ref,
+             sig.price, sig.sl, sig.tp, sig.regime, now_iso()),
+        )
+        signal_id = cur.lastrowid
+    return {"ok": True, "signal_id": signal_id}
+
+
+# ─────────────────────────────────────────────────────────────
+# API — FOLLOWERS (récupèrent les signaux SI clé active)
+# ─────────────────────────────────────────────────────────────
+@app.get("/api/status")
+def status(x_api_key: Optional[str] = Header(None)):
+    c = get_client(x_api_key)
+    with db() as conn:
+        latest = conn.execute("SELECT COALESCE(MAX(id),0) AS m FROM signals").fetchone()["m"]
+    return {"active": bool(c["active"]), "name": c["name"], "plan": c["plan"], "latest_signal_id": latest}
+
+
+@app.get("/api/signals")
+def get_signals(
+    since: int = Query(0, ge=0, description="Renvoie les signaux d'id > since"),
+    x_api_key: Optional[str] = Header(None),
+):
+    """Le follower poll régulièrement avec son dernier id connu (curseur).
+    - Clé active   → renvoie les nouveaux signaux (idempotence garantie par `since`).
+    - Clé inactive → 403 + pause demandée (le follower arrête d'ouvrir).
+    Sur un follower neuf : appeler d'abord /api/status pour récupérer
+    `latest_signal_id` et partir de là (évite de rejouer tout l'historique).
+    """
+    c = get_client(x_api_key)
+    if not c["active"]:
+        raise HTTPException(status_code=403, detail="Abonnement inactif — pause des nouvelles entrées")
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM signals WHERE id > ? ORDER BY id ASC LIMIT 200", (since,)
+        ).fetchall()
+    return {"active": True, "signals": [dict(r) for r in rows]}
+
+
+# ─────────────────────────────────────────────────────────────
+# API — ADMIN (gestion des clés = simulation d'abonnement)
+# ─────────────────────────────────────────────────────────────
+@app.get("/api/admin/clients")
+def admin_list(token: Optional[str] = Query(None)):
+    require_admin(token)
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM clients ORDER BY created_at DESC").fetchall()
+    return {"clients": [dict(r) for r in rows]}
+
+
+@app.post("/api/admin/clients")
+def admin_create(name: str = Query(...), plan: str = Query("beta"), token: Optional[str] = Query(None)):
+    require_admin(token)
+    key = "as_" + secrets.token_urlsafe(18)
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO clients (api_key, name, plan, active, created_at) VALUES (?,?,?,1,?)",
+            (key, name.strip(), plan.strip(), now_iso()),
+        )
+    return {"ok": True, "api_key": key, "name": name, "plan": plan, "active": True}
+
+
+@app.post("/api/admin/clients/{api_key}/toggle")
+def admin_toggle(api_key: str, token: Optional[str] = Query(None)):
+    require_admin(token)
+    with db() as conn:
+        row = conn.execute("SELECT active FROM clients WHERE api_key = ?", (api_key,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Clé inconnue")
+        new_state = 0 if row["active"] else 1
+        conn.execute("UPDATE clients SET active = ? WHERE api_key = ?", (new_state, api_key))
+    return {"ok": True, "api_key": api_key, "active": bool(new_state)}
+
+
+@app.post("/api/admin/clients/{api_key}/delete")
+def admin_delete(api_key: str, token: Optional[str] = Query(None)):
+    require_admin(token)
+    with db() as conn:
+        conn.execute("DELETE FROM clients WHERE api_key = ?", (api_key,))
+    return {"ok": True, "deleted": api_key}
+
+
+# ─────────────────────────────────────────────────────────────
+# PAGE ADMIN (HTML minimaliste, thème AlphaScalp)
+# ─────────────────────────────────────────────────────────────
+ADMIN_HTML = """<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AlphaScalp — Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#080b10;color:#f0f4ff;padding:32px;max-width:1000px;margin:0 auto}
+h1{font-size:22px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.dot{width:9px;height:9px;border-radius:50%;background:#3b82f6;box-shadow:0 0 10px #3b82f6}
+.sub{color:#6b7a99;font-size:13px;margin-bottom:28px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+input,button,select{font-family:inherit;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#0e1420;color:#f0f4ff;padding:10px 14px}
+input:focus,select:focus{outline:none;border-color:#3b82f6}
+button{cursor:pointer;background:#3b82f6;color:#fff;border:none;font-weight:500;transition:opacity .15s}
+button:hover{opacity:.88}
+button.ghost{background:transparent;border:1px solid rgba(255,255,255,.12);color:#f0f4ff}
+button.danger{background:transparent;border:1px solid rgba(239,68,68,.4);color:#f0a4a4}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:#6b7a99;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+td{padding:12px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:break-all}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:600}
+.pill.on{background:rgba(34,197,94,.12);color:#5dcaa5;border:1px solid rgba(34,197,94,.25)}
+.pill.off{background:rgba(239,68,68,.1);color:#f0a4a4;border:1px solid rgba(239,68,68,.25)}
+.acts{display:flex;gap:8px;justify-content:flex-end}
+.muted{color:#6b7a99}
+.empty{color:#6b7a99;padding:40px;text-align:center}
+</style></head><body>
+<h1><span class="dot"></span> AlphaScalp — Admin</h1>
+<div class="sub">Gestion des accès bêta. Activer / désactiver une clé simule l'état d'abonnement du follower.</div>
+<div class="bar">
+  <input id="name" placeholder="Nom du bêta-testeur" style="flex:1;min-width:200px">
+  <select id="plan"><option value="beta">beta</option><option value="starter">starter</option><option value="pro">pro</option><option value="vip">vip</option></select>
+  <button onclick="createClient()">Créer une clé</button>
+</div>
+<table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
+<tbody id="rows"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody></table>
+<script>
+const token = new URLSearchParams(location.search).get('token') || '';
+async function api(path, method='GET'){
+  const r = await fetch(path + (path.includes('?')?'&':'?') + 'token=' + encodeURIComponent(token), {method});
+  if(!r.ok){ const e = await r.json().catch(()=>({detail:r.status})); throw new Error(e.detail||r.status); }
+  return r.json();
+}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+async function load(){
+  try{
+    const {clients} = await api('/api/admin/clients');
+    const t = document.getElementById('rows');
+    if(!clients.length){ t.innerHTML='<tr><td colspan="6" class="empty">Aucune clé. Crée la première ci-dessus.</td></tr>'; return; }
+    t.innerHTML = clients.map(c=>`<tr>
+      <td>${esc(c.name)}</td>
+      <td><code>${esc(c.api_key)}</code></td>
+      <td class="muted">${esc(c.plan)}</td>
+      <td><span class="pill ${c.active?'on':'off'}">${c.active?'● actif':'○ inactif'}</span></td>
+      <td class="muted">${c.last_seen?esc(c.last_seen.replace('T',' ').replace('Z','')):'jamais'}</td>
+      <td><div class="acts">
+        <button class="ghost" onclick="toggle('${c.api_key}')">${c.active?'Désactiver':'Activer'}</button>
+        <button class="danger" onclick="del('${c.api_key}')">Suppr.</button>
+      </div></td></tr>`).join('');
+  }catch(e){ document.getElementById('rows').innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(''+e.message)+'</td></tr>'; }
+}
+async function createClient(){
+  const name = document.getElementById('name').value.trim();
+  const plan = document.getElementById('plan').value;
+  if(!name){ alert('Indique un nom'); return; }
+  try{ await api('/api/admin/clients?name='+encodeURIComponent(name)+'&plan='+plan,'POST'); document.getElementById('name').value=''; load(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+async function toggle(k){ try{ await api('/api/admin/clients/'+encodeURIComponent(k)+'/toggle','POST'); load(); }catch(e){ alert(e.message); } }
+async function del(k){ if(!confirm('Supprimer cette clé ?')) return; try{ await api('/api/admin/clients/'+encodeURIComponent(k)+'/delete','POST'); load(); }catch(e){ alert(e.message); } }
+load();
+</script></body></html>"""
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(token: Optional[str] = Query(None)):
+    require_admin(token)
+    return HTMLResponse(ADMIN_HTML)
+
+
+# ─────────────────────────────────────────────────────────────
+# INSCRIPTION PUBLIQUE À LA BÊTA  [28/07]
+# ─────────────────────────────────────────────────────────────
+# Le visiteur donne son email → on lui crée une clé bêta et on lui affiche
+# ses instructions de connexion. Volontairement simple (objectif : minimum
+# d'effort pour l'utilisateur). Protections de base : email valide, pas de
+# doublon, clé créée INACTIVE (active=0) → c'est TOI qui l'actives depuis
+# l'admin (contrôle de qui entre en bêta, anti-spam, places limitées).
+import re as _re
+
+class SignupIn(BaseModel):
+    email: str
+
+_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@app.post("/api/signup")
+def public_signup(body: SignupIn):
+    email = (body.email or "").strip().lower()
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Email invalide.")
+    with db() as conn:
+        existing = conn.execute("SELECT api_key, active FROM clients WHERE email = ?", (email,)).fetchone()
+        if existing:
+            # Déjà inscrit → on renvoie sa clé (idempotent, pas de doublon).
+            return {"ok": True, "already": True, "api_key": existing["api_key"],
+                    "active": bool(existing["active"])}
+        key = "as_" + secrets.token_urlsafe(18)
+        conn.execute(
+            "INSERT INTO clients (api_key, name, email, plan, active, created_at) VALUES (?,?,?,?,0,?)",
+            (key, email.split("@")[0], email, "beta", now_iso()),
+        )
+    return {"ok": True, "already": False, "api_key": key, "active": False}
+
+
+REJOINDRE_HTML = """<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rejoindre la bêta — AlphaScalp</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box;margin:0}
+body{background:#080b10;color:#f0f4ff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+ min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.box{max-width:440px;width:100%;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+ border-radius:18px;padding:34px 30px}
+.logo{font-weight:800;font-size:24px;letter-spacing:-.5px;text-align:center;margin-bottom:6px}
+.logo span{color:#3b82f6}
+.sub{color:#6b7a99;text-align:center;font-size:14px;margin-bottom:24px}
+label{font-size:13px;color:#6b7a99;display:block;margin-bottom:6px}
+input{width:100%;background:#0e1420;border:1px solid rgba(255,255,255,.1);border-radius:10px;
+ padding:13px 14px;color:#f0f4ff;font-size:15px}
+input:focus{outline:none;border-color:#3b82f6}
+button{width:100%;background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;
+ font-size:15px;font-weight:600;cursor:pointer;margin-top:16px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:18px;font-size:14px;line-height:1.6}
+.key{background:#0e1420;border:1px solid rgba(59,130,246,.4);border-radius:10px;padding:12px;
+ font-family:ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all;margin:10px 0}
+.ok{color:#22c55e}.err{color:#ef4444}
+.steps{color:#6b7a99;font-size:13.5px;margin-top:14px}
+.steps li{margin:6px 0}
+.note{color:#6b7a99;font-size:11.5px;margin-top:20px;text-align:center;line-height:1.6}
+a{color:#3b82f6}
+</style></head><body>
+<div class="box">
+  <div class="logo">Alpha<span>Scalp</span></div>
+  <div class="sub">Bêta gratuite · compte démo · sans engagement</div>
+  <div id="form">
+    <label for="email">Ton email</label>
+    <input id="email" type="email" placeholder="toi@exemple.com" autocomplete="email">
+    <button id="btn" onclick="submit()">Rejoindre la bêta</button>
+    <div id="msg" class="msg"></div>
+  </div>
+  <div class="note">
+    En t'inscrivant, tu acceptes que le trading comporte un risque de perte.
+    AlphaScalp ne fournit pas de conseil en investissement. Aucun résultat garanti.
+  </div>
+</div>
+<script>
+async function submit(){
+  const email=document.getElementById('email').value.trim();
+  const btn=document.getElementById('btn'), msg=document.getElementById('msg');
+  if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){ msg.innerHTML='<span class=err>Email invalide.</span>'; return; }
+  btn.disabled=true; btn.textContent='…';
+  try{
+    const r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email})});
+    const j=await r.json();
+    if(!r.ok){ throw new Error(j.detail||'Erreur'); }
+    document.getElementById('form').innerHTML =
+      '<div class="msg"><span class="ok">✅ '+(j.already?'Tu es déjà inscrit !':'Inscription reçue !')+'</span>'
+      +'<p style="margin-top:10px;color:#6b7a99">Voici ta clé bêta (garde-la) :</p>'
+      +'<div class="key">'+j.api_key+'</div>'
+      +'<ol class="steps"><li>Ta clé est <b>en attente d\\'activation</b> — on t\\'ouvre l\\'accès très vite (places limitées).</li>'
+      +'<li>Tu recevras alors les instructions pour relier ton compte démo à la stratégie, en 1 clic chez le broker.</li>'
+      +'<li>Ensuite tout est automatique : tu suis tes résultats, tu ne touches à rien.</li></ol>';
+  }catch(e){ msg.innerHTML='<span class=err>'+e.message+'</span>'; btn.disabled=false; btn.textContent='Rejoindre la bêta'; }
+}
+document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+</script></body></html>"""
+
+
+@app.get("/rejoindre", response_class=HTMLResponse)
+def rejoindre_page():
+    return HTMLResponse(REJOINDRE_HTML)
+
+
+# ── Servir la landing + la page de performance depuis le serveur ──────────
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_LANDING = os.path.join(_HERE, "landing page", "index.html")
+_PERF = os.path.join(_HERE, "landing page", "performance.html")
+
+
+def _serve_file(path, fallback):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    except Exception:
+        return HTMLResponse(fallback)
+
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return _serve_file(_LANDING,
+        '<h1>AlphaScalp</h1><p>Landing introuvable. <a href="/rejoindre">Rejoindre la bêta</a> · '
+        '<a href="/admin?token=…">Admin</a></p>')
+
+
+@app.get("/performance", response_class=HTMLResponse)
+def performance_page():
+    return _serve_file(_PERF, "<p>Page de performance non encore générée "
+                              "(lance alphascalp_showcase.py).</p>")
+
+
+# ─────────────────────────────────────────────────────────────
+init_db()
+
+if __name__ == "__main__":
+    import sys as _sys, uvicorn
+    # [FIX 28/07] stdout en UTF-8 : la console Windows (cp1252) plantait sur
+    # les caractères non-ASCII des messages de démarrage (crash au boot).
+    try:
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    print("AlphaScalp - serveur demarre")
+    print("  Landing     : http://127.0.0.1:8000/")
+    print("  Inscription : http://127.0.0.1:8000/rejoindre")
+    print("  Performance : http://127.0.0.1:8000/performance")
+    print("  Admin       : http://127.0.0.1:8000/admin?token=" + ADMIN_TOKEN)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

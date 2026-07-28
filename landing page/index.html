@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AlphaScalp — Automated Trading System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080b10;
+      --bg2: #0e1420;
+      --bg3: #131926;
+      --border: rgba(255,255,255,0.07);
+      --blue: #3b82f6;
+      --blue-glow: rgba(59,130,246,0.18);
+      --green: #22c55e;
+      --green-glow: rgba(34,197,94,0.15);
+      --red: #ef4444;
+      --text: #f0f4ff;
+      --muted: #6b7a99;
+      --card: rgba(255,255,255,0.03);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ── GRID BACKGROUND ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 6%; height: 72px;
+      background: rgba(8,11,16,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800; font-size: 20px;
+      letter-spacing: -0.02em;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .nav-logo .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 12px var(--blue);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.8); }
+    }
+
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a {
+      font-size: 14px; color: var(--muted); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      background: var(--blue); color: #fff;
+      padding: 10px 22px; border-radius: 8px;
+      font-size: 14px; font-weight: 500;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .nav-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 6% 80px;
+    }
+
+    .hero-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -55%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.25);
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 13px; color: var(--blue);
+      margin-bottom: 2rem;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero-badge .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 1.5s infinite;
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(48px, 7vw, 88px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: 1rem;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .hero h1 .accent { color: var(--blue); }
+
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.6;
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .hero-actions {
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #fff; font-size: 15px; font-weight: 500;
+      padding: 14px 32px; border-radius: 10px;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 30px rgba(59,130,246,0.3);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(59,130,246,0.45); }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text); font-size: 15px;
+      padding: 14px 32px; border-radius: 10px;
+      text-decoration: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.04); }
+
+    /* ── STATS BAND ── */
+    .stats-band {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin: 0;
+    }
+
+    .stat-item {
+      background: var(--bg);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 36px; font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-value.white { color: var(--text); }
+
+    .stat-label {
+      font-size: 12px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-top: 6px;
+    }
+
+    .stat-note {
+      font-size: 11px; color: rgba(107,122,153,0.6);
+      margin-top: 4px;
+    }
+
+    /* ── SECTIONS ── */
+    section {
+      position: relative; z-index: 1;
+      padding: 100px 6%;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 12px; color: var(--blue);
+      text-transform: uppercase; letter-spacing: 0.12em;
+      font-weight: 500; margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+
+    .section-desc {
+      font-size: 16px; color: var(--muted);
+      max-width: 500px; line-height: 1.7;
+      margin-bottom: 3rem;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      position: relative;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .step:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-4px); }
+
+    .step-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 48px; font-weight: 800;
+      color: rgba(59,130,246,0.15);
+      line-height: 1; margin-bottom: 1rem;
+    }
+
+    .step h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px; font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .step p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+    /* ── BOTS ── */
+    .bots-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .bot-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .bot-card:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-4px); }
+    .bot-card.featured { border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.05); }
+
+    .bot-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: rgba(59,130,246,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; margin-bottom: 1rem;
+    }
+
+    .bot-card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 17px; font-weight: 700; margin-bottom: 6px;
+    }
+
+    .bot-card p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 1rem; }
+
+    .bot-tag {
+      display: inline-block;
+      font-size: 11px; padding: 3px 10px; border-radius: 20px;
+      background: rgba(34,197,94,0.1); color: var(--green);
+      border: 1px solid rgba(34,197,94,0.2);
+    }
+
+    /* ── PRICING ── */
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 20px; align-items: start;
+    }
+
+    .pricing-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: transform 0.3s;
+    }
+
+    .pricing-card:hover { transform: translateY(-4px); }
+
+    .pricing-card.popular {
+      border-color: var(--blue);
+      background: rgba(59,130,246,0.06);
+      position: relative;
+    }
+
+    .popular-badge {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      background: var(--blue); color: #fff;
+      font-size: 11px; font-weight: 600;
+      padding: 4px 14px; border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .plan-name {
+      font-size: 12px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .plan-price {
+      font-family: 'Syne', sans-serif;
+      font-size: 42px; font-weight: 800;
+      letter-spacing: -0.02em; line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .plan-price span { font-size: 16px; font-weight: 400; color: var(--muted); }
+    .plan-desc { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+
+    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.75rem; }
+
+    .plan-features li {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; color: var(--text);
+    }
+
+    .plan-features li::before {
+      content: '✓'; color: var(--green);
+      font-weight: 700; flex-shrink: 0; margin-top: 1px;
+    }
+
+    .plan-features li.off { color: var(--muted); }
+    .plan-features li.off::before { content: '×'; color: var(--muted); }
+
+    .btn-plan {
+      display: block; text-align: center;
+      padding: 13px; border-radius: 10px;
+      font-size: 14px; font-weight: 500;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .btn-plan-primary {
+      background: var(--blue); color: #fff;
+      box-shadow: 0 0 20px rgba(59,130,246,0.25);
+    }
+    .btn-plan-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .btn-plan-ghost {
+      border: 1px solid var(--border); color: var(--text);
+    }
+    .btn-plan-ghost:hover { border-color: rgba(255,255,255,0.2); }
+
+    /* ── FAQ ── */
+    .faq-list { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+
+    .faq-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .faq-question {
+      width: 100%; padding: 1.25rem 1.5rem;
+      display: flex; justify-content: space-between; align-items: center;
+      background: none; border: none; color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500;
+      cursor: pointer; text-align: left;
+      transition: background 0.2s;
+    }
+    .faq-question:hover { background: rgba(255,255,255,0.03); }
+
+    .faq-icon { font-size: 20px; color: var(--muted); transition: transform 0.3s; flex-shrink: 0; }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+
+    .faq-answer {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s ease, padding 0.35s ease;
+      font-size: 14px; color: var(--muted); line-height: 1.7;
+      padding: 0 1.5rem;
+    }
+    .faq-item.open .faq-answer { max-height: 200px; padding: 0 1.5rem 1.25rem; }
+
+    /* ── CTA BAND ── */
+    .cta-band {
+      position: relative; z-index: 1;
+      background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04));
+      border-top: 1px solid rgba(59,130,246,0.2);
+      border-bottom: 1px solid rgba(59,130,246,0.2);
+      padding: 80px 6%;
+      text-align: center;
+    }
+
+    .cta-band h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 800; letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .cta-band p { font-size: 16px; color: var(--muted); margin-bottom: 2rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 1;
+      padding: 3rem 6%;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 1.5rem;
+    }
+
+    .footer-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      flex-wrap: wrap; gap: 2rem;
+    }
+
+    .footer-brand {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px; font-weight: 800;
+    }
+
+    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; }
+    .footer-links a:hover { color: var(--text); }
+
+    .disclaimer {
+      font-size: 11px; color: rgba(107,122,153,0.7);
+      line-height: 1.7; max-width: 800px;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .stats-band { grid-template-columns: repeat(2, 1fr); }
+      .steps, .bots-grid, .pricing-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="dot"></div>
+    AlphaScalp
+  </div>
+  <div class="nav-links">
+    <a href="#comment">Comment ça marche</a>
+    <a href="#bots">Les bots</a>
+    <a href="#tarifs">Tarifs</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <a href="#tarifs" class="nav-cta">Commencer →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge">
+    <span class="live-dot"></span>
+    Compte démo · En phase de calibrage
+  </div>
+  <h1>
+    Trade smarter.<br>
+    <span class="accent">Automatiquement.</span>
+  </h1>
+  <p class="hero-sub">
+    AlphaScalp est un système de trading algorithmique sur le Forex.
+    Nos bots analysent les marchés 24h/24 et exécutent les trades à ta place.
+  </p>
+  <div class="hero-actions">
+    <a href="#tarifs" class="btn-primary">Voir les offres</a>
+    <a href="/performance" class="btn-secondary">Voir la performance en direct</a>
+  </div>
+</div>
+
+<!-- STATS — bloc rempli AUTOMATIQUEMENT par alphascalp_showcase.py (chiffres
+     toujours à jour, jamais figés/trompeurs). Ne pas éditer à la main entre
+     les marqueurs : le générateur écrase tout ce qui s'y trouve. -->
+<div class="stats-band">
+<!--STATS_AUTO_START-->
+  <div class="stat-item">
+    <div class="stat-value green">+488$</div>
+    <div class="stat-label">Résultat cumulé</div>
+    <div class="stat-note">XAUUSD · compte démo</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value blue">47.6%</div>
+    <div class="stat-label">Taux de réussite</div>
+    <div class="stat-note">84 trades</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value white">84</div>
+    <div class="stat-label">Trades exécutés</div>
+    <div class="stat-note">EURUSD &amp; XAUUSD</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value blue">1.11</div>
+    <div class="stat-label">Profit Factor</div>
+    <div class="stat-note">en validation · objectif &gt; 1.5 en live</div>
+  </div>
+<!--STATS_AUTO_END-->
+</div>
+
+<!-- COMMENT ÇA MARCHE -->
+<section id="comment">
+  <div class="reveal">
+    <div class="section-label">Processus</div>
+    <h2 class="section-title">Comment ça marche</h2>
+    <p class="section-desc">Un système entièrement automatisé, de l'analyse du marché à l'exécution du trade.</p>
+  </div>
+  <div class="steps">
+    <div class="step reveal">
+      <div class="step-num">01</div>
+      <h3>Analyse du marché</h3>
+      <p>Nos algorithmes analysent en continu les paires Forex (EURUSD, XAUUSD) et détectent les opportunités selon des critères stricts.</p>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">02</div>
+      <h3>Exécution automatique</h3>
+      <p>Dès qu'un signal est validé, le bot place l'ordre instantanément avec Stop Loss et Take Profit précalculés. Zéro émotion, zéro délai.</p>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">03</div>
+      <h3>Suivi en temps réel</h3>
+      <p>Accède à ton dashboard personnel pour suivre chaque trade, l'equity curve et toutes les statistiques de performance en direct.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LES BOTS -->
+<section id="bots" style="padding-top:0">
+  <div class="reveal">
+    <div class="section-label">Technologie</div>
+    <h2 class="section-title">Les 3 bots AlphaScalp</h2>
+    <p class="section-desc">Trois stratégies complémentaires pour couvrir différents régimes de marché.</p>
+  </div>
+  <div class="bots-grid">
+    <div class="bot-card featured reveal">
+      <div class="bot-icon">⚡</div>
+      <h3>ScalpBot</h3>
+      <p>Notre bot principal. Stratégie de scalping court terme sur EURUSD et XAUUSD. Trades rapides, gains réguliers, risque maîtrisé.</p>
+      <span class="bot-tag">● En calibrage</span>
+    </div>
+    <div class="bot-card reveal">
+      <div class="bot-icon">🤖</div>
+      <h3>AutoTradeBot</h3>
+      <p>Trading automatique sur positions moyennes. Analyse les tendances de fond et prend des positions plus larges sur les grandes moves.</p>
+      <span class="bot-tag">● En calibrage</span>
+    </div>
+    <div class="bot-card reveal">
+      <div class="bot-icon">📡</div>
+      <h3>SignalBot</h3>
+      <p>Récupère et exécute des signaux Telegram de sources sélectionnées. Combine intelligence externe et gestion de risque interne.</p>
+      <span class="bot-tag">● En calibrage</span>
+    </div>
+  </div>
+</section>
+
+<!-- TARIFS -->
+<section id="tarifs" style="padding-top:0">
+  <div class="reveal">
+    <div class="section-label">Abonnements</div>
+    <h2 class="section-title">Tarifs simples et transparents</h2>
+    <p class="section-desc">Lancement prévu courant 2026 · Inscription bêta gratuite disponible dès maintenant.</p>
+  </div>
+  <div class="pricing-grid">
+    <!-- STARTER -->
+    <div class="pricing-card reveal">
+      <div class="plan-name">Starter</div>
+      <div class="plan-price">29€ <span>/ mois</span></div>
+      <div class="plan-desc">Pour suivre les performances et découvrir le système.</div>
+      <ul class="plan-features">
+        <li>Accès dashboard complet</li>
+        <li>Stats en temps réel</li>
+        <li>Equity curve & historique</li>
+        <li>Mise à jour hebdomadaire</li>
+        <li class="off">Alertes Telegram</li>
+        <li class="off">Signaux de trading</li>
+        <li class="off">Support prioritaire</li>
+      </ul>
+      <a href="/rejoindre" class="btn-plan btn-plan-ghost">Rejoindre la bêta</a>
+    </div>
+    <!-- PRO -->
+    <div class="pricing-card popular reveal">
+      <div class="popular-badge">⭐ Recommandé</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price">49€ <span>/ mois</span></div>
+      <div class="plan-desc">Pour les traders qui veulent copier les signaux en temps réel.</div>
+      <ul class="plan-features">
+        <li>Tout le plan Starter</li>
+        <li>Alertes Telegram instantanées</li>
+        <li>Signaux entrée / sortie complets</li>
+        <li>Mise à jour quotidienne</li>
+        <li>Accès ScalpBot prioritaire</li>
+        <li class="off">Support prioritaire</li>
+        <li class="off">Accès aux 3 bots</li>
+      </ul>
+      <a href="/rejoindre" class="btn-plan btn-plan-primary">Rejoindre la bêta</a>
+    </div>
+    <!-- VIP -->
+    <div class="pricing-card reveal">
+      <div class="plan-name">VIP</div>
+      <div class="plan-price">99€ <span>/ mois</span></div>
+      <div class="plan-desc">Le système complet avec accompagnement personnalisé.</div>
+      <ul class="plan-features">
+        <li>Tout le plan Pro</li>
+        <li>Accès aux 3 bots</li>
+        <li>Configuration personnalisée</li>
+        <li>Support prioritaire 24h</li>
+        <li>Rapport mensuel détaillé</li>
+        <li>Accès bêta nouvelles features</li>
+        <li>Session onboarding offerte</li>
+      </ul>
+      <a href="/rejoindre" class="btn-plan btn-plan-ghost">Rejoindre la bêta</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="padding-top:0">
+  <div class="reveal">
+    <div class="section-label">Questions fréquentes</div>
+    <h2 class="section-title">FAQ</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        Le bot gère mon argent directement ?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-answer">Non. AlphaScalp est un outil logiciel. Vous conservez à tout moment le contrôle total de votre capital et de votre compte broker. Nous ne gérons pas de fonds et n'avons aucun accès à vos comptes.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        Les performances passées sont-elles garanties ?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-answer">Non. Les performances présentées sont issues d'un compte démo en phase de calibrage. Les performances passées ne préjugent pas des performances futures. Le trading comporte un risque de perte en capital.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        Sur quels marchés tradent les bots ?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-answer">Actuellement sur EURUSD (Forex) et XAUUSD (Or). D'autres paires pourraient être ajoutées selon les résultats obtenus en phase live.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        Quand le service sera-t-il disponible ?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-answer">Le lancement est prévu courant 2026, après validation des performances sur compte réel. Inscrivez-vous à la bêta pour être notifié en priorité et bénéficier d'un tarif préférentiel.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        Comment fonctionne l'abonnement ?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-answer">L'abonnement est mensuel, sans engagement. Vous pouvez annuler à tout moment. Le paiement est sécurisé via Stripe. L'accès au dashboard est activé automatiquement après confirmation du paiement.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BAND -->
+<div class="cta-band">
+  <h2>Prêt à rejoindre la bêta ?</h2>
+  <p>Soyez parmi les premiers à accéder à AlphaScalp et bénéficiez d'un tarif préférentiel au lancement.</p>
+  <a href="/rejoindre" class="btn-primary">Rejoindre la liste d'attente →</a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">⚡ AlphaScalp</div>
+    <div class="footer-links">
+      <a href="#">Mentions légales</a>
+      <a href="#">CGV</a>
+      <a href="#">Politique de confidentialité</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+  <div class="disclaimer">
+    ⚠️ <strong>Avertissement :</strong> AlphaScalp est un outil logiciel d'automatisation de trading et ne constitue pas un conseil financier ou un service d'investissement au sens de la réglementation AMF. Les performances présentées sont issues d'un compte démo et ne constituent pas une garantie de résultats futurs. Le trading sur les marchés financiers comporte un risque de perte en capital pouvant être partiel ou total. N'investissez que ce que vous pouvez vous permettre de perdre. AlphaScalp ne gère pas de fonds et n'a accès à aucun compte client.
+  </div>
+</footer>
+
+<script>
+  // FAQ toggle
+  function toggleFaq(btn) {
+    const item = btn.closest('.faq-item');
+    item.classList.toggle('open');
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
