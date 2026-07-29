@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide — Comment copier AlphaScalp</title>
+<meta name="description" content="Comment fonctionne la copie automatique AlphaScalp : créer son compte, lancer la copie, tout comprendre.">
+<style>
+  :root{color-scheme:dark;
+    --bg:#080b10; --bg2:#0e1420; --border:rgba(255,255,255,.07);
+    --blue:#3b82f6; --green:#22c55e; --amber:#fab219; --red:#ef4444;
+    --text:#f0f4ff; --muted:#6b7a99;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+    font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 20px 60px}
+  .wrap{max-width:760px;margin:0 auto}
+  header{text-align:center;padding:48px 0 8px}
+  .logo{font-size:28px;font-weight:800;letter-spacing:-.5px}
+  .logo span{color:var(--blue)}
+  .sub{color:var(--muted);margin-top:6px}
+  h2{font-size:22px;margin:38px 0 14px;letter-spacing:-.3px}
+  h3{font-size:17px;margin:24px 0 8px}
+  p{color:#c9d3e8;margin:10px 0}
+  .muted{color:var(--muted)}
+  a{color:var(--blue)}
+  .banner{border:1px solid var(--amber);background:rgba(250,178,25,.07);
+    border-radius:12px;padding:16px 18px;margin:22px 0;font-size:14.5px}
+  .banner b{color:var(--text)}
+  .card{background:rgba(255,255,255,.03);border:1px solid var(--border);
+    border-radius:14px;padding:20px 22px;margin:16px 0}
+  .step{display:flex;gap:16px;margin:18px 0}
+  .step-n{flex:0 0 34px;height:34px;border-radius:50%;background:var(--blue);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .step-body{flex:1}
+  .step-body b{display:block;margin-bottom:4px}
+  .flow{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+    padding:18px;margin:18px 0;font-size:14px;line-height:2}
+  .flow code{color:var(--blue)}
+  ul{margin:10px 0 10px 20px;color:#c9d3e8}
+  li{margin:6px 0}
+  .faq b{color:var(--text);display:block;margin-top:16px}
+  .warn{border-left:3px solid var(--red);padding-left:14px;margin:16px 0;color:#c9d3e8}
+  .ok{color:var(--green)} .no{color:var(--red)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:12px 0}
+  th{text-align:left;color:var(--muted);font-size:12px;text-transform:uppercase;
+    letter-spacing:.4px;padding:8px;border-bottom:1px solid rgba(255,255,255,.12)}
+  td{padding:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+  footer{margin-top:44px;padding-top:22px;border-top:1px solid rgba(255,255,255,.08);
+    color:var(--muted);font-size:12px;line-height:1.7}
+  .cta{text-align:center;margin:34px 0}
+  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;
+    padding:14px 32px;border-radius:10px;font-weight:600}
+  .nav{text-align:center;margin-top:10px;font-size:14px}
+  .nav a{margin:0 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo">Alpha<span>Scalp</span></div>
+  <div class="sub">Guide : comment fonctionne la copie automatique</div>
+  <div class="nav"><a href="/">Accueil</a> · <a href="/performance">Performance</a> · <a href="/rejoindre">Rejoindre la bêta</a></div>
+</header>
+
+<div class="banner">
+  ⏳ <b>Statut : en préparation.</b> La copie automatique sera activée quand la
+  stratégie aura complété sa phase de validation (track record vérifié sur
+  plusieurs mois). Ce guide décrit <b>exactement</b> comment ça fonctionnera —
+  tu peux déjà t'inscrire à la bêta pour être prévenu à l'ouverture.
+  <b>Aucun engagement, aucun paiement demandé aujourd'hui.</b>
+</div>
+
+<h2>En une phrase</h2>
+<p>
+  Tu ouvres un compte chez un broker, tu appuies une fois sur « copier », et
+  <b>tous les trades d'AlphaScalp se reproduisent automatiquement sur ton
+  compte</b> — proportionnellement à ton capital, sans que tu aies quoi que ce
+  soit à faire ensuite.
+</p>
+
+<h2>Comment la copie fonctionne réellement</h2>
+
+<div class="flow">
+  Le bot AlphaScalp ouvre un trade<br>
+  &nbsp;&nbsp;↓ <code>en millisecondes</code><br>
+  Les serveurs du broker répliquent le trade<br>
+  &nbsp;&nbsp;↓<br>
+  Le trade apparaît sur <b>ton</b> compte, à <b>ta</b> taille
+</div>
+
+<div class="card">
+  <h3>📱 Ton téléphone peut être éteint</h3>
+  <p class="muted" style="margin:0">
+    C'est le point clé : la copie se fait <b>côté serveur</b>, chez le broker.
+    Tu n'as aucune application à laisser tourner, aucun ordinateur à laisser
+    allumé. Une fois la copie lancée, elle continue 24h/24 même si tu ne
+    touches jamais à ton téléphone.
+  </p>
+</div>
+
+<div class="card">
+  <h3>⚖️ La taille s'adapte à ton capital</h3>
+  <p class="muted" style="margin:0">
+    La copie est proportionnelle : si AlphaScalp engage 2 % de son capital sur
+    un trade, ton compte engage 2 % du tien. Tu n'as pas besoin d'avoir la même
+    somme — <b>tu décides du montant que tu alloues</b>, et tout se met à
+    l'échelle automatiquement.
+  </p>
+</div>
+
+<div class="card">
+  <h3>🔒 Ton argent reste chez toi</h3>
+  <p class="muted" style="margin:0">
+    Les fonds restent <b>sur ton compte, à ton nom, chez un broker régulé</b>.
+    AlphaScalp ne détient jamais ton argent, n'y a jamais accès, et ne peut ni
+    le retirer ni le transférer. Nous publions seulement des trades ; c'est le
+    broker qui les réplique. Tu peux tout arrêter quand tu veux.
+  </p>
+</div>
+
+<h2>Créer ton compte et lancer la copie</h2>
+<p class="muted">Compte 15–20 minutes en tout, une seule fois. Ensuite, plus rien.</p>
+
+<div class="step">
+  <div class="step-n">1</div>
+  <div class="step-body">
+    <b>S'inscrire à la bêta AlphaScalp</b>
+    Tu laisses ton email sur <a href="/rejoindre">la page d'inscription</a>. On
+    t'envoie ta clé et on te prévient dès l'ouverture des places.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-n">2</div>
+  <div class="step-body">
+    <b>Ouvrir un compte chez le broker partenaire</b>
+    C'est l'étape la plus longue, et elle est <b>obligatoire</b> : la loi impose
+    que ton argent soit chez un établissement régulé. Tu devras fournir une pièce
+    d'identité et un justificatif de domicile (procédure standard, dite « KYC »).
+    <span class="muted">Le broker partenaire sera annoncé à l'ouverture — nous choisissons
+    une plateforme supportant la copie côté serveur.</span>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-n">3</div>
+  <div class="step-body">
+    <b>Alimenter ton compte</b>
+    Tu déposes le montant que tu souhaites consacrer à cette stratégie. Un
+    minimum est requis par la plateforme <span class="muted">(de l'ordre de 100 $ ; le
+    montant exact sera précisé à l'ouverture)</span>. Ne dépose que ce que tu peux
+    te permettre de perdre.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-n">4</div>
+  <div class="step-body">
+    <b>Chercher « AlphaScalp » et appuyer sur Copier</b>
+    Dans l'application du broker (disponible sur mobile), tu trouves la
+    stratégie, tu consultes son historique public, tu choisis le montant à
+    allouer, et tu confirmes. <b>C'est le dernier geste que tu auras à faire.</b>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-n">5</div>
+  <div class="step-body">
+    <b>C'est tout — tu n'as plus rien à faire</b>
+    Les trades arrivent tout seuls. Tu peux fermer l'appli, éteindre ton
+    téléphone. Tu ouvres l'application quand tu veux pour suivre tes résultats.
+  </div>
+</div>
+
+<h2>Ce que tu gardes sous contrôle</h2>
+<table>
+  <thead><tr><th>Action</th><th>Possible ?</th></tr></thead>
+  <tbody>
+    <tr><td>Ajouter des fonds pendant que ça copie</td><td class="ok">✅ à tout moment</td></tr>
+    <tr><td>Retirer une partie des fonds</td><td class="ok">✅ à tout moment</td></tr>
+    <tr><td>Arrêter complètement la copie</td><td class="ok">✅ à tout moment, en un geste</td></tr>
+    <tr><td>Récupérer 100 % de ton argent</td><td class="ok">✅ tu arrêtes la copie et tu retires tout</td></tr>
+    <tr><td>AlphaScalp peut-il toucher à ton argent ?</td><td class="no">❌ jamais</td></tr>
+  </tbody>
+</table>
+
+<h2>Questions fréquentes</h2>
+<div class="faq">
+  <b>Dois-je laisser mon ordinateur ou mon téléphone allumé ?</b>
+  <p>Non. La copie tourne sur les serveurs du broker, en continu.</p>
+
+  <b>Est-ce que je dois m'y connaître en trading ?</b>
+  <p>Non pour l'utilisation. Mais tu dois comprendre <b>le risque</b> : tu peux
+  perdre de l'argent, y compris une part importante de ton dépôt. Ne confie
+  jamais à une stratégie automatisée de l'argent dont tu as besoin.</p>
+
+  <b>Combien ça coûte ?</b>
+  <p>La bêta est gratuite. Ensuite, un abonnement mensuel
+  <span class="muted">(les tarifs affichés sur la page d'accueil sont indicatifs et
+  seront confirmés au lancement)</span>. S'y ajoutent les frais normaux de ton
+  broker (spreads, commissions), qui ne nous reviennent pas.</p>
+
+  <b>Que se passe-t-il si la stratégie perd ?</b>
+  <p>Tu perds proportionnellement, comme tout le monde — nous y compris. C'est
+  pourquoi nous publions <a href="/performance">toutes nos performances en
+  direct</a>, pertes comprises, avant même de vendre quoi que ce soit.</p>
+
+  <b>Puis-je essayer sans risquer d'argent ?</b>
+  <p>Oui, c'est même recommandé : la plupart des brokers proposent un compte de
+  démonstration. Tu vois la stratégie tourner avec de l'argent fictif avant de
+  décider.</p>
+
+  <b>Pourquoi ce n'est pas encore disponible ?</b>
+  <p>Parce que nous refusons de vendre une stratégie non prouvée. Nous
+  accumulons un historique vérifiable ; les plateformes de copie exigent
+  d'ailleurs un track record minimum avant d'accepter un fournisseur. Nous
+  ouvrirons quand les chiffres le justifieront — pas avant.</p>
+</div>
+
+<div class="warn">
+  <b>Avertissement.</b> Le trading comporte un risque de perte en capital, pouvant
+  aller jusqu'à la totalité des sommes engagées. Les performances passées ne
+  préjugent pas des performances futures. AlphaScalp ne fournit pas de conseil en
+  investissement personnalisé et ne gère pas les fonds de ses utilisateurs.
+  N'investis que ce que tu peux te permettre de perdre.
+</div>
+
+<div class="cta">
+  <a class="btn" href="/rejoindre">Rejoindre la bêta</a>
+  <div class="muted" style="font-size:12.5px;margin-top:10px">
+    Gratuit · sans engagement · on te prévient à l'ouverture
+  </div>
+</div>
+
+<footer>
+  AlphaScalp publie les signaux d'une stratégie algorithmique. L'exécution des
+  ordres et la conservation des fonds sont assurées par un broker régulé, jamais
+  par AlphaScalp. Ce guide sera mis à jour avec les informations définitives
+  (broker partenaire, montants, tarifs) à l'ouverture du service.
+</footer>
+
+</div>
+</body>
+</html>

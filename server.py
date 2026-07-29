@@ -455,6 +455,15 @@ def performance_page():
                               "(lance alphascalp_showcase.py).</p>")
 
 
+_GUIDE = os.path.join(_HERE, "landing page", "guide.html")
+
+
+@app.get("/guide", response_class=HTMLResponse)
+def guide_page():
+    """Guide utilisateur : comment la copie fonctionne + création de compte."""
+    return _serve_file(_GUIDE, "<p>Guide indisponible.</p>")
+
+
 # ─────────────────────────────────────────────────────────────
 init_db()
 
