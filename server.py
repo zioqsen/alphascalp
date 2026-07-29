@@ -345,6 +345,15 @@ def public_signup(body: SignupIn):
             "INSERT INTO clients (api_key, name, email, plan, active, created_at) VALUES (?,?,?,?,0,?)",
             (key, email.split("@")[0], email, "beta", now_iso()),
         )
+    # [FILET 28/07] Trace dans les LOGS en plus de la base. Sur l'hébergement
+    # gratuit (Render free), le système de fichiers est ÉPHÉMÈRE : la base
+    # SQLite est effacée à chaque redéploiement/veille. Sans ce log, les emails
+    # des béta-testeurs seraient définitivement perdus. Les logs, eux, sont
+    # conservés par la plateforme → inscriptions récupérables.
+    try:
+        print(f"SIGNUP | {now_iso()} | {email} | {key}", flush=True)
+    except Exception:
+        pass
     return {"ok": True, "already": False, "api_key": key, "active": False}
 
 

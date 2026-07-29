@@ -71,15 +71,27 @@ maîtrises exactement quels chiffres sont publics et quand.
 
 ---
 
-## Points d'attention (bêta)
+## ⚠️ Points d'attention (plan gratuit)
 
 - **Le plan gratuit s'endort** après 15 min sans visite : le premier accès
-  suivant met ~30 s à réveiller le service. Normal pour une bêta. (Plan payant
-  ~7 $/mois pour rester éveillé, plus tard.)
-- **La base des inscriptions est sur un disque persistant** (`/data`) : les
-  emails/clés béta survivent aux redéploiements. Ne change pas ce chemin.
+  suivant met ~30 s à réveiller le service. Normal pour une bêta.
+
+- **⚠️ LA BASE EST ÉPHÉMÈRE.** Render ne permet pas de disque persistant sur le
+  plan gratuit (réservé aux instances payantes). La base SQLite est donc
+  **effacée à chaque redéploiement, redémarrage ou mise en veille**.
+  → **Filet de sécurité** : chaque inscription est aussi écrite dans les **logs**
+  Render sous la forme `SIGNUP | date | email | clé`. Même base vidée, les
+  emails restent récupérables dans l'onglet *Logs* du service.
+  → **Réflexe bêta** : après chaque vague d'inscriptions, copie les emails
+  depuis les logs (ou l'admin) dans un fichier à toi. Ne considère jamais la
+  base en ligne comme ta seule copie.
+  → **Pour du stockage durable** (quand la bêta grossit) : passer le plan à
+  `starter` (~7 $/mois) et décommenter le bloc `disk` du `render.yaml`
+  (instructions dans le fichier), ou migrer vers Postgres.
+
 - **Les jetons sont des secrets** : ne les mets jamais dans le code ni sur
   GitHub. Ils vivent uniquement dans l'onglet Environment de Render.
+
 - **Le contrôle d'accès reste le tien** : chaque inscrit est créé INACTIF ;
   c'est toi qui l'actives depuis l'admin.
 

@@ -3,12 +3,26 @@
 #  Render lit ce fichier automatiquement (Blueprint) : tu connectes
 #  ton dépôt GitHub, Render crée le service tout seul.
 #  Voir DEPLOY.md pour le pas-à-pas.
+#
+#  ⚠️ PLAN GRATUIT = SYSTÈME DE FICHIERS ÉPHÉMÈRE
+#  Render ne permet PAS de disque persistant sur le plan free (réservé aux
+#  instances payantes). La base SQLite est donc effacée à chaque redéploiement,
+#  redémarrage ou mise en veille (le service s'endort après 15 min d'inactivité).
+#  → Les inscriptions béta seraient PERDUES.
+#
+#  FILET DE SÉCURITÉ : chaque inscription est aussi écrite dans les LOGS Render
+#  (ligne "SIGNUP | email | clé"). Même si la base est vidée, les emails restent
+#  récupérables depuis l'onglet Logs. Suffisant pour une bêta à quelques testeurs.
+#
+#  POUR UNE BASE VRAIMENT DURABLE (quand la bêta grossit), deux options :
+#    a) passer le plan à "starter" (~7 $/mois) et décommenter le bloc disk
+#    b) utiliser une base Postgres managée (nécessite d'adapter le code)
 # ============================================================
 services:
   - type: web
     name: alphascalp
     runtime: python
-    plan: free                      # gratuit pour la bêta (s'endort après 15 min d'inactivité, se réveille au 1er accès)
+    plan: free
     buildCommand: pip install -r requirements.txt
     # HOST=0.0.0.0 + $PORT : Render fournit le port, on écoute sur toutes les interfaces.
     startCommand: python server.py
@@ -19,9 +33,13 @@ services:
         generateValue: true         # Render génère un secret fort (le bot maître devra utiliser CETTE valeur)
       - key: ALPHASCALP_ADMIN_TOKEN
         generateValue: true         # idem pour l'accès admin
-      - key: ALPHASCALP_DB
-        value: /data/alphascalp.db  # base sur le disque PERSISTANT (survit aux redéploiements)
-    disk:
-      name: alphascalp-data
-      mountPath: /data              # disque persistant : sans ça, les inscriptions béta seraient perdues à chaque déploiement
-      sizeGB: 1
+
+    # ── Pour passer en stockage durable plus tard ──────────────────────
+    # 1. remplacer  plan: free  par  plan: starter
+    # 2. décommenter les 6 lignes ci-dessous
+    # 3. ajouter la variable  ALPHASCALP_DB = /data/alphascalp.db
+    #
+    # disk:
+    #   name: alphascalp-data
+    #   mountPath: /data
+    #   sizeGB: 1
