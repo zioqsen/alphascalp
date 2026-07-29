@@ -457,9 +457,17 @@ if __name__ == "__main__":
         _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+    # [DEPLOIEMENT 28/07] En LOCAL : 127.0.0.1:8000. En HÉBERGÉ (Render,
+    # Railway...) : la plateforme fournit le port via $PORT et exige d'écouter
+    # sur 0.0.0.0. On lit donc l'environnement — aucune config à changer selon
+    # l'endroit où ça tourne.
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    local = host == "127.0.0.1"
+    base = f"http://{host}:{port}" if local else f"(port {port}, accès via l'URL publique de l'hébergeur)"
     print("AlphaScalp - serveur demarre")
-    print("  Landing     : http://127.0.0.1:8000/")
-    print("  Inscription : http://127.0.0.1:8000/rejoindre")
-    print("  Performance : http://127.0.0.1:8000/performance")
-    print("  Admin       : http://127.0.0.1:8000/admin?token=" + ADMIN_TOKEN)
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    print(f"  Landing     : {base}/")
+    print(f"  Inscription : {base}/rejoindre")
+    print(f"  Performance : {base}/performance")
+    print(f"  Admin       : {base}/admin?token=" + ("***" if not local else ADMIN_TOKEN))
+    uvicorn.run(app, host=host, port=port)

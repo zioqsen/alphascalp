@@ -20,8 +20,10 @@ token.txt
 # --- Données utilisateurs / rapports générés ---
 users/
 ReportHistory.xlsx
-# performance.html est généré automatiquement par alphascalp_showcase.py
-performance.html
+# NB : performance.html est généré par alphascalp_showcase.py mais on le
+# VERSIONNE quand même — c'est une page publique (données de démo, aucun
+# secret) qui doit partir sur l'hébergeur. Flo la régénère + push pour
+# rafraîchir les chiffres (mise à jour manuelle = maîtrise de ce qu'on affiche).
 
 # --- Python ---
 __pycache__/

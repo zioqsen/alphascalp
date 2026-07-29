@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AlphaScalp — Performance en direct</title>
+<meta name="description" content="Trading algorithmique transparent. Chaque trade public, pertes comprises.">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:#0d0d0d; color:#ffffff;
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:0 18px 40px; }
+  .wrap { max-width:900px; margin:0 auto; }
+  .muted { color:#898781; } .pos { color:#0ca30c; } .neg { color:#d03b3b; }
+  header { text-align:center; padding:44px 0 20px; }
+  .logo { font-size:30px; font-weight:750; letter-spacing:-.5px; }
+  .logo span { color:#3987e5; }
+  .tagline { color:#c3c2b7; margin-top:8px; font-size:15px; }
+  .beta { background:rgba(57,135,229,.08); border:1px solid #3987e5;
+    border-radius:12px; padding:14px 18px; margin:14px 0 26px; font-size:13.5px;
+    color:#c3c2b7; }
+  .beta b { color:#ffffff; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.5px;
+    color:#898781; margin:30px 0 12px; }
+  .card { background:#1a1a19; border:1px solid rgba(255,255,255,0.10);
+    border-radius:14px; padding:18px 20px; margin-bottom:16px; }
+  .card-head h3 { font-size:18px; }
+  .tag { font-size:11px; border-radius:99px; padding:2px 10px; vertical-align:3px;
+    margin-left:8px; font-weight:500; }
+  .tag.validating { border:1px solid #fab219; color:#fab219; }
+  .tag.ok { border:1px solid #0ca30c; color:#0ca30c; }
+  .stats { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .stat { background:#0d0d0d; border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+    padding:10px 15px; min-width:110px; flex:1; }
+  .stat-v { font-size:20px; font-weight:700; }
+  .stat-l { font-size:11.5px; color:#898781; margin-top:3px; }
+  .stat-h { font-size:10px; color:#383835; margin-top:1px; }
+  .chart-wrap { margin:8px 0 4px; }
+  details { margin-top:12px; }
+  summary { cursor:pointer; color:#c3c2b7; font-size:13px; }
+  table.tt { border-collapse:collapse; width:100%; font-size:13px; margin-top:8px; }
+  .tt th { text-align:left; color:#898781; font-size:11px; text-transform:uppercase;
+    letter-spacing:.4px; padding:6px 8px; border-bottom:1px solid #383835; }
+  .tt td { padding:6px 8px; border-bottom:1px solid #2c2c2a; }
+  .tt .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .tt .dir { font-weight:600; }
+  .how { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  @media(max-width:640px){ .how { grid-template-columns:1fr; } }
+  .step { background:#1a1a19; border:1px solid rgba(255,255,255,0.10); border-radius:12px;
+    padding:16px; }
+  .step-n { display:inline-flex; width:26px; height:26px; border-radius:50%;
+    background:#3987e5; color:#fff; align-items:center; justify-content:center;
+    font-weight:700; font-size:14px; margin-bottom:8px; }
+  .cta { text-align:center; margin:30px 0 10px; }
+  .btn { display:inline-block; background:#3987e5; color:#fff; text-decoration:none;
+    padding:13px 30px; border-radius:10px; font-weight:650; font-size:15px; }
+  footer { margin-top:36px; padding-top:20px; border-top:1px solid #2c2c2a;
+    color:#898781; font-size:11.5px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Alpha<span>Scalp</span></div>
+    <div class="tagline">Trading algorithmique <b>transparent</b> — chaque trade est public, en direct.</div>
+  </header>
+
+  <div class="beta">
+    🔬 <b>Bêta en compte de démonstration.</b> La stratégie est en phase de
+    <b>validation publique</b> : nous montrons TOUT — gains, pertes, drawdown —
+    en temps réel, pour construire une preuve honnête avant tout passage en réel.
+    <b>Aucun résultat n'est garanti.</b> Ce n'est pas un conseil en investissement.
+  </div>
+
+  <h2>Performance de la stratégie (compte démo)</h2>
+  
+    <div class="card">
+      <div class="card-head"><h3>XAUUSD <span class="tag validating">en validation</span></h3></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-v" style="">84</div><div class="stat-l">trades</div></div>
+        <div class="stat"><div class="stat-v" style="">47.6%</div><div class="stat-l">taux de réussite</div></div>
+        <div class="stat"><div class="stat-v" style=""><span style="color:#fab219">1.11</span></div><div class="stat-l">profit factor</div><div class="stat-h">gains/pertes bruts</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="pos">+487.78 $</span></div><div class="stat-l">résultat cumulé</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="pos">+127.0 $</span></div><div class="stat-l">gain moyen</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="neg">-104.4 $</span></div><div class="stat-l">perte moyenne</div></div>
+      </div>
+      <div class="chart-wrap"><svg viewBox="0 0 680 180" style="width:100%;max-width:680px;height:auto"><polygon points="52,158.0 52.0,110.1 84.2,111.2 116.4,55.6 148.6,95.4 180.8,91.5 213.1,33.4 245.3,23.0 277.5,16.1 309.7,58.5 341.9,50.7 374.1,90.6 406.3,31.2 438.5,14.0 470.7,18.3 502.9,21.9 535.2,25.8 567.4,16.7 599.6,20.6 631.8,20.6 664.0,19.8 664.0,158.0" fill="#3987e5" opacity="0.08"/><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="14.0" x2="664" y2="14.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="18.0" text-anchor="end" style="font-size:11px;fill:#898781">+571</text><polyline points="52.0,110.1 84.2,111.2 116.4,55.6 148.6,95.4 180.8,91.5 213.1,33.4 245.3,23.0 277.5,16.1 309.7,58.5 341.9,50.7 374.1,90.6 406.3,31.2 438.5,14.0 470.7,18.3 502.9,21.9 535.2,25.8 567.4,16.7 599.6,20.6 631.8,20.6 664.0,19.8" fill="none" stroke="#3987e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="664.0" cy="19.8" r="4.5" fill="#3987e5"/></svg></div>
+      <details><summary>Derniers trades (gagnants ET perdants — transparence totale)</summary>
+        <table class="tt"><thead><tr><th>Quand</th><th>Sens</th><th>Sortie</th><th class="num">Résultat</th></tr></thead>
+        <tbody><tr><td>27/07 15:59</td><td class="dir">BUY</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+3.09 $</span></td></tr><tr><td>27/07 14:59</td><td class="dir">BUY</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+0.21 $</span></td></tr><tr><td>24/07 16:59</td><td class="dir">SELL</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-15.56 $</span></td></tr><tr><td>22/07 18:31</td><td class="dir">BUY</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+36.00 $</span></td></tr><tr><td>22/07 15:40</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-15.48 $</span></td></tr><tr><td>22/07 14:39</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-14.16 $</span></td></tr><tr><td>21/07 16:00</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-17.04 $</span></td></tr><tr><td>15/07 12:28</td><td class="dir">SELL</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+68.15 $</span></td></tr></tbody></table></details>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>EURUSD <span class="tag validating">en validation</span></h3></div>
+      <div class="stats">
+        <div class="stat"><div class="stat-v" style="">28</div><div class="stat-l">trades</div></div>
+        <div class="stat"><div class="stat-v" style="">53.6%</div><div class="stat-l">taux de réussite</div></div>
+        <div class="stat"><div class="stat-v" style=""><span style="color:#d03b3b">0.97</span></div><div class="stat-l">profit factor</div><div class="stat-h">gains/pertes bruts</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="neg">-4.85 $</span></div><div class="stat-l">résultat cumulé</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="pos">+10.1 $</span></div><div class="stat-l">gain moyen</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="neg">-12.0 $</span></div><div class="stat-l">perte moyenne</div></div>
+      </div>
+      <div class="chart-wrap"><svg viewBox="0 0 680 180" style="width:100%;max-width:680px;height:auto"><polygon points="52,67.1 52.0,14.0 84.2,26.1 116.4,35.3 148.6,70.3 180.8,49.0 213.1,48.5 245.3,80.8 277.5,64.0 309.7,84.4 341.9,77.2 374.1,75.4 406.3,92.0 438.5,109.0 470.7,108.6 502.9,100.5 535.2,95.4 567.4,94.8 599.6,79.4 631.8,109.2 664.0,158.0 664.0,67.1" fill="#3987e5" opacity="0.08"/><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">-51</text><line x1="52" y1="67.1" x2="664" y2="67.1" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="71.1" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="14.0" x2="664" y2="14.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="18.0" text-anchor="end" style="font-size:11px;fill:#898781">+30</text><polyline points="52.0,14.0 84.2,26.1 116.4,35.3 148.6,70.3 180.8,49.0 213.1,48.5 245.3,80.8 277.5,64.0 309.7,84.4 341.9,77.2 374.1,75.4 406.3,92.0 438.5,109.0 470.7,108.6 502.9,100.5 535.2,95.4 567.4,94.8 599.6,79.4 631.8,109.2 664.0,158.0" fill="none" stroke="#3987e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="664.0" cy="158.0" r="4.5" fill="#3987e5"/></svg></div>
+      <details><summary>Derniers trades (gagnants ET perdants — transparence totale)</summary>
+        <table class="tt"><thead><tr><th>Quand</th><th>Sens</th><th>Sortie</th><th class="num">Résultat</th></tr></thead>
+        <tbody><tr><td>16/07 17:15</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-27.50 $</span></td></tr><tr><td>02/07 21:19</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-16.80 $</span></td></tr><tr><td>30/06 13:50</td><td class="dir">SELL</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+8.68 $</span></td></tr><tr><td>24/06 17:19</td><td class="dir">SELL</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+0.30 $</span></td></tr><tr><td>23/06 13:02</td><td class="dir">SELL</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+2.88 $</span></td></tr><tr><td>18/06 21:11</td><td class="dir">SELL</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+4.56 $</span></td></tr><tr><td>18/06 12:22</td><td class="dir">SELL</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+0.24 $</span></td></tr><tr><td>08/06 20:53</td><td class="dir">SELL</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-9.60 $</span></td></tr></tbody></table></details>
+    </div>
+
+  <h2>Comment ça marche</h2>
+  <div class="how">
+    <div class="step"><div class="step-n">1</div>
+      <b>Tu t'inscris</b><div class="muted" style="font-size:13px;margin-top:4px">
+      Email et c'est tout. Accès bêta gratuit.</div></div>
+    <div class="step"><div class="step-n">2</div>
+      <b>Tu relies ton compte</b><div class="muted" style="font-size:13px;margin-top:4px">
+      Un clic pour connecter ton compte au broker. Tes identifiants restent chez le broker,
+      jamais chez nous.</div></div>
+    <div class="step"><div class="step-n">3</div>
+      <b>La copie est automatique</b><div class="muted" style="font-size:13px;margin-top:4px">
+      Chaque trade est copié sur ton compte par le broker. Tu ne touches à rien,
+      tu suis tes résultats.</div></div>
+  </div>
+
+  <div class="cta">
+    <a class="btn" href="#">Rejoindre la bêta</a>
+    <div class="muted" style="font-size:12px;margin-top:10px">Places limitées · démo · sans engagement</div>
+  </div>
+
+  <footer>
+    Dernière mise à jour : 28/07/2026 à 14:22.
+    AlphaScalp diffuse les signaux d'une stratégie algorithmique ; l'exécution et la
+    conservation des fonds sont assurées par ton broker (service régulé), jamais par AlphaScalp.
+    <br><br>
+    <b>Avertissement.</b> Le trading comporte un risque de perte en capital. Les
+    performances passées ne préjugent pas des performances futures. Les résultats
+    affichés proviennent d'un compte de démonstration et n'engagent aucun gain réel.
+    AlphaScalp ne fournit pas de conseil en investissement personnalisé. N'investis que
+    ce que tu peux te permettre de perdre.
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# ============================================================
+#  render.yaml — Déploiement AlphaScalp sur Render.com
+#  Render lit ce fichier automatiquement (Blueprint) : tu connectes
+#  ton dépôt GitHub, Render crée le service tout seul.
+#  Voir DEPLOY.md pour le pas-à-pas.
+# ============================================================
+services:
+  - type: web
+    name: alphascalp
+    runtime: python
+    plan: free                      # gratuit pour la bêta (s'endort après 15 min d'inactivité, se réveille au 1er accès)
+    buildCommand: pip install -r requirements.txt
+    # HOST=0.0.0.0 + $PORT : Render fournit le port, on écoute sur toutes les interfaces.
+    startCommand: python server.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALPHASCALP_MASTER_TOKEN
+        generateValue: true         # Render génère un secret fort (le bot maître devra utiliser CETTE valeur)
+      - key: ALPHASCALP_ADMIN_TOKEN
+        generateValue: true         # idem pour l'accès admin
+      - key: ALPHASCALP_DB
+        value: /data/alphascalp.db  # base sur le disque PERSISTANT (survit aux redéploiements)
+    disk:
+      name: alphascalp-data
+      mountPath: /data              # disque persistant : sans ça, les inscriptions béta seraient perdues à chaque déploiement
+      sizeGB: 1
