@@ -202,6 +202,27 @@ def status(x_api_key: Optional[str] = Header(None)):
     return {"active": bool(c["active"]), "name": c["name"], "plan": c["plan"], "latest_signal_id": latest}
 
 
+@app.get("/api/health")
+def health():
+    """Point de contrôle PUBLIC — ne renvoie que des booléens.
+
+    [30/07] Ajouté parce qu'on tournait en rond : impossible de savoir si les
+    variables d'environnement étaient réellement arrivées jusqu'au processus.
+    Sur un Blueprint Render, une variable ajoutée à la main dans le tableau de
+    bord mais absente de render.yaml est SUPPRIMÉE à la synchro suivante — on
+    croyait avoir configuré, le serveur ne voyait rien.
+
+    Aucune valeur n'est exposée, seulement la présence : un point de contrôle
+    ne doit jamais devenir une fuite.
+    """
+    return {
+        "ok": True,
+        "notify_telegram": bool(TG_TOKEN and TG_CHAT_ID),
+        "tg_token_present": bool(TG_TOKEN),
+        "tg_chat_id_present": bool(TG_CHAT_ID),
+    }
+
+
 @app.get("/api/signals")
 def get_signals(
     since: int = Query(0, ge=0, description="Renvoie les signaux d'id > since"),
