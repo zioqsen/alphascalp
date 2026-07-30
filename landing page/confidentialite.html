@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confidentialité — AlphaScalp</title>
+<meta name="description" content="Quelles données AlphaScalp collecte, pourquoi, où elles sont stockées, combien de temps, et comment en demander la suppression.">
+<style>
+  :root{color-scheme:dark;
+    --bg:#080b10; --bg2:#0e1420; --border:rgba(255,255,255,.07);
+    --blue:#3b82f6; --green:#22c55e; --amber:#fab219; --red:#ef4444;
+    --text:#f0f4ff; --muted:#6b7a99;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+    font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 20px 70px}
+  .wrap{max-width:760px;margin:0 auto}
+  nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px 4px;
+    padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:34px}
+  nav .brand{font-weight:800;letter-spacing:-.4px;margin-right:auto}
+  nav .brand span{color:var(--blue)}
+  nav a{color:var(--muted);text-decoration:none;font-size:14px;margin-left:16px;white-space:nowrap}
+  nav a:hover{color:var(--text)}
+  h1{font-size:30px;letter-spacing:-.6px;line-height:1.2;margin-bottom:10px}
+  .maj{color:var(--muted);font-size:13px;margin-bottom:26px}
+  h2{font-size:19px;margin:34px 0 12px;letter-spacing:-.3px}
+  p{margin-bottom:12px}
+  ul{margin:0 0 12px 20px}
+  li{margin-bottom:7px}
+  a{color:var(--blue)}
+  code{background:var(--bg2);border:1px solid var(--border);border-radius:5px;
+    padding:1px 6px;font-size:13.5px}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+    padding:18px 20px;margin:18px 0}
+  .card.warn{border-color:rgba(250,178,25,.35)}
+  .card h3{font-size:15px;margin-bottom:8px;color:var(--amber)}
+  .muted{color:var(--muted)}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14.5px}
+  th{text-align:left;color:var(--muted);font-size:12px;text-transform:uppercase;
+    letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border)}
+  td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:13px}
+  html,body{max-width:100%;overflow-x:hidden}
+  @media(max-width:640px){
+    body{font-size:15.5px}
+    h1{font-size:25px}
+    h2{font-size:18px}
+    nav a{margin-left:0;margin-right:14px}
+    table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    th,td{padding:8px;font-size:13.5px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <div class="brand">Alpha<span>Scalp</span></div>
+  <a href="/">Accueil</a>
+  <a href="/performance">Performance</a>
+  <a href="/guide">Guide</a>
+  <a href="/rejoindre">Rejoindre</a>
+</nav>
+
+<h1>Confidentialité</h1>
+<div class="maj">Dernière mise à jour : 30 juillet 2026</div>
+
+<p>Cette page décrit exactement ce qu'AlphaScalp fait de tes données. Elle est
+écrite pour être lue, pas pour cocher une case : si quelque chose te paraît
+flou, écris-nous et on précisera.</p>
+
+<div class="card">
+  <h3 style="color:var(--green)">L'essentiel en trois lignes</h3>
+  <p class="muted" style="margin:0">Le site n'utilise <b>aucun cookie</b>,
+  <b>aucun traceur</b> et <b>aucun outil d'analyse d'audience</b>. Les seules
+  données collectées sont celles que tu saisis toi-même dans le formulaire
+  d'inscription. Tu peux en demander la suppression à tout moment, et elle
+  sera faite.</p>
+</div>
+
+<h2>Ce qui est collecté, et pourquoi</h2>
+
+<p>Uniquement au moment de l'inscription à la bêta. Rien n'est collecté si tu
+te contentes de consulter le site.</p>
+
+<table>
+  <tr><th>Donnée</th><th>Pourquoi</th></tr>
+  <tr><td>Prénom et nom</td>
+      <td>T'identifier et te contacter nommément quand ton accès est ouvert.</td></tr>
+  <tr><td>Adresse email</td>
+      <td>Seul moyen de te joindre : activation de ton accès, informations sur la bêta.</td></tr>
+  <tr><td>Date de naissance</td>
+      <td>Vérifier que tu es majeur. Le trading n'est pas proposé aux mineurs.
+          Seul l'âge en découle ; la date n'est utilisée à rien d'autre.</td></tr>
+</table>
+
+<p>Une clé d'accès technique est générée automatiquement et associée à ton
+inscription. Elle est créée <b>inactive</b> et ne donne accès à rien tant
+qu'elle n'a pas été activée manuellement.</p>
+
+<p><b>Base légale :</b> ton consentement, donné en soumettant le formulaire,
+et l'exécution des démarches préalables à la fourniture du service que tu
+demandes.</p>
+
+<h2>Qui reçoit ces données</h2>
+
+<p>AlphaScalp ne vend, ne loue et n'échange aucune donnée. Elles ne servent à
+aucune publicité. Trois prestataires interviennent techniquement :</p>
+
+<table>
+  <tr><th>Prestataire</th><th>Rôle</th><th>Ce qu'il voit</th></tr>
+  <tr><td><b>Render</b></td>
+      <td>Hébergement du site et de la base</td>
+      <td>Toutes les données d'inscription, ainsi que les journaux techniques du serveur</td></tr>
+  <tr><td><b>Telegram</b></td>
+      <td>Alerte à chaque nouvelle inscription</td>
+      <td>Prénom, nom, email et âge — envoyés dans une conversation privée</td></tr>
+  <tr><td><b>GitHub</b></td>
+      <td>Hébergement du code source</td>
+      <td>Aucune donnée personnelle : le code seul y est stocké</td></tr>
+</table>
+
+<p class="muted">Ces prestataires peuvent héberger les données hors de l'Union
+européenne, notamment aux États-Unis.</p>
+
+<h2>Combien de temps elles sont conservées</h2>
+
+<div class="card warn">
+  <h3>Une transparence qu'on préfère assumer</h3>
+  <p style="margin:0">Pendant la bêta, le site tourne sur une offre
+  d'hébergement gratuite dont le stockage est <b>temporaire</b> : la base de
+  données est effacée à chaque redémarrage du serveur. C'est précisément
+  pourquoi une copie de chaque inscription est envoyée par Telegram — sans
+  elle, une inscription pourrait disparaître sans que personne ne s'en
+  aperçoive. Conséquence à connaître : <b>cette copie Telegram, elle, est
+  conservée sans limite de durée</b> tant que tu n'en demandes pas la
+  suppression.</p>
+</div>
+
+<ul>
+  <li><b>Base de données :</b> le temps de la bêta, et de fait effacée à chaque
+      redémarrage du serveur.</li>
+  <li><b>Notification Telegram :</b> conservée jusqu'à suppression manuelle.</li>
+  <li><b>Journaux techniques de l'hébergeur :</b> quelques jours, selon la
+      politique de rétention de Render.</li>
+</ul>
+
+<p>À la fin de la bêta, ou si tu demandes ton retrait, l'ensemble est supprimé
+— y compris la copie Telegram.</p>
+
+<h2>Ce qu'AlphaScalp ne fait pas</h2>
+<ul>
+  <li>Aucun cookie, aucun traceur, aucune mesure d'audience.</li>
+  <li>Aucune donnée bancaire n'est demandée, ni reçue, ni stockée.</li>
+  <li>Aucun accès à un compte de courtage n'est demandé.</li>
+  <li>Aucun mot de passe n'est collecté.</li>
+</ul>
+
+<div class="card">
+  <h3 style="color:var(--blue)">Le courtier, c'est séparé</h3>
+  <p class="muted" style="margin:0">Quand la copie automatique sera lancée, tu
+  ouvriras un compte directement chez un courtier régulé. C'est <b>lui</b> qui
+  vérifiera ton identité (pièce justificative) et qui détiendra tes fonds.
+  AlphaScalp n'a accès ni à ton argent, ni aux documents que tu lui
+  transmets. La vérification d'âge faite ici est une déclaration sur
+  l'honneur ; celle du courtier est la vérification réelle.</p>
+</div>
+
+<h2>Tes droits</h2>
+
+<p>Conformément au RGPD, tu peux à tout moment demander :</p>
+<ul>
+  <li>l'<b>accès</b> aux données te concernant ;</li>
+  <li>leur <b>rectification</b> si elles sont inexactes ;</li>
+  <li>leur <b>suppression</b> — c'est immédiat et sans justification à fournir ;</li>
+  <li>une <b>copie</b> de tes données dans un format lisible ;</li>
+  <li>le <b>retrait de ton consentement</b>, qui entraîne ton retrait de la bêta.</li>
+</ul>
+
+<p>Une seule adresse pour tout ça :
+<a href="mailto:florian.loigerot@gmail.com">florian.loigerot@gmail.com</a>.
+Réponse sous 30 jours au maximum, en pratique bien plus vite — la bêta compte
+peu de participants.</p>
+
+<p class="muted">Si une réponse ne te satisfait pas, tu peux saisir la CNIL
+(<a href="https://www.cnil.fr" target="_blank" rel="noopener">cnil.fr</a>).</p>
+
+<h2>Responsable du traitement</h2>
+<p>AlphaScalp est un projet personnel en phase de bêta, opéré par Florian
+Loigerot. Contact :
+<a href="mailto:florian.loigerot@gmail.com">florian.loigerot@gmail.com</a>.</p>
+
+<h2>Modifications</h2>
+<p>Cette page peut évoluer, en particulier au passage de la bêta au service
+commercial — l'hébergement et les durées de conservation changeront alors. La
+date de mise à jour en haut de page fait foi, et tout changement significatif
+sera annoncé par email aux inscrits.</p>
+
+<footer>
+  <b>Rappel :</b> le trading comporte un risque de perte en capital.
+  AlphaScalp ne fournit pas de conseil en investissement et ne garantit aucun
+  résultat. · <a href="/">Retour à l'accueil</a>
+</footer>
+
+</div>
+</body>
+</html>

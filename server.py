@@ -589,8 +589,14 @@ a{color:#3b82f6}
   <div class="note">
     En t'inscrivant, tu acceptes que le trading comporte un risque de perte.
     AlphaScalp ne fournit pas de conseil en investissement. Aucun résultat garanti.
-    Tes données servent uniquement à gérer ton accès à la bêta et ne sont
-    transmises à personne.
+    <br><br>
+    <!-- [30/07] La version precedente affirmait que les donnees "ne sont
+         transmises a personne". C'etait FAUX : la notification d'inscription
+         envoie prenom, nom, email et age a Telegram. Une phrase rassurante et
+         inexacte dans une mention legale est pire que pas de mention. -->
+    Tes données servent uniquement à gérer ton accès à la bêta. Elles ne sont
+    ni vendues ni utilisées pour de la publicité.
+    <a href="/confidentialite">Politique de confidentialité</a>
   </div>
 </div>
 <script>
@@ -676,6 +682,17 @@ _GUIDE = os.path.join(_HERE, "landing page", "guide.html")
 def guide_page():
     """Guide utilisateur : comment la copie fonctionne + création de compte."""
     return _serve_file(_GUIDE, "<p>Guide indisponible.</p>")
+
+
+_CONFID = os.path.join(_HERE, "landing page", "confidentialite.html")
+
+
+@app.get("/confidentialite", response_class=HTMLResponse)
+def confidentialite_page():
+    """Politique de confidentialité. [30/07] Ajoutée parce que le formulaire
+    collecte désormais nom, prénom et date de naissance — des données
+    personnelles au sens du RGPD, ce que l'email seul était déjà d'ailleurs."""
+    return _serve_file(_CONFID, "<p>Page indisponible.</p>")
 
 
 # ─────────────────────────────────────────────────────────────
