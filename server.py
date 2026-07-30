@@ -687,6 +687,18 @@ def guide_page():
 _CONFID = os.path.join(_HERE, "landing page", "confidentialite.html")
 
 
+_MENTIONS = os.path.join(_HERE, "landing page", "mentions-legales.html")
+
+
+@app.get("/mentions-legales", response_class=HTMLResponse)
+def mentions_page():
+    """Mentions légales (LCEN art. 6 III). En tant que personne physique
+    éditant à titre NON professionnel, l'adresse postale n'a pas à être
+    publiée dès lors que l'identité est connue de l'hébergeur — ce qui est le
+    cas via le compte Render. À revoir au passage en commercial."""
+    return _serve_file(_MENTIONS, "<p>Page indisponible.</p>")
+
+
 @app.get("/confidentialite", response_class=HTMLResponse)
 def confidentialite_page():
     """Politique de confidentialité. [30/07] Ajoutée parce que le formulaire
