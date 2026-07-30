@@ -34,6 +34,17 @@ services:
       - key: ALPHASCALP_ADMIN_TOKEN
         generateValue: true         # idem pour l'accès admin
 
+      # [30/07] Notification Telegram des inscriptions bêta.
+      # sync: false = la VALEUR n'est pas dans ce fichier (le dépôt est
+      # public) : Render crée la variable et te demande de la remplir depuis
+      # le tableau de bord. Sans valeur, la fonctionnalité est simplement
+      # inactive — le serveur démarre et les inscriptions fonctionnent quand
+      # même, elles ne sont juste pas notifiées.
+      - key: ALPHASCALP_TG_TOKEN
+        sync: false
+      - key: ALPHASCALP_TG_CHAT_ID
+        sync: false
+
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter
     # 2. décommenter les 6 lignes ci-dessous
