@@ -53,21 +53,72 @@ TG_TOKEN   = os.environ.get("ALPHASCALP_TG_TOKEN", "")
 TG_CHAT_ID = os.environ.get("ALPHASCALP_TG_CHAT_ID", "")
 
 
-def _notify_signup(email: str, key: str) -> None:
+def _heure_paris() -> str:
+    """Horodatage lisible en heure de Paris. Le serveur tourne en UTC : sans
+    conversion, la notification afficherait une heure décalée de 1 ou 2 h selon
+    la saison — de quoi douter de sa fraîcheur pour rien."""
+    maintenant = datetime.now(timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo          # stdlib depuis Python 3.9
+        maintenant = maintenant.astimezone(ZoneInfo("Europe/Paris"))
+        suffixe = ""
+    except Exception:                          # tzdata absent sur l'image
+        suffixe = " UTC"
+    return maintenant.strftime("%d/%m/%Y à %H:%M") + suffixe
+
+
+def _echappe(s: str) -> str:
+    """Telegram en parse_mode HTML : un email contenant < ou & casserait le
+    message (erreur 400, notification perdue). On échappe."""
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _notify_signup(email: str, rang: Optional[int] = None,
+                   prenom: str = "", nom: str = "",
+                   age: Optional[int] = None) -> None:
     """Prévient d'une inscription par Telegram. Non bloquant et silencieux en
     cas d'échec : une notification perdue ne doit JAMAIS faire échouer une
     inscription — c'est du confort, la base et le log restent la source.
-    urllib plutôt que requests : aucune dépendance ajoutée au déploiement."""
+    urllib plutôt que requests : aucune dépendance ajoutée au déploiement.
+
+    [30/07] La clé d'API a été RETIRÉE du message. Une clé qui donne accès au
+    service n'a rien à faire dans un fil de discussion : elle y reste
+    indéfiniment, se retrouve dans les sauvegardes du téléphone et s'affiche
+    sur l'écran de verrouillage. Elle est de toute façon consultable dans
+    /admin, qui est l'endroit d'où on l'active.
+    """
     if not TG_TOKEN or not TG_CHAT_ID:
         return
 
     def _post():
         try:
-            texte = (f"\U0001F195 <b>Inscription bêta AlphaScalp</b>\n"
-                     f"{email}\n<code>{key}</code>\n"
-                     f"<i>Clé créée INACTIVE — à activer depuis /admin.</i>")
+            # Telegram n'accepte QUE b/i/u/s/a/code/pre/blockquote/tg-spoiler.
+            # Une balise hors liste (<sup>, <br>, <div>...) fait renvoyer une
+            # erreur 400 et la notification est perdue en silence.
+            rang_txt = "1er" if rang == 1 else f"{rang}e"
+            identite = _echappe(f"{prenom} {nom}".strip()) or "—"
+            lignes = [
+                "\U0001F680 <b>Nouvelle inscription bêta</b>",
+                "<i>AlphaScalp</i>",
+                "",
+                f"\U0001F464 <b>{identite}</b>"
+                + (f"  ·  {age} ans" if age is not None else ""),
+                f"\U0001F4E7 <code>{_echappe(email)}</code>",
+                f"\U0001F553 {_heure_paris()}",
+            ]
+            if rang:
+                lignes.append(f"\U0001F3F7 {rang_txt} inscrit à la bêta")
+            lignes += [
+                "",
+                "⏳ Clé créée <b>inactive</b> — elle ne donne accès à rien "
+                "tant que tu ne l'actives pas.",
+                "➡️ <a href=\"https://alphascalp.onrender.com/admin\">"
+                "Ouvrir l'admin</a>",
+            ]
+            texte = "\n".join(lignes)
             data = urllib.parse.urlencode({
                 "chat_id": TG_CHAT_ID, "text": texte, "parse_mode": "HTML",
+                "disable_web_page_preview": "true",
             }).encode()
             req = urllib.request.Request(
                 f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data=data)
@@ -126,6 +177,17 @@ def init_db():
             conn.execute("ALTER TABLE clients ADD COLUMN email TEXT")
         except sqlite3.OperationalError:
             pass  # colonne déjà présente
+        # [30/07] Identité + date de naissance : un produit financier ne peut
+        # pas être proposé à un mineur. La déclaration sur l'honneur reste
+        # faible — elle n'empêche personne de mentir — mais c'est la première
+        # barrière, celle que tout le monde applique à l'inscription. La
+        # vérification sérieuse (pièce d'identité) est de toute façon faite par
+        # le BROKER à l'ouverture du compte : c'est lui qui détient les fonds.
+        for _colonne in ("prenom TEXT", "nom TEXT", "date_naissance TEXT"):
+            try:
+                conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
+            except sqlite3.OperationalError:
+                pass  # colonne déjà présente
 
 
 def now_iso() -> str:
@@ -382,8 +444,28 @@ import re as _re
 
 class SignupIn(BaseModel):
     email: str
+    prenom: Optional[str] = None
+    nom: Optional[str] = None
+    date_naissance: Optional[str] = None      # AAAA-MM-JJ (champ HTML type=date)
 
 _EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+AGE_MINIMUM = 18
+
+
+def _age_le(date_naissance: str) -> Optional[int]:
+    """Âge révolu, ou None si la date est illisible/incohérente.
+
+    Le calcul retranche 1 an tant que l'anniversaire n'est pas passé : sans ça
+    quelqu'un né le 31/12/2008 serait majeur dès janvier 2026.
+    """
+    try:
+        d = datetime.strptime(date_naissance.strip(), "%Y-%m-%d").date()
+    except Exception:
+        return None
+    auj = datetime.now(timezone.utc).date()
+    if d > auj or d.year < 1900:
+        return None                            # date future ou aberrante
+    return auj.year - d.year - ((auj.month, auj.day) < (d.month, d.day))
 
 
 @app.post("/api/signup")
@@ -391,6 +473,26 @@ def public_signup(body: SignupIn):
     email = (body.email or "").strip().lower()
     if not _EMAIL_RE.match(email):
         raise HTTPException(status_code=400, detail="Email invalide.")
+
+    # [30/07] Identité + majorité. Validé CÔTÉ SERVEUR : les contrôles du
+    # formulaire (required, min/max sur le champ date) ne protègent de rien,
+    # n'importe qui peut appeler /api/signup directement.
+    prenom = (body.prenom or "").strip()
+    nom = (body.nom or "").strip()
+    if len(prenom) < 2 or len(nom) < 2:
+        raise HTTPException(status_code=400, detail="Prénom et nom requis.")
+    if len(prenom) > 60 or len(nom) > 60:
+        raise HTTPException(status_code=400, detail="Prénom ou nom trop long.")
+
+    age = _age_le(body.date_naissance or "")
+    if age is None:
+        raise HTTPException(status_code=400, detail="Date de naissance invalide.")
+    if age < AGE_MINIMUM:
+        # 403 et non 400 : la demande est bien formée, elle est REFUSÉE.
+        raise HTTPException(
+            status_code=403,
+            detail=f"Inscription réservée aux personnes majeures ({AGE_MINIMUM} ans et plus).")
+
     with db() as conn:
         existing = conn.execute("SELECT api_key, active FROM clients WHERE email = ?", (email,)).fetchone()
         if existing:
@@ -399,9 +501,15 @@ def public_signup(body: SignupIn):
                     "active": bool(existing["active"])}
         key = "as_" + secrets.token_urlsafe(18)
         conn.execute(
-            "INSERT INTO clients (api_key, name, email, plan, active, created_at) VALUES (?,?,?,?,0,?)",
-            (key, email.split("@")[0], email, "beta", now_iso()),
+            "INSERT INTO clients (api_key, name, email, plan, active, created_at, "
+            "prenom, nom, date_naissance) VALUES (?,?,?,?,0,?,?,?,?)",
+            (key, f"{prenom} {nom}".strip(), email, "beta", now_iso(),
+             prenom, nom, body.date_naissance.strip()),
         )
+        # Rang de l'inscrit, calculé ICI tant que la connexion est ouverte :
+        # la notification part dans un thread, après la fermeture du bloc.
+        rang = conn.execute(
+            "SELECT COUNT(*) AS n FROM clients WHERE plan = 'beta'").fetchone()["n"]
     # [FILET 28/07] Trace dans les LOGS en plus de la base. Sur l'hébergement
     # gratuit (Render free), le système de fichiers est ÉPHÉMÈRE : la base
     # SQLite est effacée à chaque redéploiement/veille. Sans ce log, les emails
@@ -417,7 +525,7 @@ def public_signup(body: SignupIn):
     # notification Telegram est instantanée, et le fil de discussion devient
     # l'archive : même si la base SQLite disparaît au prochain réveil de
     # l'instance, aucun béta-testeur n'est perdu.
-    _notify_signup(email, key)
+    _notify_signup(email, rang=rang, prenom=prenom, nom=nom, age=age)
     return {"ok": True, "already": False, "api_key": key, "active": False}
 
 
@@ -440,6 +548,13 @@ input:focus{outline:none;border-color:#3b82f6}
 button{width:100%;background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;
  font-size:15px;font-weight:600;cursor:pointer;margin-top:16px}
 button:disabled{opacity:.5;cursor:not-allowed}
+label:not(:first-child){margin-top:14px}
+/* prenom + nom cote a cote, empiles sous 380px (petits telephones) */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:380px){.duo{grid-template-columns:1fr}}
+.hint{color:#6b7a99;font-size:12px;margin-top:6px}
+/* le champ date natif s'affiche en clair sur fond sombre sans ca */
+input[type=date]{color-scheme:dark;min-height:46px}
 .msg{margin-top:18px;font-size:14px;line-height:1.6}
 .key{background:#0e1420;border:1px solid rgba(59,130,246,.4);border-radius:10px;padding:12px;
  font-family:ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all;margin:10px 0}
@@ -453,25 +568,60 @@ a{color:#3b82f6}
   <div class="logo">Alpha<span>Scalp</span></div>
   <div class="sub">Bêta gratuite · compte démo · sans engagement</div>
   <div id="form">
-    <label for="email">Ton email</label>
-    <input id="email" type="email" placeholder="toi@exemple.com" autocomplete="email">
+    <div class="duo">
+      <div>
+        <label for="prenom">Prénom</label>
+        <input id="prenom" type="text" placeholder="Marie" autocomplete="given-name" maxlength="60">
+      </div>
+      <div>
+        <label for="nom">Nom</label>
+        <input id="nom" type="text" placeholder="Durand" autocomplete="family-name" maxlength="60">
+      </div>
+    </div>
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="toi@exemple.com" autocomplete="email" inputmode="email">
+    <label for="ddn">Date de naissance</label>
+    <input id="ddn" type="date" autocomplete="bday" max="2999-12-31">
+    <div class="hint">Le trading est réservé aux personnes majeures.</div>
     <button id="btn" onclick="submit()">Rejoindre la bêta</button>
     <div id="msg" class="msg"></div>
   </div>
   <div class="note">
     En t'inscrivant, tu acceptes que le trading comporte un risque de perte.
     AlphaScalp ne fournit pas de conseil en investissement. Aucun résultat garanti.
+    Tes données servent uniquement à gérer ton accès à la bêta et ne sont
+    transmises à personne.
   </div>
 </div>
 <script>
+// Borne le champ date a [aujourd'hui - 100 ans ; aujourd'hui - 18 ans] : le
+// selecteur mobile n'affiche alors QUE des dates valides, ce qui evite un
+// refus apres coup. Le serveur revalide de toute facon -- ces bornes sont un
+// confort, pas une securite.
+(function(){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  const iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());
+  const ddn=document.getElementById('ddn');
+  ddn.max=iso(new Date(d.getFullYear()-18,d.getMonth(),d.getDate()));
+  ddn.min=iso(new Date(d.getFullYear()-100,d.getMonth(),d.getDate()));
+})();
 async function submit(){
   const email=document.getElementById('email').value.trim();
+  const prenom=document.getElementById('prenom').value.trim();
+  const nom=document.getElementById('nom').value.trim();
+  const ddn=document.getElementById('ddn').value;
   const btn=document.getElementById('btn'), msg=document.getElementById('msg');
+  if(prenom.length<2||nom.length<2){ msg.innerHTML='<span class=err>Indique ton prénom et ton nom.</span>'; return; }
   if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){ msg.innerHTML='<span class=err>Email invalide.</span>'; return; }
+  if(!ddn){ msg.innerHTML='<span class=err>Indique ta date de naissance.</span>'; return; }
+  const n=new Date(ddn), t=new Date();
+  let age=t.getFullYear()-n.getFullYear();
+  if(t.getMonth()<n.getMonth()||(t.getMonth()===n.getMonth()&&t.getDate()<n.getDate())) age--;
+  if(age<18){ msg.innerHTML='<span class=err>Inscription réservée aux personnes majeures.</span>'; return; }
   btn.disabled=true; btn.textContent='…';
   try{
     const r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email})});
+      body:JSON.stringify({email,prenom,nom,date_naissance:ddn})});
     const j=await r.json();
     if(!r.ok){ throw new Error(j.detail||'Erreur'); }
     document.getElementById('form').innerHTML =
