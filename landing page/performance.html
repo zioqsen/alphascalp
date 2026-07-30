@@ -46,7 +46,25 @@
   .tt .num { text-align:right; font-variant-numeric:tabular-nums; }
   .tt .dir { font-weight:600; }
   .how { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-  @media(max-width:640px){ .how { grid-template-columns:1fr; } }
+  /* ---- MOBILE [30/07] --------------------------------------------------
+     Cette page est GÉNÉRÉE : le responsive doit vivre ici, pas dans le
+     performance.html produit (il serait écrasé au prochain lancement).
+     Avant : cette unique règle, et 2 tableaux SANS conteneur défilant —
+     la page entière partait en scroll horizontal sur téléphone. */
+  html, body { max-width:100%; overflow-x:hidden; }
+  img, svg { max-width:100%; height:auto; }
+  @media(max-width:900px){
+    .how { grid-template-columns:repeat(2,1fr); }
+  }
+  @media(max-width:640px){
+    .how { grid-template-columns:1fr; }
+    /* le tableau défile dans sa propre boîte, la page ne bouge pas */
+    table.tt { display:block; width:100%; overflow-x:auto;
+      -webkit-overflow-scrolling:touch; white-space:nowrap; }
+    .tt th, .tt td { padding:8px 10px; font-size:12.5px; }
+    /* les SVG de courbe ont un viewBox : on les laisse se redimensionner */
+    svg { width:100%; height:auto; }
+  }
   .step { background:#1a1a19; border:1px solid rgba(255,255,255,0.10); border-radius:12px;
     padding:16px; }
   .step-n { display:inline-flex; width:26px; height:26px; border-radius:50%;
@@ -78,17 +96,17 @@
     <div class="card">
       <div class="card-head"><h3>XAUUSD <span class="tag validating">en validation</span></h3></div>
       <div class="stats">
-        <div class="stat"><div class="stat-v" style="">86</div><div class="stat-l">trades</div></div>
-        <div class="stat"><div class="stat-v" style="">47.7%</div><div class="stat-l">taux de réussite</div></div>
-        <div class="stat"><div class="stat-v" style=""><span style="color:#fab219">1.11</span></div><div class="stat-l">profit factor</div><div class="stat-h">gains/pertes bruts</div></div>
-        <div class="stat"><div class="stat-v" style=""><span class="pos">+506.05 $</span></div><div class="stat-l">résultat cumulé</div></div>
-        <div class="stat"><div class="stat-v" style=""><span class="pos">+124.8 $</span></div><div class="stat-l">gain moyen</div></div>
+        <div class="stat"><div class="stat-v" style="">88</div><div class="stat-l">trades</div></div>
+        <div class="stat"><div class="stat-v" style="">48.9%</div><div class="stat-l">taux de réussite</div></div>
+        <div class="stat"><div class="stat-v" style=""><span style="color:#fab219">1.12</span></div><div class="stat-l">profit factor</div><div class="stat-h">gains/pertes bruts</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="pos">+562.57 $</span></div><div class="stat-l">résultat cumulé</div></div>
+        <div class="stat"><div class="stat-v" style=""><span class="pos">+120.3 $</span></div><div class="stat-l">gain moyen</div></div>
         <div class="stat"><div class="stat-v" style=""><span class="neg">-102.5 $</span></div><div class="stat-l">perte moyenne</div></div>
       </div>
-      <div class="chart-wrap"><svg viewBox="0 0 680 180" style="width:100%;max-width:680px;height:auto"><polygon points="52,158.0 52.0,78.4 84.2,135.3 116.4,129.7 148.6,46.5 180.8,31.6 213.1,21.7 245.3,82.5 277.5,71.3 309.7,128.5 341.9,43.3 374.1,18.7 406.3,24.8 438.5,30.0 470.7,35.6 502.9,22.5 535.2,28.2 567.4,28.1 599.6,27.0 631.8,14.0 664.0,20.4 664.0,158.0" fill="#3987e5" opacity="0.08"/><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="14.0" x2="664" y2="14.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="18.0" text-anchor="end" style="font-size:11px;fill:#898781">+398</text><polyline points="52.0,78.4 84.2,135.3 116.4,129.7 148.6,46.5 180.8,31.6 213.1,21.7 245.3,82.5 277.5,71.3 309.7,128.5 341.9,43.3 374.1,18.7 406.3,24.8 438.5,30.0 470.7,35.6 502.9,22.5 535.2,28.2 567.4,28.1 599.6,27.0 631.8,14.0 664.0,20.4" fill="none" stroke="#3987e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="664.0" cy="20.4" r="4.5" fill="#3987e5"/></svg></div>
+      <div class="chart-wrap"><svg viewBox="0 0 680 180" style="width:100%;max-width:680px;height:auto"><polygon points="52,158.0 52.0,152.0 84.2,63.5 116.4,47.6 148.6,37.2 180.8,101.8 213.1,89.9 245.3,150.7 277.5,60.2 309.7,33.9 341.9,40.5 374.1,45.9 406.3,51.9 438.5,38.0 470.7,44.0 502.9,44.0 535.2,42.8 567.4,29.0 599.6,35.7 631.8,25.5 664.0,14.0 664.0,158.0" fill="#3987e5" opacity="0.08"/><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="158.0" x2="664" y2="158.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="162.0" text-anchor="end" style="font-size:11px;fill:#898781">+0</text><line x1="52" y1="14.0" x2="664" y2="14.0" stroke="#2c2c2a" stroke-width="1"/><text x="44" y="18.0" text-anchor="end" style="font-size:11px;fill:#898781">+374</text><polyline points="52.0,152.0 84.2,63.5 116.4,47.6 148.6,37.2 180.8,101.8 213.1,89.9 245.3,150.7 277.5,60.2 309.7,33.9 341.9,40.5 374.1,45.9 406.3,51.9 438.5,38.0 470.7,44.0 502.9,44.0 535.2,42.8 567.4,29.0 599.6,35.7 631.8,25.5 664.0,14.0" fill="none" stroke="#3987e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="664.0" cy="14.0" r="4.5" fill="#3987e5"/></svg></div>
       <details><summary>Derniers trades (gagnants ET perdants — transparence totale)</summary>
         <table class="tt"><thead><tr><th>Quand</th><th>Sens</th><th>Sortie</th><th class="num">Résultat</th></tr></thead>
-        <tbody><tr><td>28/07 18:52</td><td class="dir">SELL</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-17.61 $</span></td></tr><tr><td>28/07 14:35</td><td class="dir">SELL</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+35.88 $</span></td></tr><tr><td>27/07 15:59</td><td class="dir">BUY</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+3.09 $</span></td></tr><tr><td>27/07 14:59</td><td class="dir">BUY</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+0.21 $</span></td></tr><tr><td>24/07 16:59</td><td class="dir">SELL</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-15.56 $</span></td></tr><tr><td>22/07 18:31</td><td class="dir">BUY</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+36.00 $</span></td></tr><tr><td>22/07 15:40</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-15.48 $</span></td></tr><tr><td>22/07 14:39</td><td class="dir">BUY</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-14.16 $</span></td></tr></tbody></table></details>
+        <tbody><tr><td>30/07 03:55</td><td class="dir">BUY</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+30.00 $</span></td></tr><tr><td>29/07 17:16</td><td class="dir">SELL</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+26.52 $</span></td></tr><tr><td>28/07 18:52</td><td class="dir">SELL</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-17.61 $</span></td></tr><tr><td>28/07 14:35</td><td class="dir">SELL</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+35.88 $</span></td></tr><tr><td>27/07 15:59</td><td class="dir">BUY</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+3.09 $</span></td></tr><tr><td>27/07 14:59</td><td class="dir">BUY</td><td class="muted">SL (Trailing)</td><td class="num"><span class="pos">+0.21 $</span></td></tr><tr><td>24/07 16:59</td><td class="dir">SELL</td><td class="muted">Stop Loss</td><td class="num"><span class="neg">-15.56 $</span></td></tr><tr><td>22/07 18:31</td><td class="dir">BUY</td><td class="muted">Take Profit</td><td class="num"><span class="pos">+36.00 $</span></td></tr></tbody></table></details>
     </div>
     <div class="card">
       <div class="card-head"><h3>EURUSD <span class="tag validating">en validation</span></h3></div>
@@ -108,16 +126,16 @@
     <div class="card">
       <div class="card-head"><h3>SwingBot <span class="tag validating">démarrage</span></h3></div>
       <p class="muted" style="font-size:13.5px;margin:4px 0 10px">
-        Stratégie de tendance long terme (XAUUSD, USTEC, DE40) : peu de trades, positions tenues
+        Stratégie de tendance long terme (XAUUSD, US500, UK100, GBPJPY, AUS200) : peu de trades, positions tenues
         plusieurs jours, sortie par trailing. Par nature, l'échantillon se constitue
         lentement — <b>trop peu de trades à ce jour pour publier un taux de réussite
         crédible</b>. On préfère ne rien afficher plutôt qu'un chiffre trompeur.
       </p>
       <div class="stats">
-        <div class="stat"><div class="stat-v" style="">10,022 EUR</div><div class="stat-l">capital (démo)</div></div>
-        <div class="stat"><div class="stat-v" style="">12</div><div class="stat-l">signaux détectés</div></div>
-        <div class="stat"><div class="stat-v" style="">1</div><div class="stat-l">trades pris</div><div class="stat-h">filtres stricts</div></div>
-        <div class="stat"><div class="stat-v" style="">1</div><div class="stat-l">position(s) en cours</div></div>
+        <div class="stat"><div class="stat-v" style="">9,916 EUR</div><div class="stat-l">capital (démo)</div></div>
+        <div class="stat"><div class="stat-v" style="">14</div><div class="stat-l">signaux détectés</div></div>
+        <div class="stat"><div class="stat-v" style="">2</div><div class="stat-l">trades pris</div><div class="stat-h">filtres stricts</div></div>
+        <div class="stat"><div class="stat-v" style="">0</div><div class="stat-l">position(s) en cours</div></div>
       </div>
     </div>
 
@@ -143,7 +161,7 @@
   </div>
 
   <footer>
-    Dernière mise à jour : 29/07/2026 à 10:36.
+    Dernière mise à jour : 30/07/2026 à 20:34.
     AlphaScalp diffuse les signaux d'une stratégie algorithmique ; l'exécution et la
     conservation des fonds sont assurées par ton broker (service régulé), jamais par AlphaScalp.
     <br><br>

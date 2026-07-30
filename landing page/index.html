@@ -480,10 +480,55 @@
     .reveal.visible { opacity: 1; transform: translateY(0); }
 
     /* ── RESPONSIVE ── */
+    /* ---- MOBILE [30/07] ------------------------------------------------
+       Avant : une seule regle a 768px qui masquait la nav (display:none)
+       SANS rien mettre a la place -> depuis un telephone, impossible
+       d'atteindre le Guide ou les Tarifs autrement qu'en scrollant.
+       La nav devient une bande horizontale defilante, et les grilles
+       degradent 4 -> 2 -> 1 colonne au lieu de s'ecraser d'un coup. */
+    @media (max-width: 900px) {
+      .steps, .bots-grid, .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+    }
     @media (max-width: 768px) {
-      .nav-links { display: none; }
+      nav { flex-wrap: wrap; gap: 10px 14px; padding-top: 12px; padding-bottom: 12px; }
+      /* la nav ne disparait plus : elle defile horizontalement */
+      .nav-links {
+        display: flex; order: 3; width: 100%;
+        gap: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; padding-bottom: 2px;
+      }
+      .nav-links::-webkit-scrollbar { display: none; }
+      .nav-links a { white-space: nowrap; font-size: 14px; padding: 6px 0; }
+      .nav-cta { margin-left: auto; padding: 10px 16px; }
+
       .stats-band { grid-template-columns: repeat(2, 1fr); }
       .steps, .bots-grid, .pricing-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      /* [30/07] LE bug mobile du hero : clamp(48px, 7vw, 88px) retient son
+         PLANCHER de 48px sous ~686px de large (7vw y vaut moins que 48).
+         Le titre faisait 707px sur un ecran de 375 -> coupe des deux cotes.
+         Un overflow-x:hidden masquait le debordement sans le resoudre :
+         le texte restait tronque. On redescend vraiment le plancher. */
+      .hero h1 { font-size: clamp(28px, 8.5vw, 44px); overflow-wrap: anywhere;
+                 max-width: 100%; }
+      .hero p, .hero .sub { font-size: 15px; }
+      /* halo decoratif : 600px fixes, il debordait aussi */
+      .hero-glow { width: 100%; max-width: 420px; height: 420px; }
+    }
+    @media (max-width: 480px) {
+      .stats-band { grid-template-columns: 1fr; }
+      /* cibles tactiles : 44px est le minimum recommande au doigt */
+      .nav-cta, .btn, button, .cta { min-height: 44px; display: inline-flex;
+        align-items: center; justify-content: center; }
+    }
+    /* Aucune page ne doit defiler horizontalement, quoi qu'il arrive */
+    html, body { max-width: 100%; overflow-x: hidden; }
+    img, svg, video { max-width: 100%; height: auto; }
+    table { max-width: 100%; }
+    @media (max-width: 640px) {
+      table { display: block; width: 100%; overflow-x: auto;
+              -webkit-overflow-scrolling: touch; white-space: nowrap; }
     }
   </style>
 </head>
@@ -532,22 +577,22 @@
 <div class="stats-band">
 <!--STATS_AUTO_START-->
   <div class="stat-item">
-    <div class="stat-value green">+506$</div>
+    <div class="stat-value green">+563$</div>
     <div class="stat-label">Résultat cumulé</div>
     <div class="stat-note">XAUUSD · compte démo</div>
   </div>
   <div class="stat-item">
-    <div class="stat-value blue">47.7%</div>
+    <div class="stat-value blue">48.9%</div>
     <div class="stat-label">Taux de réussite</div>
-    <div class="stat-note">86 trades</div>
+    <div class="stat-note">88 trades</div>
   </div>
   <div class="stat-item">
-    <div class="stat-value white">86</div>
+    <div class="stat-value white">88</div>
     <div class="stat-label">Trades exécutés</div>
     <div class="stat-note">EURUSD &amp; XAUUSD</div>
   </div>
   <div class="stat-item">
-    <div class="stat-value blue">1.11</div>
+    <div class="stat-value blue">1.12</div>
     <div class="stat-label">Profit Factor</div>
     <div class="stat-note">en validation · objectif &gt; 1.5 en live</div>
   </div>

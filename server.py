@@ -24,9 +24,13 @@ Config par variables d'environnement (sinon valeurs par défaut de dev) :
     ALPHASCALP_DB             chemin de la base SQLite
 """
 
+import json
 import os
 import secrets
 import sqlite3
+import threading
+import urllib.parse
+import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
@@ -41,6 +45,38 @@ from pydantic import BaseModel
 MASTER_TOKEN = os.environ.get("ALPHASCALP_MASTER_TOKEN", "master-dev-changeme")
 ADMIN_TOKEN  = os.environ.get("ALPHASCALP_ADMIN_TOKEN",  "admin-dev-changeme")
 DB_PATH      = os.environ.get("ALPHASCALP_DB",           "alphascalp.db")
+
+# [30/07] Notification Telegram des inscriptions. À renseigner dans les
+# variables d'environnement de l'hébergeur — JAMAIS en dur dans le code, ce
+# dépôt est public. Absentes = fonctionnalité simplement inactive.
+TG_TOKEN   = os.environ.get("ALPHASCALP_TG_TOKEN", "")
+TG_CHAT_ID = os.environ.get("ALPHASCALP_TG_CHAT_ID", "")
+
+
+def _notify_signup(email: str, key: str) -> None:
+    """Prévient d'une inscription par Telegram. Non bloquant et silencieux en
+    cas d'échec : une notification perdue ne doit JAMAIS faire échouer une
+    inscription — c'est du confort, la base et le log restent la source.
+    urllib plutôt que requests : aucune dépendance ajoutée au déploiement."""
+    if not TG_TOKEN or not TG_CHAT_ID:
+        return
+
+    def _post():
+        try:
+            texte = (f"\U0001F195 <b>Inscription bêta AlphaScalp</b>\n"
+                     f"{email}\n<code>{key}</code>\n"
+                     f"<i>Clé créée INACTIVE — à activer depuis /admin.</i>")
+            data = urllib.parse.urlencode({
+                "chat_id": TG_CHAT_ID, "text": texte, "parse_mode": "HTML",
+            }).encode()
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data=data)
+            urllib.request.urlopen(req, timeout=10).read()
+        except Exception as e:                      # noqa: BLE001
+            print(f"SIGNUP_NOTIFY_KO | {email} | {e}", flush=True)
+
+    threading.Thread(target=_post, daemon=True).start()
+
 
 app = FastAPI(title="AlphaScalp Server", version="0.1.0")
 
@@ -354,6 +390,13 @@ def public_signup(body: SignupIn):
         print(f"SIGNUP | {now_iso()} | {email} | {key}", flush=True)
     except Exception:
         pass
+    # [30/07] Second filet, DURABLE celui-là : chaque inscription part en
+    # Telegram. Les logs Render du plan gratuit sont conservés peu de temps et
+    # se consultent à la main — inutilisable pour ne pas rater un inscrit. Une
+    # notification Telegram est instantanée, et le fil de discussion devient
+    # l'archive : même si la base SQLite disparaît au prochain réveil de
+    # l'instance, aucun béta-testeur n'est perdu.
+    _notify_signup(email, key)
     return {"ok": True, "already": False, "api_key": key, "active": False}
 
 
