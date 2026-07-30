@@ -92,6 +92,26 @@ img, svg { max-width:100%; height:auto; }
   <b>Aucun engagement, aucun paiement demandé aujourd'hui.</b>
 </div>
 
+<div class="banner" style="border-color:rgba(59,130,246,.35)">
+  📱 <b>Pendant la bêta, il faut un PC allumé ou un VPS.</b>
+  Ce guide décrit la copie <i>côté broker</i> : c'est la cible, et elle ne
+  demandera rien à faire tourner. Mais la bêta démarre avant ça, avec un
+  programme à installer dans MetaTrader 5 — et
+  <b>MT5 sur mobile n'exécute pas ce type de programme</b> (Android comme iOS :
+  les applications MetaTrader ne font pas tourner d'automatisation, c'est une
+  limite de MetaQuotes, pas un choix d'AlphaScalp).
+  <br><br>
+  Concrètement, pour la bêta il te faut l'une de ces deux choses :
+  un <b>ordinateur laissé allumé</b> avec MT5 ouvert, ou un
+  <b>VPS</b> (serveur distant, ~10 à 15 €/mois) qui s'en charge à ta place.
+  Ton téléphone reste parfait pour <b>suivre</b> tes résultats — il ne peut
+  simplement pas <b>exécuter</b> la copie.
+  <br><br>
+  <span class="muted">Cette contrainte disparaît le jour où la copie passe
+  côté broker : c'est justement son intérêt principal, et c'est ce que décrit
+  le reste de cette page.</span>
+</div>
+
 <h2>En une phrase</h2>
 <p>
   Tu ouvres un compte chez un broker, tu appuies une fois sur « copier », et
@@ -111,12 +131,17 @@ img, svg { max-width:100%; height:auto; }
 </div>
 
 <div class="card">
-  <h3>📱 Ton téléphone peut être éteint</h3>
+  <h3>📱 Ton téléphone peut être éteint <span class="muted">(une fois la copie côté broker en place)</span></h3>
   <p class="muted" style="margin:0">
-    C'est le point clé : la copie se fait <b>côté serveur</b>, chez le broker.
-    Tu n'as aucune application à laisser tourner, aucun ordinateur à laisser
-    allumé. Une fois la copie lancée, elle continue 24h/24 même si tu ne
-    touches jamais à ton téléphone.
+    C'est le point clé de la copie <b>côté serveur</b> : elle se fait chez le
+    broker, sur son infrastructure. Tu n'as alors aucune application à laisser
+    tourner, aucun ordinateur à laisser allumé, et elle continue 24h/24 même si
+    tu ne touches jamais à ton téléphone.
+    <br><br>
+    <b style="color:#fab219">Ce n'est pas encore le cas pendant la bêta.</b>
+    D'ici là, la copie passe par un programme dans MetaTrader&nbsp;5, qui doit
+    tourner quelque part : un PC allumé ou un VPS. MT5 sur mobile n'exécute pas
+    ce type de programme. Voir l'encadré en haut de page.
   </p>
 </div>
 
@@ -208,7 +233,7 @@ img, svg { max-width:100%; height:auto; }
 
 <h2>Questions fréquentes</h2>
 <div class="faq">
-  <b>Dois-je laisser mon ordinateur ou mon téléphone allumé ?</b>
+  <b>Dois-je laisser mon ordinateur allumé ?&nbsp;<span class="muted">(oui pendant la bêta, non ensuite)</span></b>
   <p>Non. La copie tourne sur les serveurs du broker, en continu.</p>
 
   <b>Est-ce que je dois m'y connaître en trading ?</b>
