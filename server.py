@@ -32,6 +32,8 @@ import os
 import secrets
 import sqlite3
 import threading
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from contextlib import contextmanager
@@ -132,21 +134,62 @@ def _notify_signup(email: str, rang: Optional[int] = None,
     threading.Thread(target=_post, daemon=True).start()
 
 
+# Un seul envoi à la fois. Telegram limite à ~20 messages par minute vers une
+# même conversation ; sans sérialisation, une rafale (plusieurs inscriptions
+# d'affilée) part en parallèle et se fait limiter d'un bloc.
+_VERROU_TG = threading.Lock()
+
+
 def _notify_telegram(texte: str) -> None:
-    """Envoi Telegram générique, non bloquant et silencieux en cas d'échec."""
+    """Envoi Telegram, non bloquant, qui RESPECTE la limitation de débit.
+
+    [31/07] Avant, un 429 « Too Many Requests » était avalé comme n'importe
+    quelle erreur et le message était PERDU — sans que personne ne le sache.
+    Or Telegram renvoie dans sa réponse le délai exact à attendre
+    (`retry_after`) : l'information nécessaire pour réessayer proprement était
+    là, on ne la lisait pas.
+
+    On ne réessaie que sur 429 et sur les erreurs de connexion. Sur un 429,
+    Telegram a explicitement REFUSÉ de délivrer : réessayer ne peut pas
+    produire de doublon. C'est ce qui rend la reprise sûre sans clé
+    d'idempotence — Telegram n'en propose pas.
+    """
     if not TG_TOKEN or not TG_CHAT_ID:
         return
 
     def _post():
-        try:
-            data = urllib.parse.urlencode({
-                "chat_id": TG_CHAT_ID, "text": texte, "parse_mode": "HTML",
-                "disable_web_page_preview": "true"}).encode()
-            urllib.request.urlopen(urllib.request.Request(
-                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
-                data=data), timeout=10).read()
-        except Exception as e:                      # noqa: BLE001
-            print(f"NOTIFY_KO | {e}", flush=True)
+        data = urllib.parse.urlencode({
+            "chat_id": TG_CHAT_ID, "text": texte, "parse_mode": "HTML",
+            "disable_web_page_preview": "true"}).encode()
+        url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+        with _VERROU_TG:
+            for essai in range(1, 5):
+                try:
+                    urllib.request.urlopen(
+                        urllib.request.Request(url, data=data), timeout=15).read()
+                    return
+                except urllib.error.HTTPError as e:
+                    if e.code == 429:
+                        # Le corps contient parameters.retry_after (secondes).
+                        attente = 5
+                        try:
+                            corps = json.loads(e.read().decode("utf-8", "replace"))
+                            attente = int(corps.get("parameters", {})
+                                          .get("retry_after", 5)) + 1
+                        except Exception:
+                            pass
+                        print(f"NOTIFY_429 | limité, nouvel essai dans {attente}s "
+                              f"(essai {essai}/4)", flush=True)
+                        time.sleep(min(attente, 60))
+                        continue
+                    print(f"NOTIFY_KO | HTTP {e.code}", flush=True)
+                    return                       # 400/401 : réessayer ne sert à rien
+                except Exception as e:           # noqa: BLE001
+                    if essai == 4:
+                        print(f"NOTIFY_PERDU | {type(e).__name__}: {e}", flush=True)
+                        return
+                    time.sleep(2 * essai)
+            print("NOTIFY_PERDU | toujours limité après 4 essais", flush=True)
 
     threading.Thread(target=_post, daemon=True).start()
 
@@ -781,7 +824,7 @@ class SignupIn(BaseModel):
     nom: Optional[str] = None
     date_naissance: Optional[str] = None      # AAAA-MM-JJ (champ HTML type=date)
 
-_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_EMAIL_RE = _re.compile(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 AGE_MINIMUM = 18
 
 
@@ -959,7 +1002,7 @@ async function retrouver(){
   const email = (document.getElementById('email').value || '').trim();
   const msg = document.getElementById('msg');
   const ddn = document.getElementById('ddn').value;
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+  if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){
     msg.innerHTML = '<span class=err>Saisis d'abord ton email ci-dessus.</span>'; return; }
   if(!ddn){
     msg.innerHTML = '<span class=err>Saisis aussi ta date de naissance — '
