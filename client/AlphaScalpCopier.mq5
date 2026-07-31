@@ -570,6 +570,49 @@ void TraiterSignal(string obj)
 void Relever()
   {
    string reponse;
+
+   // [31/07] GARDE-FOU : ne JAMAIS relever avec un curseur non etabli.
+   //
+   // Avant, quand /api/status echouait au demarrage, on posait curseur = 0.
+   // La requete devenait alors ?since=0, c'est-a-dire "donne-moi TOUT
+   // l'historique" -- exactement ce que le demarrage cherchait a eviter.
+   // L'EA ouvrait des positions sur des signaux vieux de plusieurs jours,
+   // avec des SL/TP calcules pour des prix qui n'existent plus.
+   //
+   // Et le scenario n'avait rien de rare : oublier l'autorisation WebRequest
+   // est l'erreur numero un, et le reveil a froid de l'hebergeur gratuit
+   // prend 10 a 50 secondes. Dans les deux cas le premier appel echoue, le
+   // testeur corrige, et le cycle suivant rejouait l'historique.
+   //
+   // curseur < 0 signifie desormais "pas encore etabli" : on refait
+   // /api/status et on ne traite AUCUN signal ce tour-ci.
+   if(curseur < 0)
+     {
+      string r0;
+      int c0 = HttpGet(AdresseServeur + "/api/status", r0);
+      if(c0 != 200)
+        {
+         // Un echec ici doit rester AUDIBLE : sans ca l'EA reessaierait
+         // indefiniment en silence, et le testeur croirait que ca tourne.
+         if((c0 == 401 || c0 == 404) &&
+            TimeCurrent() - dernierAvertissement > 300)
+           {
+            Alerte("Cle refusee (HTTP " + IntegerToString(c0) + "). Soit "
+                   "CleApi comporte une faute, soit le serveur a ete "
+                   "reinitialise. Recupere la meme cle sur " + AdresseServeur +
+                   "/rejoindre (rubrique cle perdue), puis demande la "
+                   "reactivation. Rien a reinstaller.");
+            dernierAvertissement = TimeCurrent();
+           }
+         return;                        // toujours injoignable : on reessaiera
+        }
+      curseur = (long)JsonNombre(r0, "latest_signal_id", 0);
+      SauverCurseur();
+      Info("Curseur etabli au signal n°" + IntegerToString(curseur) +
+           " (l'historique n'est pas rejoue).");
+      return;                           // on repart proprement au prochain tour
+     }
+
    string url = AdresseServeur + "/api/signals?since=" + IntegerToString(curseur);
    int code = HttpGet(url, reponse);
 
@@ -590,10 +633,21 @@ void Relever()
      }
    if(code == 401 || code == 404)
      {
+      // [31/07] Le message disait seulement "verifie CleApi". C'est le
+      // mauvais diagnostic dans le cas le PLUS frequent : l'hebergement
+      // gratuit repart sur un disque vide apres une mise en veille, la base
+      // est reinitialisee, et le serveur ne reconnait plus une cle pourtant
+      // correcte. Le testeur verifiait sa cle, la trouvait juste, et restait
+      // bloque. On nomme les deux causes et on donne la sortie.
       if(TimeCurrent() - dernierAvertissement > 300)
         {
-         Alerte("Clé refusée (HTTP " + IntegerToString(code) +
-                "). Vérifie CleApi dans les réglages.");
+         Alerte("Cle refusee (HTTP " + IntegerToString(code) + "). Deux causes "
+                "possibles : soit CleApi comporte une faute, soit le serveur a "
+                "ete reinitialise et a oublie les inscriptions.");
+         Alerte("Dans le doute, va sur " + AdresseServeur + "/rejoindre , "
+                "clique sur 'cle perdue' et donne email + date de naissance : "
+                "tu recuperes LA MEME cle. Previens ensuite pour reactivation. "
+                "Rien a reinstaller, l'EA reprendra tout seul.");
          dernierAvertissement = TimeCurrent();
         }
       return;
@@ -727,17 +781,34 @@ int OnInit()
         }
       else if(code == 401)
         {
-         Alerte("Clé REFUSÉE par le serveur : vérifie CleApi (elle commence "
-                "par as_ et se copie depuis la page d'inscription).");
-         return INIT_FAILED;
-        }
+         // [31/07] On ne renvoie PLUS INIT_FAILED ici. L'EA se retirait du
+         // graphique, obligeant a tout reinstaller a la main. Or la cause la
+         // plus frequente n'est pas une faute de frappe : c'est le serveur
+         // gratuit qui repart sur un disque vide et oublie les inscriptions.
+         // Dans ce cas la cle est bonne, et l'acces revient des que le testeur
+         // la recupere. Un EA qui reste en place se repare tout seul ; un EA
+         // qui s'est retire demande une intervention.
+         // Le cas d'une vraie faute de frappe n'est pas perdu pour autant :
+         // l'avertissement se repete toutes les 5 minutes.
+         Alerte("Cle REFUSEE au demarrage. Soit CleApi comporte une faute "
+                "(elle commence par as_), soit le serveur a ete reinitialise "
+                "et a oublie les inscriptions.");
+         Alerte("L'EA RESTE EN PLACE et reessaiera : rien a reinstaller. Pour "
+                "recuperer la meme cle, va sur " + AdresseServeur +
+                "/rejoindre , rubrique 'cle perdue' (email + date de "
+                "naissance), puis demande la reactivation.");
+         Alert("AlphaScalp : cle refusee par le serveur. Voir le Journal des "
+               "experts. L'EA reste en place et reprendra tout seul.");
+         curseur = -1;  // NON ETABLI : Relever() le fixera au dernier signal
+        }                //             connu. Surtout pas 0 = rejouer tout.
       else
         {
          Alerte("Impossible de joindre le serveur au démarrage "
                 "(HTTP " + IntegerToString(code) + "). Nouvelle tentative "
                 "au prochain cycle.");
-         curseur = 0;
-        }
+         curseur = -1;  // NON ETABLI. C'etait 0 ici, et 0 veut dire "envoie-moi
+        }                // TOUT l'historique" : le chemin le plus frequent du
+                         // premier lancement rejouait des signaux perimes.
      }
 
    int periode = MathMax(5, IntervalleSecondes);
