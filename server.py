@@ -1176,12 +1176,20 @@ async function retrouver(){
       body: JSON.stringify({email, date_naissance: ddn})});
     const j = await r.json();
     if(!r.ok) throw new Error(j.detail || 'Erreur');
-    msg.innerHTML = '<span class="ok">Voici ta clé :</span>'
+    msg.innerHTML = '<span class="ok">Voici ta cle :</span>'
       + '<div class="key">' + j.api_key + '</div>'
-      + '<p style="color:#6b7a99;font-size:13px">'
-      + (j.active ? 'Elle est <b>active</b>.'
+      + '<p style="color:#6b7a99;font-size:12.5px;margin:-4px 0 12px">'
+      + (j.active ? 'Elle est <b style="color:#22c55e">active</b>.'
                   : 'Elle est <b>en attente de validation</b>.')
-      + ' Note-la — mais tu peux toujours la retrouver ici avec ton email.</p>';
+      + ' Tu peux toujours la retrouver ici.</p>'
+      + '<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
+      + 'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
+      + 'font-weight:600;margin:0 0 6px;min-height:46px">Installer le copieur &rarr;</a>'
+      + '<p style="color:#6b7a99;font-size:12.5px;margin:0 0 10px">'
+      + 'Deja installe ? Il te suffit de coller cette cle dans les reglages du '
+      + 'copieur, dans MetaTrader.</p>'
+      + '<div id="zoneGroupe"></div>';
+    afficherGroupe();
   }catch(e){ msg.innerHTML = '<span class=err>' + e.message + '</span>'; }
 }
 async function submit(){
