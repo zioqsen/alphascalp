@@ -928,7 +928,7 @@ class SignupIn(BaseModel):
     nom: Optional[str] = None
     date_naissance: Optional[str] = None      # AAAA-MM-JJ (champ HTML type=date)
 
-_EMAIL_RE = _re.compile(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 AGE_MINIMUM = 18
 
 
