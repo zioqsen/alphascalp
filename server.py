@@ -697,6 +697,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
   <button class="ghost" onclick="amenager()">Aménager le groupe</button>
   <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
+  <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
@@ -815,6 +816,15 @@ async function load(){
 }
 // [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
 // deja le jeton du bot, inutile de le faire transiter vers un terminal.
+async function general(action){
+  const z = document.getElementById('zoneGroupes');
+  z.innerHTML = 'En cours…';
+  try{
+    const j = await api('/api/admin/general?action=' + action, 'POST');
+    z.innerHTML = (j.etapes || []).map(e =>
+      '<div>' + esc(e.etape) + ' : ' + esc(e.etat) + '</div>').join('');
+  }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
 async function lienInvitation(){
   const z = document.getElementById('zoneGroupes');
   z.innerHTML = 'Creation…';
@@ -1360,6 +1370,42 @@ def _tg_appel(methode: str, params: dict) -> dict:
             return {"ok": False, "description": f"HTTP {e.code}: {corps[:120]}"}
     except Exception as e:                          # noqa: BLE001
         return {"ok": False, "description": str(e)[:120]}
+
+
+@app.post("/api/admin/general")
+def admin_general(action: str = Query("restaurer"),
+                  token: Optional[str] = Query(None),
+                  x_admin_token: Optional[str] = Header(None)):
+    """Rend visible, rouvre et renomme le sujet General d un forum.
+
+    [31/07] Masquer le sujet General le fait disparaitre COMPLETEMENT de la
+    liste, et le chemin pour le retablir change selon la version du client
+    Telegram. L API, elle, expose des methodes deterministes : on passe par la
+    plutot que de chercher dans des menus qui bougent.
+
+    Telegram impose un ordre : on ne peut pas renommer un sujet masque, et
+    reouvrir un sujet ferme se fait avant de le rendre visible. D ou la
+    sequence, et non trois appels independants.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN or not TG_GROUPE_ID:
+        raise HTTPException(status_code=400,
+                            detail="Jeton Telegram ou identifiant de groupe absent.")
+    etapes = []
+    if action == "masquer":
+        sequence = [("closeGeneralForumTopic", {}),
+                    ("hideGeneralForumTopic", {})]
+    else:
+        sequence = [("unhideGeneralForumTopic", {}),
+                    ("reopenGeneralForumTopic", {}),
+                    ("editGeneralForumTopic", {"name": "A lire"})]
+    for methode, extra in sequence:
+        params = {"chat_id": TG_GROUPE_ID}
+        params.update(extra)
+        r = _tg_appel(methode, params)
+        etapes.append({"etape": methode,
+                       "etat": "ok" if r.get("ok") else r.get("description", "?")})
+    return {"action": action, "etapes": etapes}
 
 
 @app.post("/api/admin/invitation")
