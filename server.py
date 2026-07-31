@@ -686,6 +686,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
 <div style="margin:10px 0 16px">
   <button class="ghost" onclick="chercherGroupes()">Trouver le groupe Telegram</button>
   <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
+  <button class="ghost" onclick="amenager()">Aménager le groupe</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
@@ -804,6 +805,20 @@ async function load(){
 }
 // [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
 // deja le jeton du bot, inutile de le faire transiter vers un terminal.
+async function amenager(){
+  const z = document.getElementById('zoneGroupes');
+  if(!confirm('Creer les sujets, poser la description et epingler l accueil ?')) return;
+  z.innerHTML = 'Amenagement…';
+  try{
+    const j = await api('/api/admin/amenager', 'POST');
+    let h = '<div>description : ' + esc(String(j.description)) + '</div>';
+    (j.sujets || []).forEach(s => {
+      h += '<div>' + esc(s.nom) + ' : ' + esc(s.etat) + '</div>'; });
+    h += '<div>accueil : ' + esc(String(j.accueil))
+       + (j.epingle ? ' (epingle)' : ' (non epingle)') + '</div>';
+    z.innerHTML = h;
+  }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
 async function posterAccueil(){
   const z = document.getElementById('zoneGroupes');
   if(!confirm('Poster le message d\'accueil dans le groupe et l\'epingler ?')) return;
@@ -1264,6 +1279,95 @@ Argent fictif, aucune coordonnée bancaire, aucun euro engagé.
 Envoie une capture de l'onglet « Journal des experts » en bas de MetaTrader : tout y est écrit en clair.
 
 <i>Le trading comporte un risque de perte. Rien n'est garanti, et on est ici pour mesurer, pas pour gagner.</i>"""
+
+
+# ─────────────────────────────────────────────────────────────
+# AMÉNAGEMENT DU GROUPE  [31/07]
+# ─────────────────────────────────────────────────────────────
+# Ce qu'un bot NE PEUT PAS faire, quelles que soient ses permissions :
+#   • créer un groupe ou un canal  → réservé aux comptes utilisateurs
+#   • activer le mode Forum (Sujets) → réglage manuel du propriétaire
+# Ce qu'il peut faire, et qu'on automatise ici : la description, les sujets
+# d'un forum déjà activé, le message d'accueil et son épinglage.
+
+SUJETS_GROUPE = [
+    ("📢 Annonces",        "Mises à jour du service. Lecture seule."),
+    ("🆘 Support",         "Un souci d'installation ou d'exécution ? C'est ici."),
+    ("📊 Retours",         "Ce que vous observez : trades copiés, écarts, ressenti."),
+    ("💬 Discussion",      "Tout le reste."),
+]
+
+DESCRIPTION_GROUPE = (
+    "Bêta privée d'AlphaScalp — copie de trades sur comptes de DÉMONSTRATION. "
+    "Argent fictif, aucune coordonnée bancaire. "
+    "Inscription : alphascalp.onrender.com/rejoindre"
+)
+
+
+def _tg_appel(methode: str, params: dict) -> dict:
+    """Appel Telegram synchrone. Remonte l'erreur au lieu de l'avaler : ici on
+    veut savoir précisément ce qui a échoué, contrairement aux notifications
+    où une perte est tolérable."""
+    data = urllib.parse.urlencode(params).encode()
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+                f"https://api.telegram.org/bot{TG_TOKEN}/{methode}",
+                data=data), timeout=20) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        corps = e.read().decode("utf-8", "replace")
+        try:
+            return json.loads(corps)
+        except Exception:
+            return {"ok": False, "description": f"HTTP {e.code}: {corps[:120]}"}
+    except Exception as e:                          # noqa: BLE001
+        return {"ok": False, "description": str(e)[:120]}
+
+
+@app.post("/api/admin/amenager")
+def admin_amenager(token: Optional[str] = Query(None),
+                   x_admin_token: Optional[str] = Header(None)):
+    """Aménage le groupe : description, sujets, accueil épinglé.
+
+    Idempotent en pratique : relancer ne casse rien. La description est
+    réécrite à l'identique, et Telegram refuse un sujet dont le nom existe
+    déjà — le refus est rapporté, pas traité comme une panne.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN or not TG_GROUPE_ID:
+        raise HTTPException(status_code=400,
+                            detail="Jeton Telegram ou identifiant de groupe absent.")
+
+    rapport = {"description": None, "sujets": [], "accueil": None, "epingle": False}
+
+    r = _tg_appel("setChatDescription",
+                  {"chat_id": TG_GROUPE_ID, "description": DESCRIPTION_GROUPE})
+    rapport["description"] = "ok" if r.get("ok") else r.get("description", "?")
+
+    for nom, _ in SUJETS_GROUPE:
+        r = _tg_appel("createForumTopic", {"chat_id": TG_GROUPE_ID, "name": nom})
+        if r.get("ok"):
+            rapport["sujets"].append({"nom": nom, "etat": "créé"})
+        else:
+            # Cause n°1 : le mode Forum n'est pas activé sur le groupe. C'est
+            # un réglage manuel, aucune permission de bot ne le remplace.
+            rapport["sujets"].append({"nom": nom,
+                                      "etat": r.get("description", "?")})
+
+    r = _tg_appel("sendMessage", {
+        "chat_id": TG_GROUPE_ID, "text": ACCUEIL_GROUPE,
+        "parse_mode": "HTML", "disable_web_page_preview": "true"})
+    if r.get("ok"):
+        mid = r["result"]["message_id"]
+        rapport["accueil"] = mid
+        p = _tg_appel("pinChatMessage", {"chat_id": TG_GROUPE_ID,
+                                         "message_id": mid,
+                                         "disable_notification": "true"})
+        rapport["epingle"] = bool(p.get("ok"))
+    else:
+        rapport["accueil"] = r.get("description", "?")
+
+    return rapport
 
 
 @app.post("/api/admin/accueil")
