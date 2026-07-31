@@ -79,6 +79,25 @@ void Alerte(string m)  { Print("[AlphaScalp] /!\\ ", m); }
 //| ajouterait des centaines de lignes et autant d'occasions de bug    |
 //| pour un bénéfice nul ici.                                          |
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| Échappe une chaîne pour l'insérer dans du JSON.                    |
+//| Un nom de courtier contenant un guillemet casserait le corps de la |
+//| requête, et le serveur rejetterait le rapport sans qu'on sache     |
+//| pourquoi.                                                          |
+//+------------------------------------------------------------------+
+string EchapperJson(string s)
+  {
+   string r = "";
+   for(int i = 0; i < StringLen(s); i++)
+     {
+      ushort c = StringGetCharacter(s, i);
+      if(c == '"' || c == '\\') r += "_";     // on remplace, plus simple et sûr
+      else if(c < 32)            r += " ";
+      else                       r += ShortToString(c);
+     }
+   return r;
+  }
+
 string JsonTexte(string json, string cle, string defaut = "")
   {
    string motif = "\"" + cle + "\":";
@@ -176,6 +195,51 @@ int HttpGet(string url, string &reponse)
      }
    reponse = CharArrayToString(resultat, 0, WHOLE_ARRAY, CP_UTF8);
    return code;
+  }
+
+//+------------------------------------------------------------------+
+//| Rapport d'état au serveur.                                        |
+//|                                                                    |
+//| Sans lui, un suiveur dont le copieur ne trouve pas ses symboles ou |
+//| refuse tous ses trades reste INVISIBLE : on l'apprend s'il se      |
+//| plaint. Avec plusieurs testeurs chez des courtiers différents,     |
+//| c'est là que se perd le plus de temps.                             |
+//|                                                                    |
+//| N'envoie QUE du diagnostic : version, courtier, type de compte,    |
+//| dernier problème. Aucun solde, aucune position, aucun résultat —   |
+//| le dépannage n'en a pas besoin.                                    |
+//+------------------------------------------------------------------+
+string dernierProbleme = "";
+datetime dernierRapport = 0;
+
+void RapporterEtat(string probleme = "")
+  {
+   if(probleme != "") dernierProbleme = probleme;
+   // Au plus un envoi toutes les 15 min, sauf nouveau problème : on ne veut
+   // pas transformer un diagnostic en source de trafic.
+   if(probleme == "" && dernierRapport > 0
+      && TimeCurrent() - dernierRapport < 900) return;
+   dernierRapport = TimeCurrent();
+
+   string courtier = AccountInfoString(ACCOUNT_COMPANY);
+   bool demo = (ENUM_ACCOUNT_TRADE_MODE)AccountInfoInteger(ACCOUNT_TRADE_MODE)
+               == ACCOUNT_TRADE_MODE_DEMO;
+   string corps = StringFormat(
+      "{\"version\":\"%s\",\"courtier\":\"%s\",\"compte\":\"%s\",\"probleme\":\"%s\"}",
+      "1.00", EchapperJson(courtier), (demo ? "demo" : "reel"),
+      EchapperJson(dernierProbleme));
+
+   char donnees[], resultat[];
+   StringToCharArray(corps, donnees, 0, StringLen(corps), CP_UTF8);
+   ArrayResize(donnees, StringLen(corps));   // sans le zéro terminal
+   string entetesRecus;
+   string entetes = "Content-Type: application/json\r\n"
+                    "X-API-Key: " + CleApi + "\r\n";
+   ResetLastError();
+   // Échec silencieux volontaire : un rapport perdu ne doit surtout pas
+   // perturber la copie, qui est la seule chose qui compte ici.
+   WebRequest("POST", AdresseServeur + "/api/client/etat", entetes, 10000,
+              donnees, resultat, entetesRecus);
   }
 
 //+------------------------------------------------------------------+
@@ -403,6 +467,7 @@ void TraiterSignal(string obj)
      {
       Alerte("Symbole " + symMaitre + " introuvable chez ton broker. "
              "Renseigne SuffixeSymbole (ex: \".r\", \"m\") dans les réglages.");
+      RapporterEtat("symbole introuvable : " + symMaitre);
       return;
      }
 
@@ -673,6 +738,7 @@ int OnInit()
                      AccountInfoString(ACCOUNT_CURRENCY),
                      RisqueParTrade, PositionsMaximum, periode));
    Info("Rappel : ce terminal doit rester ALLUMÉ pour que la copie fonctionne.");
+   RapporterEtat();                 // premier rapport : version, courtier, compte
    return INIT_SUCCEEDED;
   }
 
@@ -693,6 +759,7 @@ void OnTimer()
    if(!MQLInfoInteger(MQL_TRADE_ALLOWED)) return;   // bouton Algo Trading coupé
    MapNettoyer();                                   // purge des positions closes
    Relever();
+   RapporterEtat();                                 // throttlé à 15 min
   }
 
 //+------------------------------------------------------------------+

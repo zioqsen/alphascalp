@@ -422,6 +422,17 @@ def _creer_tables(conn):
     # barrière, celle que tout le monde applique à l'inscription. La
     # vérification sérieuse (pièce d'identité) est de toute façon faite par
     # le BROKER à l'ouverture du compte : c'est lui qui détient les fonds.
+    # [31/07] Etat rapporte par le copieur. DIAGNOSTIC UNIQUEMENT : version,
+    # courtier, type de compte, symboles introuvables, refus. JAMAIS de
+    # solde, de positions ni de resultats -- ce n'est pas necessaire pour
+    # depanner, et collecter au-dela du besoin est le debut des ennuis.
+    for _colonne in ("etat_version TEXT", "etat_courtier TEXT",
+                     "etat_compte TEXT", "etat_probleme TEXT",
+                     "etat_maj TEXT"):
+        try:
+            conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
+        except sqlite3.OperationalError:
+            pass
     for _colonne in ("prenom TEXT", "nom TEXT", "date_naissance TEXT"):
         try:
             conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
@@ -1598,6 +1609,10 @@ def stats(x_master_token: Optional[str] = Header(None)):
             "FROM signals").fetchone()
         vus = conn.execute(
             "SELECT last_seen FROM clients WHERE last_seen IS NOT NULL").fetchall()
+        etats = conn.execute(
+            "SELECT name, etat_version, etat_courtier, etat_compte, "
+            "etat_probleme, etat_maj FROM clients "
+            "WHERE etat_maj IS NOT NULL ORDER BY etat_maj DESC").fetchall()
 
     def _age_min(iso):
         try:
@@ -1617,7 +1632,43 @@ def stats(x_master_token: Optional[str] = Header(None)):
         "dernier_signal_age_min": round(_age_min(sig["quand"]), 1)
                                    if sig["quand"] and _age_min(sig["quand"]) is not None else None,
         "notif_telegram": bool(TG_TOKEN and TG_CHAT_ID),
+        # Etat des copieurs : ce que le tableau de bord affiche pour voir
+        # qui tourne, chez quel courtier, et qui rencontre un probleme.
+        "copieurs": [dict(r) for r in etats],
+        "copieurs_en_probleme": sum(1 for r in etats if r["etat_probleme"]),
     }
+
+
+class EtatIn(BaseModel):
+    version: Optional[str] = None
+    courtier: Optional[str] = None       # nom de la société de courtage
+    compte: Optional[str] = None         # "demo" ou "reel"
+    probleme: Optional[str] = None       # symbole absent, refus de sizing...
+
+
+@app.post("/api/client/etat")
+def rapporter_etat(body: EtatIn, x_api_key: Optional[str] = Header(None)):
+    """Le copieur signale son état. Sert au dépannage, pas à la surveillance.
+
+    [31/07] Motif : sans ça, un testeur dont le copieur ne trouve pas ses
+    symboles ou refuse tous ses trades reste invisible. On l'apprend quand il
+    se plaint — s'il se plaint. Avec trois testeurs chez trois courtiers
+    différents, c'est là que se perd le plus de temps.
+
+    Ce qui est collecté est volontairement pauvre : version, courtier, type de
+    compte, dernier problème. AUCUN solde, AUCUNE position, AUCUN résultat.
+    Le dépannage n'en a pas besoin, et collecter au-delà du besoin oblige à
+    l'écrire dans la politique de confidentialité pour rien.
+    """
+    c = get_client(x_api_key)
+    with db() as conn:
+        conn.execute(
+            "UPDATE clients SET etat_version=?, etat_courtier=?, etat_compte=?, "
+            "etat_probleme=?, etat_maj=? WHERE api_key=?",
+            ((body.version or "")[:32], (body.courtier or "")[:64],
+             (body.compte or "")[:8], (body.probleme or "")[:180],
+             now_iso(), c["api_key"]))
+    return {"ok": True}
 
 
 @app.get("/api/client/verifier")
