@@ -316,7 +316,19 @@ def get_signals(
         rows = conn.execute(
             "SELECT * FROM signals WHERE id > ? ORDER BY id ASC LIMIT 200", (since,)
         ).fetchall()
-    return {"active": True, "signals": [dict(r) for r in rows]}
+        # [31/07] `latest` accompagne CHAQUE réponse pour que le follower
+        # puisse détecter une remise à zéro du serveur.
+        #
+        # Le problème : la base est éphémère. Au redémarrage de l'hébergeur la
+        # table repart vide et les identifiants recommencent à 1. Un follower
+        # qui avait mémorisé « j'en suis au 42 » demande alors les signaux
+        # > 42 et n'en recevra PLUS JAMAIS — sans erreur, sans 401, juste du
+        # silence. La copie s'arrête définitivement sans que personne ne le
+        # sache. Avec `latest`, le client voit que le serveur est reparti en
+        # arrière et se recale tout seul.
+        dernier = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) AS m FROM signals").fetchone()["m"]
+    return {"active": True, "latest": dernier, "signals": [dict(r) for r in rows]}
 
 
 # ─────────────────────────────────────────────────────────────

@@ -542,6 +542,22 @@ void Relever()
 
    if(enPause) { enPause = false; Info("Clé réactivée — reprise des entrées."); }
 
+   //--- Le serveur est-il reparti de zéro ? --------------------------------
+   // La base du serveur est éphémère : à son redémarrage la table repart vide
+   // et les identifiants recommencent à 1. Sans ce contrôle, notre curseur
+   // (disons 42) serait à jamais devant le dernier signal existant (disons 3)
+   // et on ne recevrait PLUS RIEN — sans erreur, sans message, définitivement.
+   long dernier = (long)JsonNombre(reponse, "latest", -1);
+   if(dernier >= 0 && dernier < curseur)
+     {
+      Alerte(StringFormat("Le serveur est reparti de zéro (son dernier signal "
+                          "est le n°%I64d, nous en étions au n°%I64d). "
+                          "Recalage automatique — aucune action de ta part.",
+                          dernier, curseur));
+      curseur = dernier;
+      SauverCurseur();
+     }
+
    string objets[];
    int n = DecouperSignaux(reponse, objets);
    if(n <= 0) return;
