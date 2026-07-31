@@ -217,8 +217,21 @@ def require_master(x_master_token: Optional[str]):
         raise HTTPException(status_code=401, detail="Jeton maître invalide")
 
 
-def require_admin(token: Optional[str]):
-    if not token or not secrets.compare_digest(token, ADMIN_TOKEN):
+def admin_ok(token: Optional[str], entete: Optional[str] = None) -> bool:
+    """Le jeton admin peut venir de l'en-tête X-Admin-Token (à privilégier) ou
+    du paramètre d'URL ?token= (conservé pour compatibilité).
+
+    [31/07] L'en-tête a été ajouté parce qu'un jeton dans l'URL se retrouve
+    dans l'historique du navigateur, dans les favoris, dans le champ Referer
+    et dans les journaux d'accès du serveur. Ce n'est pas un endroit pour un
+    secret qui donne les pleins pouvoirs sur les clés clients.
+    """
+    fourni = entete or token
+    return bool(fourni) and secrets.compare_digest(fourni, ADMIN_TOKEN)
+
+
+def require_admin(token: Optional[str], entete: Optional[str] = None):
+    if not admin_ok(token, entete):
         raise HTTPException(status_code=401, detail="Jeton admin invalide")
 
 
@@ -310,16 +323,19 @@ def get_signals(
 # API — ADMIN (gestion des clés = simulation d'abonnement)
 # ─────────────────────────────────────────────────────────────
 @app.get("/api/admin/clients")
-def admin_list(token: Optional[str] = Query(None)):
-    require_admin(token)
+def admin_list(token: Optional[str] = Query(None),
+               x_admin_token: Optional[str] = Header(None)):
+    require_admin(token, x_admin_token)
     with db() as conn:
         rows = conn.execute("SELECT * FROM clients ORDER BY created_at DESC").fetchall()
     return {"clients": [dict(r) for r in rows]}
 
 
 @app.post("/api/admin/clients")
-def admin_create(name: str = Query(...), plan: str = Query("beta"), token: Optional[str] = Query(None)):
-    require_admin(token)
+def admin_create(name: str = Query(...), plan: str = Query("beta"),
+                 token: Optional[str] = Query(None),
+                 x_admin_token: Optional[str] = Header(None)):
+    require_admin(token, x_admin_token)
     key = "as_" + secrets.token_urlsafe(18)
     with db() as conn:
         conn.execute(
@@ -330,8 +346,9 @@ def admin_create(name: str = Query(...), plan: str = Query("beta"), token: Optio
 
 
 @app.post("/api/admin/clients/{api_key}/toggle")
-def admin_toggle(api_key: str, token: Optional[str] = Query(None)):
-    require_admin(token)
+def admin_toggle(api_key: str, token: Optional[str] = Query(None),
+                 x_admin_token: Optional[str] = Header(None)):
+    require_admin(token, x_admin_token)
     with db() as conn:
         row = conn.execute("SELECT active FROM clients WHERE api_key = ?", (api_key,)).fetchone()
         if row is None:
@@ -342,8 +359,9 @@ def admin_toggle(api_key: str, token: Optional[str] = Query(None)):
 
 
 @app.post("/api/admin/clients/{api_key}/delete")
-def admin_delete(api_key: str, token: Optional[str] = Query(None)):
-    require_admin(token)
+def admin_delete(api_key: str, token: Optional[str] = Query(None),
+                 x_admin_token: Optional[str] = Header(None)):
+    require_admin(token, x_admin_token)
     with db() as conn:
         conn.execute("DELETE FROM clients WHERE api_key = ?", (api_key,))
     return {"ok": True, "deleted": api_key}
@@ -389,11 +407,88 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
 <tbody id="rows"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody></table>
 <script>
-const token = new URLSearchParams(location.search).get('token') || '';
+// [31/07] Le jeton ne transite plus par l'URL mais par un en-tete.
+// Dans l'URL il finissait dans l'historique du navigateur, les favoris, le
+// champ Referer et les journaux d'acces du serveur -- pour un secret qui
+// donne les pleins pouvoirs sur les cles clients, c'etait de trop.
+// Si l'URL en contient un (ancien lien encore en circulation), on le range
+// et on NETTOIE la barre d'adresse.
+let token = sessionStorage.getItem('as_admin') || '';
+(function(){
+  const dansUrl = new URLSearchParams(location.search).get('token');
+  if(dansUrl){
+    token = dansUrl;
+    sessionStorage.setItem('as_admin', token);
+    history.replaceState(null, '', location.pathname);   // le jeton quitte la barre d'adresse
+  }
+})();
 async function api(path, method='GET'){
-  const r = await fetch(path + (path.includes('?')?'&':'?') + 'token=' + encodeURIComponent(token), {method});
+  const r = await fetch(path, {method, headers:{'X-Admin-Token': token}});
+  if(r.status === 401){
+    sessionStorage.removeItem('as_admin');
+    token = '';
+    demanderJeton('Jeton refusé ou session expirée.');
+    throw new Error('non authentifié');
+  }
   if(!r.ok){ const e = await r.json().catch(()=>({detail:r.status})); throw new Error(e.detail||r.status); }
   return r.json();
+}
+
+// Formulaire de connexion en surcouche. Pas de rechargement de page : le
+// jeton vit dans sessionStorage et ne survivrait pas à une navigation.
+function demanderJeton(message){
+  if(document.getElementById('voile')) {
+    if(message) document.getElementById('voileErr').textContent = message;
+    return;
+  }
+  const d = document.createElement('div');
+  d.id = 'voile';
+  d.style.cssText = 'position:fixed;inset:0;background:#080b10;z-index:99;'
+    + 'display:flex;align-items:center;justify-content:center;padding:20px';
+  d.innerHTML =
+    '<div style="max-width:400px;width:100%;background:rgba(255,255,255,.03);'
+    + 'border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:32px 28px">'
+    + '<div style="font-weight:800;font-size:23px;text-align:center;letter-spacing:-.5px">'
+    + 'Alpha<span style="color:#3b82f6">Scalp</span></div>'
+    + '<div style="color:#6b7a99;text-align:center;font-size:13.5px;margin:4px 0 24px">'
+    + "Espace d'administration</div>"
+    + '<label style="font-size:13px;color:#6b7a99;display:block;margin-bottom:6px" '
+    + 'for="voileT">Jeton d\'administration</label>'
+    + '<input id="voileT" type="password" autocomplete="current-password" '
+    + 'placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;" '
+    + 'style="width:100%;background:#0e1420;border:1px solid rgba(255,255,255,.1);'
+    + 'border-radius:10px;padding:13px 14px;color:#f0f4ff;font-size:15px;min-height:46px">'
+    + '<button id="voileB" style="width:100%;background:#3b82f6;color:#fff;border:0;'
+    + 'border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;'
+    + 'margin-top:16px;min-height:46px">Entrer</button>'
+    + '<div id="voileErr" style="color:#ef4444;font-size:13.5px;margin-top:14px;'
+    + 'min-height:18px"></div>'
+    + '<div style="color:#6b7a99;font-size:11.5px;margin-top:18px;text-align:center;'
+    + "line-height:1.6\">Le jeton reste dans cet onglet, n'apparaît jamais dans "
+    + "l'adresse, et est oublié à la fermeture du navigateur.</div></div>";
+  document.body.appendChild(d);
+  if(message) document.getElementById('voileErr').textContent = message;
+
+  async function entrer(){
+    const t = document.getElementById('voileT').value.trim();
+    const e = document.getElementById('voileErr');
+    if(!t){ e.textContent = 'Saisis le jeton.'; return; }
+    e.textContent = 'Vérification…';
+    try{
+      const r = await fetch('/api/admin/clients', {headers:{'X-Admin-Token': t}});
+      if(r.status === 401){ e.textContent = 'Jeton refusé.'; return; }
+      if(!r.ok){ e.textContent = 'Erreur ' + r.status; return; }
+      token = t;
+      sessionStorage.setItem('as_admin', t);
+      d.remove();
+      load();
+    }catch(err){ e.textContent = 'Serveur injoignable.'; }
+  }
+  document.getElementById('voileB').onclick = entrer;
+  document.getElementById('voileT').addEventListener('keydown', ev => {
+    if(ev.key === 'Enter') entrer();
+  });
+  document.getElementById('voileT').focus();
 }
 function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 async function load(){
@@ -422,13 +517,29 @@ async function createClient(){
 }
 async function toggle(k){ try{ await api('/api/admin/clients/'+encodeURIComponent(k)+'/toggle','POST'); load(); }catch(e){ alert(e.message); } }
 async function del(k){ if(!confirm('Supprimer cette clé ?')) return; try{ await api('/api/admin/clients/'+encodeURIComponent(k)+'/delete','POST'); load(); }catch(e){ alert(e.message); } }
-load();
+// Démarrage : soit on a déjà un jeton dans cet onglet, soit on le demande.
+if(token) load(); else demanderJeton();
 </script></body></html>"""
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_page(token: Optional[str] = Query(None)):
-    require_admin(token)
+def admin_page(token: Optional[str] = Query(None),
+               x_admin_token: Optional[str] = Header(None)):
+    """[31/07] Renvoie un FORMULAIRE au lieu d'un 401 quand aucun jeton n'est
+    fourni. Avant, /admin sans ?token= répondait « Jeton admin invalide » —
+    c'est ce qui faisait échouer le lien des notifications Telegram, où l'on
+    ne peut évidemment pas mettre le jeton en clair.
+
+    La page admin elle-même vérifie ensuite le jeton via l'en-tête à son
+    premier appel d'API : servir le HTML sans jeton n'expose aucune donnée,
+    le gabarit est vide et toutes les routes de données restent protégées.
+    """
+    # On sert TOUJOURS le gabarit. Le gater ici créerait une boucle : après
+    # saisie, le jeton vit dans sessionStorage et n'accompagne pas une simple
+    # navigation — le serveur redemanderait donc le formulaire indéfiniment.
+    # C'est la page qui se garde elle-même, et toutes les routes de DONNÉES
+    # restent protégées : servir ce HTML n'expose rien.
+    _ = (token, x_admin_token)
     return HTMLResponse(ADMIN_HTML)
 
 
