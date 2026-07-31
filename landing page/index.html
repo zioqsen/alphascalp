@@ -554,7 +554,10 @@
     <a href="#tarifs">Tarifs</a>
     <a href="#faq">FAQ</a>
   </div>
-  <a href="#tarifs" class="nav-cta">Commencer →</a>
+  <!-- [31/07] Menait vers #tarifs : le bouton le plus visible du site envoyait
+       un visiteur froid sur une grille de prix d'un produit gratuit et pas
+       encore vendable. Et « Commencer » ne disait pas ce qui allait se passer. -->
+  <a href="/rejoindre" class="nav-cta">Rejoindre la bêta →</a>
 </nav>
 
 <!-- HERO -->
@@ -564,18 +567,43 @@
     <span class="live-dot"></span>
     Compte démo · En phase de calibrage
   </div>
+  <!-- [31/07] HERO REECRIT. L'ancien disait « Nos bots analysent les marchés
+       24h/24 et exécutent les trades à ta place », renvoyait vers les tarifs,
+       et la page entière ne contenait AUCUNE occurrence de « MetaTrader »,
+       « copieur » ou « PC allumé ». Un visiteur y lisait un service clé en
+       main façon eToro ; le testeur, lui, recevait un programme à installer
+       et un PC à laisser allumé. Deux produits racontés par le même site.
+       L'écart se paie deux fois : en confiance perdue à la découverte, et en
+       messages « ça ne marche pas comme annoncé ».
+       On décrit maintenant ce que le produit fait réellement, dès la
+       première phrase, et le bouton mène à l'inscription et non au prix
+       d'un produit qu'on ne peut pas acheter. -->
   <h1>
-    Trade smarter.<br>
-    <span class="accent">Automatiquement.</span>
+    Ses trades,<br>
+    <span class="accent">sur ton compte démo.</span>
   </h1>
   <p class="hero-sub">
-    AlphaScalp est un système de trading algorithmique sur le Forex.
-    Nos bots analysent les marchés 24h/24 et exécutent les trades à ta place.
+    AlphaScalp publie en direct les signaux d'une stratégie algorithmique.
+    Tu installes un petit programme dans ton MetaTrader&nbsp;5, il reproduit
+    chaque trade sur <b>ton</b> compte, à <b>ta</b> taille de risque.
+    Tes identifiants restent chez toi : nous n'avons jamais accès à ton compte.
   </p>
   <div class="hero-actions">
-    <a href="#tarifs" class="btn-primary">Voir les offres</a>
+    <a href="/rejoindre" class="btn-primary">Rejoindre la bêta gratuite</a>
     <a href="/performance" class="btn-secondary">Voir la performance en direct</a>
   </div>
+  <!-- L'aveu de friction est ICI, sous le bouton, et non enterré dans le
+       guide. Un testeur qui découvre au bout de 20 minutes qu'il lui faut un
+       PC allumé se sent piégé ; celui qui le sait avant de cliquer et qui
+       continue est un testeur qui ira au bout. -->
+  <p style="margin-top:16px;font-size:13.5px;color:var(--muted);line-height:1.7">
+    Gratuit · <b style="color:#c9d3e8">compte de démonstration uniquement</b> ·
+    aucun paiement, aucune pièce d'identité
+    <br>
+    ~30 minutes d'installation, une seule fois · <b style="color:#c9d3e8">un PC
+    Windows qui reste allumé est nécessaire</b> — MetaTrader mobile n'exécute
+    pas ce type de programme
+  </p>
 </div>
 
 <!-- STATS — bloc rempli AUTOMATIQUEMENT par alphascalp_showcase.py (chiffres
@@ -611,23 +639,27 @@
   <div class="reveal">
     <div class="section-label">Processus</div>
     <h2 class="section-title">Comment ça marche</h2>
-    <p class="section-desc">Un système entièrement automatisé, de l'analyse du marché à l'exécution du trade.</p>
+    <p class="section-desc">Trois étapes, une seule fois. Ensuite tu laisses tourner.</p>
   </div>
+  <!-- [31/07] L'étape 03 promettait « ton dashboard personnel » : il n'existe
+       pas. Les trois étapes décrivaient le fonctionnement du bot maître, pas
+       ce que le testeur a réellement à faire — c'est-à-dire la seule chose
+       qu'il cherche sur cette page. -->
   <div class="steps">
     <div class="step reveal">
       <div class="step-num">01</div>
-      <h3>Analyse du marché</h3>
-      <p>Nos algorithmes analysent en continu les paires Forex (EURUSD, XAUUSD) et détectent les opportunités selon des critères stricts.</p>
+      <h3>Tu récupères ta clé</h3>
+      <p>Prénom, email, date de naissance. Ta clé s'affiche tout de suite. Gratuit, aucun moyen de paiement demandé.</p>
     </div>
     <div class="step reveal">
       <div class="step-num">02</div>
-      <h3>Exécution automatique</h3>
-      <p>Dès qu'un signal est validé, le bot place l'ordre instantanément avec Stop Loss et Take Profit précalculés. Zéro émotion, zéro délai.</p>
+      <h3>Tu installes le copieur</h3>
+      <p>Un programme à poser dans ton MetaTrader&nbsp;5, sur un compte de démonstration. Une notice pas à pas t'accompagne — compte 30 minutes.</p>
     </div>
     <div class="step reveal">
       <div class="step-num">03</div>
-      <h3>Suivi en temps réel</h3>
-      <p>Accède à ton dashboard personnel pour suivre chaque trade, l'equity curve et toutes les statistiques de performance en direct.</p>
+      <h3>Les trades arrivent seuls</h3>
+      <p>Le copieur relève les signaux et recalcule la taille depuis <b>ton</b> capital. Tu n'as plus rien à faire, et tu suis tes résultats dans MetaTrader.</p>
     </div>
   </div>
 </section>
@@ -780,7 +812,14 @@
         Comment fonctionne l'abonnement ?
         <span class="faq-icon">+</span>
       </button>
-      <div class="faq-answer">L'abonnement est mensuel, sans engagement. Vous pouvez annuler à tout moment. Le paiement est sécurisé via Stripe. L'accès au dashboard est activé automatiquement après confirmation du paiement.</div>
+      <!-- [31/07] Décrivait un paiement Stripe et un « accès au dashboard
+           activé après confirmation du paiement ». Ni l'un ni l'autre
+           n'existent : il n'y a aujourd'hui aucun encaissement, aucun
+           prestataire de paiement, et aucun tableau de bord client. Annoncer
+           une mécanique de facturation inexistante sur un site dont l'argument
+           est l'honnêteté, c'est se tirer une balle dans le pied — et un
+           visiteur qui cherche son dashboard écrira pour le réclamer. -->
+      <div class="faq-answer">Aujourd'hui, il n'y a pas d'abonnement du tout : la bêta est entièrement gratuite et se déroule sur compte de démonstration. Aucun moyen de paiement n'est demandé ni enregistré. Les tarifs affichés plus haut sont indicatifs — ils donnent un ordre de grandeur de ce que coûtera le service au lancement, et seront confirmés à ce moment-là. Il sera alors mensuel et sans engagement.</div>
     </div>
   </div>
 </section>
