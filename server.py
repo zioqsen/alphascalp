@@ -445,15 +445,24 @@ function demanderJeton(message){
   d.id = 'voile';
   d.style.cssText = 'position:fixed;inset:0;background:#080b10;z-index:99;'
     + 'display:flex;align-items:center;justify-content:center;padding:20px';
+  // ⚠️ AUCUN BACKSLASH ICI, ET AUCUN TRIPLE GUILLEMET.
+  // Ce JavaScript vit dans une chaîne Python à triple guillemet NON BRUTE.
+  // Conséquence : Python interprète les échappements AVANT que le navigateur
+  // ne voie le code. Une apostrophe échappée écrite ici arrive au navigateur
+  // en apostrophe nue, ce qui ferme la chaîne JS et casse TOUT le script —
+  // la page reste alors bloquée sur « Chargement… », sans le moindre message
+  // côté serveur. C'est exactement ce qui s'est produit le 31/07.
+  // Les apostrophes passent donc en entités HTML (&#39;) et aucun fragment
+  // ne mélange les deux types de guillemets.
   d.innerHTML =
     '<div style="max-width:400px;width:100%;background:rgba(255,255,255,.03);'
     + 'border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:32px 28px">'
     + '<div style="font-weight:800;font-size:23px;text-align:center;letter-spacing:-.5px">'
     + 'Alpha<span style="color:#3b82f6">Scalp</span></div>'
     + '<div style="color:#6b7a99;text-align:center;font-size:13.5px;margin:4px 0 24px">'
-    + "Espace d'administration</div>"
+    + 'Espace d&#39;administration</div>'
     + '<label style="font-size:13px;color:#6b7a99;display:block;margin-bottom:6px" '
-    + 'for="voileT">Jeton d\'administration</label>'
+    + 'for="voileT">Jeton d&#39;administration</label>'
     + '<input id="voileT" type="password" autocomplete="current-password" '
     + 'placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;" '
     + 'style="width:100%;background:#0e1420;border:1px solid rgba(255,255,255,.1);'
@@ -464,8 +473,9 @@ function demanderJeton(message){
     + '<div id="voileErr" style="color:#ef4444;font-size:13.5px;margin-top:14px;'
     + 'min-height:18px"></div>'
     + '<div style="color:#6b7a99;font-size:11.5px;margin-top:18px;text-align:center;'
-    + "line-height:1.6\">Le jeton reste dans cet onglet, n'apparaît jamais dans "
-    + "l'adresse, et est oublié à la fermeture du navigateur.</div></div>";
+    + 'line-height:1.6">Le jeton reste dans cet onglet, n&#39;appara&icirc;t '
+    + 'jamais dans l&#39;adresse, et est oubli&eacute; &agrave; la fermeture '
+    + 'du navigateur.</div></div>';
   document.body.appendChild(d);
   if(message) document.getElementById('voileErr').textContent = message;
 
