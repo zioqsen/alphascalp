@@ -280,11 +280,40 @@ _VERROU_DEBIT = threading.Lock()
 
 # (fenêtre en secondes, nombre d'appels autorisés) par chemin surveillé
 _LIMITES = {
+    # [31/07] /api/signal manquait a l'appel. Le jeton maitre permet de
+    # PUBLIER des signaux : quiconque le devinerait ferait trader tous les
+    # suiveurs actifs. Le jeton fait 44 caracteres aleatoires, un forcage est
+    # hors de portee — mais laisser une route d'ecriture sans aucune limite
+    # est une invitation, et ca ne coute rien de la fermer.
+    "/api/signal": (60, 30),        # le bot maitre en emet quelques-uns par heure
     "/api/admin": (300, 20),        # jeton admin : forçage brutal
     "/api/retrouver": (300, 10),    # énumération d'adresses
     "/api/signup": (3600, 15),      # création en masse
     "/telecharger/": (3600, 40),
 }
+
+
+_ECHECS: dict = {}
+
+
+def _echecs_recuperation(email: str) -> int:
+    """Echecs de recuperation pour cette adresse sur la derniere heure."""
+    maintenant = datetime.now(timezone.utc).timestamp()
+    with _VERROU_DEBIT:
+        essais = [x for x in _ECHECS.get(email, []) if maintenant - x < 3600]
+        _ECHECS[email] = essais
+        return len(essais)
+
+
+def _noter_echec(email: str) -> None:
+    maintenant = datetime.now(timezone.utc).timestamp()
+    with _VERROU_DEBIT:
+        _ECHECS.setdefault(email, []).append(maintenant)
+        if len(_ECHECS) > 2000:                      # purge opportuniste
+            for k in [k for k, v in _ECHECS.items()
+                      if not v or maintenant - v[-1] > 3600]:
+                _ECHECS.pop(k, None)
+    print(f"RECOVER_FAIL | {email}", flush=True)
 
 
 def _ip_de(request: Request) -> str:
@@ -1290,6 +1319,16 @@ def retrouver_cle(body: RetrouverIn):
         raise HTTPException(
             status_code=400,
             detail="Date de naissance requise — la même qu'à l'inscription.")
+    # [31/07] Verrou par ADRESSE, en plus de la limite par IP.
+    # Une date de naissance, ce sont ~18 000 combinaisons sur 50 ans. A 10
+    # essais / 5 min par IP, on la trouve en six jours — et en changeant d'IP,
+    # bien plus vite. La limite par IP ne protege donc PAS une adresse ciblee.
+    # On compte les echecs par email : au-dela de 5, on refuse pendant une
+    # heure, quelle que soit l'origine de la requete.
+    if _echecs_recuperation(email) >= 5:
+        raise HTTPException(
+            status_code=429,
+            detail="Trop de tentatives pour cette adresse. Réessaie dans une heure.")
     key = cle_pour(email, body.date_naissance)
     with db() as conn:
         row = conn.execute(
@@ -1303,6 +1342,7 @@ def retrouver_cle(body: RetrouverIn):
             attendue = (row["date_naissance"] or "").strip()
             fournie = (body.date_naissance or "").strip()
             if attendue and fournie != attendue:
+                _noter_echec(email)
                 raise HTTPException(
                     status_code=403,
                     detail="Date de naissance incorrecte.")
