@@ -17,7 +17,16 @@ Compte 10 minutes la première fois.
 Dans MetaTrader 5 : **Fichier → Ouvrir le dossier de données**. Une fenêtre
 d'explorateur s'ouvre.
 
-Va dans `MQL5` puis `Experts`, et copie `AlphaScalpCopier.mq5` dedans.
+Va dans `MQL5` puis `Experts`, et copie **les deux fichiers** dedans :
+
+- `AlphaScalpCopier.ex5` — le programme compilé, c'est lui qui tourne
+- `AlphaScalpCopier.mq5` — le code source, pour que tu puisses le lire
+
+> Tu n'as **rien à compiler** : le `.ex5` est fourni déjà prêt. Le `.mq5` est
+> là par transparence — c'est un programme qui va passer des ordres sur ton
+> compte, tu as le droit de voir ce qu'il fait. Si tu préfères le compiler
+> toi-même, ouvre le `.mq5` dans MetaEditor (touche `F4` depuis MT5) et
+> appuie sur `F7`.
 
 Reviens dans MetaTrader et fais un clic droit sur **Expert Advisors** dans la
 fenêtre « Navigateur » (à gauche) → **Actualiser**. `AlphaScalpCopier`
