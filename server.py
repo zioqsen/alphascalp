@@ -56,6 +56,13 @@ DB_PATH      = os.environ.get("ALPHASCALP_DB",           "alphascalp.db")
 # dépôt est public. Absentes = fonctionnalité simplement inactive.
 TG_TOKEN   = os.environ.get("ALPHASCALP_TG_TOKEN", "")
 TG_CHAT_ID = os.environ.get("ALPHASCALP_TG_CHAT_ID", "")
+# [31/07] Groupe des bêta-testeurs. Facultatif : sans lui, tout part en
+# privé comme avant.
+# ⚠️ RÈGLE ABSOLUE : aucune donnée personnelle dans le groupe. Les
+# inscriptions contiennent nom, email et âge — les y envoyer serait les
+# transmettre aux autres testeurs, ce que la politique de
+# confidentialité promet explicitement de ne pas faire.
+TG_GROUPE_ID = os.environ.get("ALPHASCALP_TG_GROUPE_ID", "")
 
 
 def _heure_paris() -> str:
@@ -140,7 +147,7 @@ def _notify_signup(email: str, rang: Optional[int] = None,
 _VERROU_TG = threading.Lock()
 
 
-def _notify_telegram(texte: str) -> None:
+def _notify_telegram(texte: str, vers_groupe: bool = False) -> None:
     """Envoi Telegram, non bloquant, qui RESPECTE la limitation de débit.
 
     [31/07] Avant, un 429 « Too Many Requests » était avalé comme n'importe
@@ -154,12 +161,15 @@ def _notify_telegram(texte: str) -> None:
     produire de doublon. C'est ce qui rend la reprise sûre sans clé
     d'idempotence — Telegram n'en propose pas.
     """
-    if not TG_TOKEN or not TG_CHAT_ID:
+    # Sans groupe configuré, une annonce retombe en privé plutôt que d'être
+    # perdue : mieux vaut la lire au mauvais endroit que pas du tout.
+    destination = (TG_GROUPE_ID or TG_CHAT_ID) if vers_groupe else TG_CHAT_ID
+    if not TG_TOKEN or not destination:
         return
 
     def _post():
         data = urllib.parse.urlencode({
-            "chat_id": TG_CHAT_ID, "text": texte, "parse_mode": "HTML",
+            "chat_id": destination, "text": texte, "parse_mode": "HTML",
             "disable_web_page_preview": "true"}).encode()
         url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
         with _VERROU_TG:
@@ -232,6 +242,20 @@ def _alerte_base_vide() -> None:
             "s'arrêtent d'ouvrir. Ils se réveilleront seuls dès réactivation.\n"
             "Les testeurs peuvent retrouver leur clé eux-mêmes avec leur "
             "email — elle est identique à celle d'avant.")
+        # Annonce dans le groupe : les testeurs voient leur copieur se mettre
+        # en pause et méritent d'en connaître la raison sans avoir à demander.
+        # Aucune donnée personnelle ici, uniquement l'information de service.
+        _notify_telegram(
+            "🔧 <b>Interruption technique</b>\n\n"
+            "L'hébergement a redémarré et remis les accès à zéro. Vos copieurs "
+            "vont se mettre en pause tout seuls — c'est le comportement prévu, "
+            "rien n'est cassé de votre côté.\n\n"
+            "Je réactive les accès dans la foulée, ils repartiront seuls : "
+            "<b>rien à relancer</b>.\n\n"
+            "Clé perdue au passage ? Vous la retrouvez avec votre email et "
+            "votre date de naissance sur "
+            "https://alphascalp.onrender.com/rejoindre",
+            vers_groupe=True)
 
 
 app = FastAPI(title="AlphaScalp Server", version="0.1.0")
@@ -661,6 +685,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
 </div>
 <div style="margin:10px 0 16px">
   <button class="ghost" onclick="chercherGroupes()">Trouver le groupe Telegram</button>
+  <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
@@ -779,6 +804,17 @@ async function load(){
 }
 // [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
 // deja le jeton du bot, inutile de le faire transiter vers un terminal.
+async function posterAccueil(){
+  const z = document.getElementById('zoneGroupes');
+  if(!confirm('Poster le message d\'accueil dans le groupe et l\'epingler ?')) return;
+  z.innerHTML = 'Envoi…';
+  try{
+    const j = await api('/api/admin/accueil', 'POST');
+    z.innerHTML = '<span style="color:#0ca30c">Message poste'
+      + (j.epingle ? ' et epingle' : ' (epinglage refuse : le bot est-il admin ?)')
+      + '.</span>';
+  }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
 async function chercherGroupes(){
   const z = document.getElementById('zoneGroupes');
   z.innerHTML = 'Recherche…';
@@ -1208,6 +1244,69 @@ def retrouver_cle(body: RetrouverIn):
     print(f"RECOVER | {now_iso()} | {email}", flush=True)
     _notify_restauration(email)
     return {"ok": True, "api_key": key, "active": False, "restauree": True}
+
+
+ACCUEIL_GROUPE = """👋 <b>Bienvenue dans la bêta AlphaScalp</b>
+
+Ici on teste un copieur de trades sur <b>comptes de démonstration</b>.
+Argent fictif, aucune coordonnée bancaire, aucun euro engagé.
+
+<b>Pour démarrer</b>
+1️⃣ S'inscrire → https://alphascalp.onrender.com/rejoindre
+2️⃣ J'active ta clé et je te préviens
+3️⃣ Télécharger et installer → https://alphascalp.onrender.com/telecharger
+
+<b>Deux choses à savoir</b>
+• Il te faut un <b>PC allumé</b> avec MetaTrader 5, ou un VPS. MetaTrader sur téléphone n'exécute pas ce type de programme — c'est une limite de MetaQuotes, pas un choix.
+• Clé perdue ? Tu la retrouves seul avec ton email et ta date de naissance, sur la page d'inscription.
+
+<b>Si ça coince</b>
+Envoie une capture de l'onglet « Journal des experts » en bas de MetaTrader : tout y est écrit en clair.
+
+<i>Le trading comporte un risque de perte. Rien n'est garanti, et on est ici pour mesurer, pas pour gagner.</i>"""
+
+
+@app.post("/api/admin/accueil")
+def admin_accueil(token: Optional[str] = Query(None),
+                  x_admin_token: Optional[str] = Header(None)):
+    """Poste le message d'accueil dans le groupe et l'épingle.
+
+    Sert aussi de TEST du routage : si ce message arrive, l'identifiant de
+    groupe est bon. C'est plus sûr que de le vérifier sur une notification
+    réelle, qu'on ne contrôle pas.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN:
+        raise HTTPException(status_code=400, detail="Jeton Telegram absent.")
+    if not TG_GROUPE_ID:
+        raise HTTPException(status_code=400,
+                            detail="ALPHASCALP_TG_GROUPE_ID non configuré.")
+    try:
+        envoi = urllib.parse.urlencode({
+            "chat_id": TG_GROUPE_ID, "text": ACCUEIL_GROUPE,
+            "parse_mode": "HTML", "disable_web_page_preview": "true"}).encode()
+        with urllib.request.urlopen(urllib.request.Request(
+                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                data=envoi), timeout=20) as r:
+            rep = json.loads(r.read().decode("utf-8"))
+        mid = rep.get("result", {}).get("message_id")
+        epingle = False
+        if mid:
+            try:
+                urllib.request.urlopen(urllib.request.Request(
+                    f"https://api.telegram.org/bot{TG_TOKEN}/pinChatMessage",
+                    data=urllib.parse.urlencode({
+                        "chat_id": TG_GROUPE_ID, "message_id": mid,
+                        "disable_notification": "true"}).encode()), timeout=20).read()
+                epingle = True
+            except Exception:
+                pass          # épingler est un confort, l'envoi a réussi
+        return {"ok": True, "message_id": mid, "epingle": epingle}
+    except urllib.error.HTTPError as e:
+        corps = e.read().decode("utf-8", "replace")[:200]
+        raise HTTPException(status_code=502, detail=f"Telegram {e.code} : {corps}")
+    except Exception as e:                          # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Envoi impossible : {e}")
 
 
 @app.get("/api/admin/groupes")

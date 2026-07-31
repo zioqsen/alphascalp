@@ -52,6 +52,11 @@ services:
       # le serveur démarre et les inscriptions fonctionnent quand même.
       - key: ALPHASCALP_TG_TOKEN
         sync: false
+      # [31/07] Groupe des beta-testeurs. Le prefixe -100 indique un
+      # SUPERGROUPE : un groupe converti change d identifiant, et l ancien
+      # devient inutilisable. C est pourquoi la recherche en renvoyait deux.
+      - key: ALPHASCALP_TG_GROUPE_ID
+        value: "-1003916010308"
 
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter
