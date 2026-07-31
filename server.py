@@ -1144,6 +1144,49 @@ def retrouver_cle(body: RetrouverIn):
     return {"ok": True, "api_key": key, "active": False, "restauree": True}
 
 
+@app.get("/api/stats")
+def stats(x_master_token: Optional[str] = Header(None)):
+    """État de la chaîne, pour le tableau de bord local.
+
+    [31/07] Protégé par le jeton MAÎTRE (celui du relais), pas par le jeton
+    admin : le tableau de bord tourne sur le PC, où ce jeton existe déjà dans
+    le .env du scalp. Pas de nouveau secret à gérer.
+
+    Ne renvoie AUCUNE clé ni email — uniquement des compteurs. Un tableau de
+    bord n'a pas besoin de données nominatives pour dire si la chaîne vit.
+    """
+    require_master(x_master_token)
+    maintenant = datetime.now(timezone.utc)
+    with db() as conn:
+        clients = conn.execute(
+            "SELECT COUNT(*) n, COALESCE(SUM(active),0) a FROM clients").fetchone()
+        sig = conn.execute(
+            "SELECT COUNT(*) n, COALESCE(MAX(id),0) dernier, MAX(created_at) quand "
+            "FROM signals").fetchone()
+        vus = conn.execute(
+            "SELECT last_seen FROM clients WHERE last_seen IS NOT NULL").fetchall()
+
+    def _age_min(iso):
+        try:
+            d = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            return (maintenant - d).total_seconds() / 60.0
+        except Exception:
+            return None
+
+    ages = [a for a in (_age_min(r["last_seen"]) for r in vus) if a is not None]
+    return {
+        "inscrits": clients["n"],
+        "cles_actives": clients["a"],
+        "followers_vus_1h": sum(1 for a in ages if a < 60),
+        "follower_plus_recent_min": round(min(ages), 1) if ages else None,
+        "signaux_total": sig["n"],
+        "dernier_signal_id": sig["dernier"],
+        "dernier_signal_age_min": round(_age_min(sig["quand"]), 1)
+                                   if sig["quand"] and _age_min(sig["quand"]) is not None else None,
+        "notif_telegram": bool(TG_TOKEN and TG_CHAT_ID),
+    }
+
+
 @app.get("/api/client/verifier")
 def verifier_cle(x_api_key: Optional[str] = Header(None)):
     """Vérifie qu'une clé existe, pour déverrouiller la page de
