@@ -824,7 +824,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire » (lecture seule)</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
-<table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
+<table><thead><tr><th>Nom</th><th>Clé API</th><th>Copieur</th><th>État</th><th>Vu</th><th></th></tr></thead>
 <tbody id="rows"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody></table>
 <script>
 // [31/07] Le jeton ne transite plus par l'URL mais par un en-tete.
@@ -920,6 +920,22 @@ function demanderJeton(message){
   });
   document.getElementById('voileT').focus();
 }
+// [31/07] La telemetrie du copieur s'affiche LA OU on active les cles.
+// Elle etait collectee et visible nulle part : il fallait lire /api/stats a
+// la main. Une donnee qu'on ne regarde pas ne sert a rien.
+function copieurCell(c){
+  if(!c.etat_maj) return '<span style="color:#898781">jamais vu</span>';
+  const bits = [];
+  if(c.etat_courtier) bits.push(esc(c.etat_courtier));
+  if(c.etat_compte === 'reel')
+    bits.push('<b style="color:#fab219">COMPTE REEL</b>');
+  if(c.etat_version) bits.push('v' + esc(c.etat_version));
+  let h = bits.join(' · ') || '—';
+  if(c.etat_probleme)
+    h += '<div style="color:#ef4444;font-size:11.5px;margin-top:2px">'
+       + esc(c.etat_probleme) + '</div>';
+  return h;
+}
 function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 async function load(){
   try{
@@ -929,7 +945,7 @@ async function load(){
     t.innerHTML = clients.map(c=>`<tr>
       <td>${esc(c.name)}</td>
       <td><code>${esc(c.api_key)}</code></td>
-      <td class="muted">${esc(c.plan)}</td>
+      <td class="muted">${copieurCell(c)}</td>
       <td><span class="pill ${c.active?'on':'off'}">${c.active?'● actif':'○ inactif'}</span></td>
       <td class="muted">${c.last_seen?esc(c.last_seen.replace('T',' ').replace('Z','')):'jamais'}</td>
       <td><div class="acts">
@@ -1905,8 +1921,24 @@ def verifier_cle(x_api_key: Optional[str] = Header(None)):
     de lui imposer un aller-retour.
     """
     c = get_client(x_api_key)
+    # [31/07] On renvoie aussi l'etat du copieur. Sans ca, un testeur n'a AUCUN
+    # moyen de savoir si son installation fonctionne : il voit un graphique et
+    # un visage souriant, et attend. Le doute pousse a desinstaller et
+    # reinstaller, ce qui ne repare rien et fait perdre du temps a tout le
+    # monde. La donnee existait deja (last_seen, etat_*), personne ne
+    # l'affichait.
+    def _age(iso):
+        try:
+            d = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - d).total_seconds() / 60.0
+        except Exception:
+            return None
+
     return {"ok": True, "nom": c["name"], "active": bool(c["active"]),
-            "lien_tg": code_liaison(c["api_key"])}
+            "lien_tg": code_liaison(c["api_key"]),
+            "vu_min": _age(c["last_seen"]) if c["last_seen"] else None,
+            "courtier": c["etat_courtier"] or "",
+            "probleme": c["etat_probleme"] or ""}
 
 
 @app.get("/telecharger/{nom}")

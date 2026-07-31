@@ -283,11 +283,38 @@ filet.</p>
 let cleValide = sessionStorage.getItem('as_cle') || '';
 let lienTg = '';
 let infosServeur = {};
+let derniereVerif = {};
 
 function msg(texte, couleur) {
   const e = document.getElementById('msgCle');
   e.textContent = texte;
   e.style.color = couleur || '#6b7a99';
+}
+
+function etatCopieur(j) {
+  // Le testeur n'avait aucun moyen de savoir si son installation fonctionne.
+  // Il voyait un graphique, un visage souriant, et attendait. Le doute pousse
+  // a desinstaller-reinstaller, ce qui ne repare rien.
+  if (j.vu_min === null || j.vu_min === undefined)
+    return '<div style="color:#6b7a99;font-size:13px;margin-top:10px">'
+      + 'Ton copieur ne s&#39;est pas encore manifeste. C&#39;est normal tant '
+      + 'que tu ne l&#39;as pas installe.</div>';
+  const m = Math.round(j.vu_min);
+  const vivant = m < 5;
+  let h = '<div style="font-size:13px;margin-top:10px;color:'
+    + (vivant ? '#22c55e' : '#fab219') + '">'
+    + (vivant ? '&#10003; Ton copieur tourne' : '&#9888; Ton copieur ne repond plus')
+    + ' <span style="color:#6b7a99">&mdash; vu il y a '
+    + (m < 1 ? 'moins d&#39;une minute' : m + ' min') + '</span>';
+  if (j.courtier) h += '<span style="color:#6b7a99"> &middot; ' + j.courtier + '</span>';
+  h += '</div>';
+  if (!vivant)
+    h += '<div style="color:#6b7a99;font-size:12.5px;margin-top:4px">'
+       + 'Verifie que MetaTrader est ouvert et que le bouton Algo Trading est vert.</div>';
+  if (j.probleme)
+    h += '<div style="color:#ef4444;font-size:12.5px;margin-top:4px">'
+       + 'Dernier probleme signale : ' + j.probleme + '</div>';
+  return h;
 }
 
 function deverrouiller(nom, active) {
@@ -299,6 +326,9 @@ function deverrouiller(nom, active) {
     : 'Bienvenue <b>' + nom + '</b>. Ta clé n&#39;est <b>pas encore activée</b> — '
       + 'installe quand même le copieur, il attendra tout seul et se réveillera '
       + 'à l&#39;activation. Rien à relancer.';
+  const zEtat = document.createElement('div');
+  zEtat.innerHTML = etatCopieur(derniereVerif);
+  p.parentNode.insertBefore(zEtat, p.nextSibling);
   document.getElementById('cle').style.display = 'none';
   // Lien profond : le testeur clique, le bot apprend qui il est, et pourra le
   // prevenir a l activation. Sans ca, on n a AUCUN moyen de le joindre.
@@ -328,6 +358,7 @@ async function verifier() {
     if (!r.ok) { msg('Erreur ' + r.status, '#ef4444'); return; }
     const j = await r.json();
     lienTg = j.lien_tg || '';
+    derniereVerif = j;
     cleValide = k;
     sessionStorage.setItem('as_cle', k);
     deverrouiller(j.nom || 'testeur', j.active);
@@ -378,7 +409,7 @@ document.getElementById('cle').addEventListener('keydown', ev => {
 if (cleValide) {
   fetch('/api/client/verifier', {headers: {'X-API-Key': cleValide}})
     .then(r => r.ok ? r.json() : Promise.reject())
-    .then(j => { lienTg = j.lien_tg || ''; deverrouiller(j.nom || 'testeur', j.active); })
+    .then(j => { lienTg = j.lien_tg || ''; derniereVerif = j; deverrouiller(j.nom || 'testeur', j.active); })
     .catch(() => { sessionStorage.removeItem('as_cle'); cleValide = ''; });
 }
 </script>
