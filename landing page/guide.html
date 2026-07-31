@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guide — Comment copier AlphaScalp</title>
-<meta name="description" content="Comment fonctionne la copie automatique AlphaScalp : créer son compte, lancer la copie, tout comprendre.">
+<title>Guide — Le parcours complet, en partant de zéro</title>
+<meta name="description" content="Tout le parcours AlphaScalp bêta, pas à pas : s'inscrire, installer le copieur sur un compte de démonstration, et savoir à quoi ressemble la normale.">
 <style>
   :root{color-scheme:dark;
     --bg:#080b10; --bg2:#0e1420; --border:rgba(255,255,255,.07);
@@ -23,54 +23,64 @@
   p{color:#c9d3e8;margin:10px 0}
   .muted{color:var(--muted)}
   a{color:var(--blue)}
+  code{background:#080b10;border:1px solid var(--border);border-radius:5px;
+    padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:13.5px}
   .banner{border:1px solid var(--amber);background:rgba(250,178,25,.07);
     border-radius:12px;padding:16px 18px;margin:22px 0;font-size:14.5px}
   .banner b{color:var(--text)}
+  .banner.bleu{border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.06)}
+  .banner.vert{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.06)}
   .card{background:rgba(255,255,255,.03);border:1px solid var(--border);
     border-radius:14px;padding:20px 22px;margin:16px 0}
-  .step{display:flex;gap:16px;margin:18px 0}
+  .step{display:flex;gap:16px;margin:22px 0}
   .step-n{flex:0 0 34px;height:34px;border-radius:50%;background:var(--blue);
     color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
-  .step-body{flex:1}
-  .step-body b{display:block;margin-bottom:4px}
-  .flow{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-    padding:18px;margin:18px 0;font-size:14px;line-height:2}
-  .flow code{color:var(--blue)}
+  .step-body{flex:1;min-width:0}
+  .step-body b.t{display:block;margin-bottom:6px;font-size:16.5px}
+  .duree{color:var(--muted);font-size:12.5px;font-weight:400}
   ul{margin:10px 0 10px 20px;color:#c9d3e8}
   li{margin:6px 0}
-  .faq b{color:var(--text);display:block;margin-top:16px}
+  .faq b{color:var(--text);display:block;margin-top:18px}
   .warn{border-left:3px solid var(--red);padding-left:14px;margin:16px 0;color:#c9d3e8}
   .ok{color:var(--green)} .no{color:var(--red)}
   table{border-collapse:collapse;width:100%;font-size:14.5px;margin:12px 0}
   th{text-align:left;color:var(--muted);font-size:12px;text-transform:uppercase;
     letter-spacing:.4px;padding:8px;border-bottom:1px solid rgba(255,255,255,.12)}
-  td{padding:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+  td{padding:8px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
   footer{margin-top:44px;padding-top:22px;border-top:1px solid rgba(255,255,255,.08);
     color:var(--muted);font-size:12px;line-height:1.7}
   .cta{text-align:center;margin:34px 0}
   .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;
-    padding:14px 32px;border-radius:10px;font-weight:600}
+    padding:14px 32px;border-radius:10px;font-weight:600;min-height:48px}
   .nav{text-align:center;margin-top:10px;font-size:14px}
   .nav a{margin:0 10px}
+  .console{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+    background:#080b10;border:1px solid var(--border);border-radius:8px;
+    padding:12px;margin-top:10px;white-space:pre-wrap;overflow-x:auto;color:var(--muted)}
+  details{border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:10px 0;
+    background:rgba(255,255,255,.02)}
+  summary{cursor:pointer;font-weight:600;font-size:14.5px}
+  details p{font-size:14px;margin:10px 0 0}
+  .sommaire a{display:block;padding:5px 0;font-size:14.5px}
 
-/* ---- MOBILE [30/07] ------------------------------------------------
-   Cette page n'avait AUCUNE regle responsive et contenait un tableau
-   sans conteneur defilant. C'est pourtant la plus lue depuis un
-   telephone : c'est le mode d'emploi qu'on suit en creant son compte
-   chez le broker, ecran dans une main. */
+/* ---- MOBILE ---------------------------------------------------------
+   C est la page qu on lit une main sur le telephone, l autre sur la
+   souris du PC ou l on installe. Elle doit tenir sans zoom. */
 html, body { max-width:100%; overflow-x:hidden; }
 img, svg { max-width:100%; height:auto; }
 @media (max-width: 768px) {
-  body { font-size:15.5px; }
-  nav { display:flex; flex-wrap:wrap; gap:8px 4px; }
-  nav a { margin:0 10px 0 0; white-space:nowrap; }
+  body { font-size:15.5px; padding:0 16px 60px; }
   h1 { font-size:26px; line-height:1.25; }
   h2 { font-size:20px; }
-  ol, ul { padding-left:20px; }
+  .nav { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 0; }
+  .nav a { margin:0 8px; white-space:nowrap; }
+  ol, ul { padding-left:18px; }
+  .step { gap:12px; }
+  .card, .banner { padding:14px 16px; }
 }
 @media (max-width: 640px) {
   table { display:block; width:100%; overflow-x:auto;
-          -webkit-overflow-scrolling:touch; white-space:nowrap; }
+          -webkit-overflow-scrolling:touch; }
   th, td { padding:8px 10px; font-size:13px; }
 }
 </style>
@@ -80,212 +90,396 @@ img, svg { max-width:100%; height:auto; }
 
 <header>
   <div class="logo">Alpha<span>Scalp</span></div>
-  <div class="sub">Guide : comment fonctionne la copie automatique</div>
-  <div class="nav"><a href="/">Accueil</a> · <a href="/performance">Performance</a> · <a href="/rejoindre">Rejoindre la bêta</a></div>
+  <div class="sub">Le parcours complet, en partant de zéro</div>
+  <div class="nav">
+    <a href="/">Accueil</a> ·
+    <a href="/performance">Performance</a> ·
+    <a href="/telecharger">Installer</a> ·
+    <a href="/rejoindre">Rejoindre la bêta</a>
+  </div>
 </header>
 
-<div class="banner">
-  ⏳ <b>Statut : en préparation.</b> La copie automatique sera activée quand la
-  stratégie aura complété sa phase de validation (track record vérifié sur
-  plusieurs mois). Ce guide décrit <b>exactement</b> comment ça fonctionnera —
-  tu peux déjà t'inscrire à la bêta pour être prévenu à l'ouverture.
-  <b>Aucun engagement, aucun paiement demandé aujourd'hui.</b>
+<!-- ====================================================================
+     [31/07/2026] PAGE REECRITE INTEGRALEMENT.
+
+     L ancienne version decrivait la copie *cote broker* : cinq etapes
+     numerotees qui disaient d ouvrir un compte chez un courtier, de
+     fournir une piece d identite, et de DEPOSER DE L ARGENT. C etait la
+     cible a terme, pas la beta. Or cette page est dans la barre de
+     navigation de la page de telechargement : un testeur qui cliquait
+     "Guide" -- le reflexe le plus naturel pour un debutant -- se faisait
+     envoyer deposer de l argent reel alors que la beta se fait
+     exclusivement sur compte de demonstration.
+
+     Des bandeaux avaient ete ajoutes en haut pour prevenir. Ils ne
+     suffisaient pas : on ne lit pas un avertissement, on suit des etapes
+     numerotees. C est a ca que servent des etapes numerotees.
+
+     Cette version decrit UNIQUEMENT le parcours reel de la beta. La
+     vision cote broker est reléguée en fin de page, en prose, sans une
+     seule etape numerotee -- rien qui puisse etre suivi par erreur.
+     ==================================================================== -->
+
+<div class="banner vert">
+  ✅ <b>Aucun argent, aucune pièce d'identité, aucune carte bancaire.</b>
+  La bêta se déroule <b>exclusivement sur un compte de démonstration</b> —
+  de l'argent fictif. Tu ne déposes rien, tu ne risques rien, et personne ne
+  te demandera jamais tes identifiants bancaires ou de courtier.
+  <br><br>
+  Si quelqu'un te demande de l'argent ou tes identifiants au nom
+  d'AlphaScalp, <b>c'est une arnaque</b> — signale-le dans le groupe.
 </div>
 
-<div class="banner" style="border-color:rgba(59,130,246,.35)">
-  📱 <b>Pendant la bêta, il faut un PC allumé ou un VPS.</b>
-  Ce guide décrit la copie <i>côté broker</i> : c'est la cible, et elle ne
-  demandera rien à faire tourner. Mais la bêta démarre avant ça, avec un
-  programme à installer dans MetaTrader 5 — et
-  <b>MT5 sur mobile n'exécute pas ce type de programme</b> (Android comme iOS :
-  les applications MetaTrader ne font pas tourner d'automatisation, c'est une
-  limite de MetaQuotes, pas un choix d'AlphaScalp).
+<div class="banner bleu">
+  💻 <b>Ce qu'il te faut vraiment :</b> un ordinateur (Windows) que tu peux
+  laisser allumé, et environ <b>30 minutes</b> la première fois. C'est tout.
   <br><br>
-  Concrètement, pour la bêta il te faut l'une de ces deux choses :
-  un <b>ordinateur laissé allumé</b> avec MT5 ouvert, ou un
-  <b>VPS</b> (serveur distant, ~10 à 15 €/mois) qui s'en charge à ta place.
-  Ton téléphone reste parfait pour <b>suivre</b> tes résultats — il ne peut
-  simplement pas <b>exécuter</b> la copie.
-  <br><br>
-  <span class="muted">Cette contrainte disparaît le jour où la copie passe
-  côté broker : c'est justement son intérêt principal, et c'est ce que décrit
-  le reste de cette page.</span>
+  <b>Le téléphone ne suffit pas.</b> MetaTrader sur mobile n'exécute pas ce
+  type de programme — c'est une limite de MetaQuotes, l'éditeur, pas un choix
+  d'AlphaScalp. Ton téléphone reste parfait pour <i>suivre</i> tes résultats
+  dans l'appli MT5, il ne peut simplement pas <i>faire tourner</i> la copie.
 </div>
 
 <h2>En une phrase</h2>
 <p>
-  Tu ouvres un compte chez un broker, tu appuies une fois sur « copier », et
-  <b>tous les trades d'AlphaScalp se reproduisent automatiquement sur ton
-  compte</b> — proportionnellement à ton capital, sans que tu aies quoi que ce
-  soit à faire ensuite.
+  Tu installes un petit programme sur ton MetaTrader, tu lui donnes ta clé,
+  et <b>les trades d'AlphaScalp se reproduisent tout seuls sur ton compte de
+  démonstration</b> — à une taille recalculée pour ton capital à toi.
 </p>
 
-<h2>Comment la copie fonctionne réellement</h2>
-
-<div class="flow">
-  Le bot AlphaScalp ouvre un trade<br>
-  &nbsp;&nbsp;↓ <code>en millisecondes</code><br>
-  Les serveurs du broker répliquent le trade<br>
-  &nbsp;&nbsp;↓<br>
-  Le trade apparaît sur <b>ton</b> compte, à <b>ta</b> taille
-</div>
-
 <div class="card">
-  <h3>📱 Ton téléphone peut être éteint <span class="muted">(une fois la copie côté broker en place)</span></h3>
-  <p class="muted" style="margin:0">
-    C'est le point clé de la copie <b>côté serveur</b> : elle se fait chez le
-    broker, sur son infrastructure. Tu n'as alors aucune application à laisser
-    tourner, aucun ordinateur à laisser allumé, et elle continue 24h/24 même si
-    tu ne touches jamais à ton téléphone.
-    <br><br>
-    <b style="color:#fab219">Ce n'est pas encore le cas pendant la bêta.</b>
-    D'ici là, la copie passe par un programme dans MetaTrader&nbsp;5, qui doit
-    tourner quelque part : un PC allumé ou un VPS. MT5 sur mobile n'exécute pas
-    ce type de programme. Voir l'encadré en haut de page.
+  <h3>Le trajet d'un trade, en 4 temps</h3>
+  <div class="console" style="line-height:2">Le bot AlphaScalp ouvre un trade sur son compte
+  ↓
+Le signal part vers le serveur AlphaScalp
+  ↓  (toutes les 10 secondes, ton copieur va voir)
+Ton copieur le relève, et <b style="color:#3b82f6">recalcule la taille</b> pour TON capital
+  ↓
+Le trade s'ouvre sur ton compte de démonstration</div>
+  <p class="muted" style="margin:12px 0 0;font-size:14px">
+    Rien ne transite d'autre que ta clé. Le copieur travaille depuis
+    <i>ton</i> terminal : AlphaScalp n'a aucun accès à ton compte, ne peut
+    rien y déposer, rien en retirer, et ne voit ni ton solde ni tes
+    positions.
   </p>
 </div>
 
-<div class="card">
-  <h3>⚖️ La taille s'adapte à ton capital</h3>
-  <p class="muted" style="margin:0">
-    La copie est proportionnelle : si AlphaScalp engage 2 % de son capital sur
-    un trade, ton compte engage 2 % du tien. Tu n'as pas besoin d'avoir la même
-    somme — <b>tu décides du montant que tu alloues</b>, et tout se met à
-    l'échelle automatiquement.
-  </p>
+<h2 id="sommaire">Le parcours, en 6 étapes</h2>
+<p class="muted">Environ 30 minutes en tout, une seule fois. Ensuite, plus
+rien à faire.</p>
+
+<div class="card sommaire">
+  <a href="#e1">1 · S'inscrire et récupérer sa clé <span class="duree">— 2 min</span></a>
+  <a href="#e2">2 · Attendre l'activation de la clé <span class="duree">— pas d'action</span></a>
+  <a href="#e3">3 · Installer MetaTrader 5 et ouvrir un compte démo <span class="duree">— 10 min</span></a>
+  <a href="#e4">4 · Télécharger et poser le copieur <span class="duree">— 5 min</span></a>
+  <a href="#e5">5 · Régler et lancer <span class="duree">— 5 min</span></a>
+  <a href="#e6">6 · Vérifier que tout est vivant <span class="duree">— 2 min</span></a>
+  <a href="#apres">Puis : à quoi ressemble la normale</a>
 </div>
 
-<div class="card">
-  <h3>🔒 Ton argent reste chez toi</h3>
-  <p class="muted" style="margin:0">
-    Les fonds restent <b>sur ton compte, à ton nom, chez un broker régulé</b>.
-    AlphaScalp ne détient jamais ton argent, n'y a jamais accès, et ne peut ni
-    le retirer ni le transférer. Nous publions seulement des trades ; c'est le
-    broker qui les réplique. Tu peux tout arrêter quand tu veux.
-  </p>
-</div>
-
-<h2>Créer ton compte et lancer la copie</h2>
-<p class="muted">Compte 15–20 minutes en tout, une seule fois. Ensuite, plus rien.</p>
-
-<div class="step">
+<div class="step" id="e1">
   <div class="step-n">1</div>
   <div class="step-body">
-    <b>S'inscrire à la bêta AlphaScalp</b>
-    Tu laisses ton email sur <a href="/rejoindre">la page d'inscription</a>. On
-    t'envoie ta clé et on te prévient dès l'ouverture des places.
+    <b class="t">S'inscrire et récupérer sa clé <span class="duree">— 2 minutes</span></b>
+    <p style="margin:0">Sur <a href="/rejoindre">la page d'inscription</a>, tu
+    donnes un prénom, un email et ta date de naissance. La clé s'affiche
+    <b>immédiatement à l'écran</b> : elle commence par <code>as_</code>.</p>
+    <p style="margin:10px 0 0"><b>Note-la quelque part.</b> Si tu la perds, tu
+    peux la retrouver avec ton email <i>et</i> ta date de naissance — les deux
+    sont exigés, justement pour que ton email seul ne suffise pas à quelqu'un
+    d'autre.</p>
+    <p class="muted" style="margin:10px 0 0">La date de naissance sert à deux
+    choses, et à rien d'autre : vérifier que tu es majeur, et te permettre de
+    récupérer ta clé. Le détail est dans la
+    <a href="/confidentialite">politique de confidentialité</a>.</p>
   </div>
 </div>
 
-<div class="step">
+<div class="step" id="e2">
   <div class="step-n">2</div>
   <div class="step-body">
-    <b>Ouvrir un compte chez le broker partenaire</b>
-    C'est l'étape la plus longue, et elle est <b>obligatoire</b> : la loi impose
-    que ton argent soit chez un établissement régulé. Tu devras fournir une pièce
-    d'identité et un justificatif de domicile (procédure standard, dite « KYC »).
-    <span class="muted">Le broker partenaire sera annoncé à l'ouverture — nous choisissons
-    une plateforme supportant la copie côté serveur.</span>
+    <b class="t">Attendre l'activation <span class="duree">— rien à faire</span></b>
+    <p style="margin:0">Les places de bêta sont activées <b>à la main</b>, une
+    par une. Tant que ce n'est pas fait, ta clé existe mais reste en sommeil.</p>
+    <p style="margin:10px 0 0"><b>Tu n'as pas à attendre pour continuer.</b>
+    Fais les étapes 3, 4 et 5 tout de suite. Le copieur affichera simplement
+    <code>Clé encore INACTIVE</code> dans son journal, et il
+    <b>se réveillera tout seul</b> le moment venu — sans rien relancer.</p>
   </div>
 </div>
 
-<div class="step">
+<div class="step" id="e3">
   <div class="step-n">3</div>
   <div class="step-body">
-    <b>Alimenter ton compte</b>
-    Tu déposes le montant que tu souhaites consacrer à cette stratégie. Un
-    minimum est requis par la plateforme <span class="muted">(de l'ordre de 100 $ ; le
-    montant exact sera précisé à l'ouverture)</span>. Ne dépose que ce que tu peux
-    te permettre de perdre.
+    <b class="t">MetaTrader 5 et un compte de démonstration <span class="duree">— 10 minutes</span></b>
+    <p style="margin:0">C'est l'étape la plus longue si tu n'as jamais tradé.
+    Elle ne se fait qu'une fois.</p>
+    <p style="margin:10px 0 0">Choisis un courtier régulé, demande un
+    <b>compte DÉMO</b> (jamais un compte réel pour la bêta), et installe
+    <b>MetaTrader 5</b> sur ton PC. Le courtier te renvoie trois informations :</p>
+    <ul>
+      <li>un <b>numéro de compte</b> (des chiffres)</li>
+      <li>un <b>mot de passe</b></li>
+      <li>un <b>nom de serveur</b> (du genre <code>MonCourtier-Demo</code>)</li>
+    </ul>
+    <p style="margin:10px 0 0">Tu les saisis dans MetaTrader :
+    <b>Fichier → Se connecter à un compte de trading</b>.</p>
+    <div class="banner" style="margin:14px 0 0">
+      🔐 <b>Ne saisis jamais ces trois informations ailleurs que dans
+      MetaTrader.</b> Ni sur ce site, ni dans le groupe, ni en message privé.
+      AlphaScalp ne te les demandera <b>jamais</b> — le copieur tourne sur ton
+      propre terminal, il n'a besoin d'aucun accès à ton compte.
+      Quiconque te les réclame, quel que soit le prétexte, cherche à te voler.
+    </div>
+    <p class="muted" style="margin:12px 0 0">Un compte démo, c'est de l'argent
+    fictif : aucune carte bancaire, aucun versement, aucun engagement. Tu peux
+    en ouvrir autant que tu veux et le fermer quand tu veux.</p>
   </div>
 </div>
 
-<div class="step">
+<div class="step" id="e4">
   <div class="step-n">4</div>
   <div class="step-body">
-    <b>Chercher « AlphaScalp » et appuyer sur Copier</b>
-    Dans l'application du broker (disponible sur mobile), tu trouves la
-    stratégie, tu consultes son historique public, tu choisis le montant à
-    allouer, et tu confirmes. <b>C'est le dernier geste que tu auras à faire.</b>
+    <b class="t">Télécharger et poser le copieur <span class="duree">— 5 minutes</span></b>
+    <p style="margin:0">Sur <a href="/telecharger">la page d'installation</a>,
+    colle ta clé pour débloquer le téléchargement. Tu récupères deux fichiers :
+    le programme (<code>.ex5</code>) et son code source (<code>.mq5</code>).</p>
+    <p style="margin:10px 0 0">Dans MetaTrader :
+    <b>Fichier → Ouvrir le dossier de données</b>, puis
+    <code>MQL5</code> → <code>Experts</code>. Copie les deux fichiers dedans.
+    Reviens dans MetaTrader, clic droit sur <b>Expert Advisors</b> dans le
+    Navigateur (à gauche) → <b>Actualiser</b>.</p>
+    <p class="muted" style="margin:10px 0 0">Le code source est fourni parce
+    que ce programme va passer des ordres sur ton compte : tu as le droit de
+    voir ce qu'il fait, et de le recompiler toi-même si tu préfères.</p>
   </div>
 </div>
 
-<div class="step">
+<div class="step" id="e5">
   <div class="step-n">5</div>
   <div class="step-body">
-    <b>C'est tout — tu n'as plus rien à faire</b>
-    Les trades arrivent tout seuls. Tu peux fermer l'appli, éteindre ton
-    téléphone. Tu ouvres l'application quand tu veux pour suivre tes résultats.
+    <b class="t">Régler et lancer <span class="duree">— 5 minutes</span></b>
+    <p style="margin:0"><b>D'abord l'autorisation réseau — c'est l'étape que
+    tout le monde oublie, et sans elle rien ne fonctionne.</b><br>
+    <b>Outils → Options → onglet Expert Advisors</b> : coche
+    « Autoriser les WebRequest pour les URL listées » et ajoute exactement
+    <code>https://alphascalp.onrender.com</code></p>
+    <p style="margin:10px 0 0">Ensuite, le bouton <b>Algo Trading</b> de la
+    barre d'outils doit être <b>vert</b>. Puis ouvre n'importe quel graphique
+    et fais glisser <code>AlphaScalpCopier</code> dessus.</p>
+    <table>
+      <tr><th>Réglage</th><th>À mettre</th></tr>
+      <tr><td><code>CleApi</code></td><td>ta clé (<code>as_…</code>)</td></tr>
+      <tr><td><code>RisqueParTrade</code></td><td><code>1.0</code> — soit 1 % du capital par trade</td></tr>
+      <tr><td><code>PositionsMaximum</code></td><td><code>3</code></td></tr>
+    </table>
+    <p style="margin:0">Onglet <b>Commun</b> : coche « Autoriser le trading
+    automatique », puis <b>OK</b>. Un visage souriant apparaît en haut à droite
+    du graphique.</p>
+    <p class="muted" style="margin:10px 0 0">
+      Le détail complet, avec les cas particuliers, est sur
+      <a href="/telecharger">la page d'installation</a>.
+    </p>
   </div>
 </div>
 
-<h2>Ce que tu gardes sous contrôle</h2>
+<div class="step" id="e6">
+  <div class="step-n">6</div>
+  <div class="step-body">
+    <b class="t">Vérifier que tout est vivant <span class="duree">— 2 minutes</span></b>
+    <p style="margin:0">Onglet <b>« Journal des experts »</b>, en bas de
+    MetaTrader :</p>
+    <div class="console">[AlphaScalp] === AlphaScalp Copier v1.00 ===
+[AlphaScalp] Premier lancement — départ au signal n°42
+[AlphaScalp] Compte 12345678 | capital 10000.00 EUR | risque 1.0%
+[AlphaScalp] Rappel : ce terminal doit rester ALLUMÉ</div>
+    <p style="margin:12px 0 0"><b>Deuxième vérification, plus parlante :</b>
+    retourne sur <a href="/telecharger">la page d'installation</a> et colle ta
+    clé. Elle t'affiche si <b>ton</b> copieur s'est manifesté, et quand :
+    <span class="ok">« Ton copieur tourne — vu il y a 1 min »</span>.</p>
+    <p class="muted" style="margin:10px 0 0">C'est la réponse à la question
+    « est-ce que ça marche ? » quand aucun trade n'est encore passé. Reviens-y
+    autant de fois que tu veux.</p>
+  </div>
+</div>
+
+<h2 id="apres">Ensuite : à quoi ressemble la normale</h2>
+
+<div class="banner">
+  ⏳ <b>Il ne va probablement rien se passer pendant un moment. C'est normal.</b>
+  <br><br>
+  Sur les relevés réels de la stratégie, il sort en moyenne
+  <b>environ un trade par jour</b>, et il arrive régulièrement qu'il n'y en ait
+  <b>aucun pendant deux ou trois jours</b>. Ce n'est pas une panne : le bot ne
+  trade que quand ses conditions sont réunies, et rester à l'écart fait partie
+  de la stratégie.
+  <br><br>
+  Si tu installes le vendredi soir, tu peux très bien ne rien voir avant mardi.
+  <b>Ne désinstalle rien, ne relance rien.</b> Vérifie plutôt que ton copieur
+  est vivant (étape 6) — c'est ça, le bon signal.
+</div>
+
+<div class="card">
+  <h3>⏰ Les week-ends, il ne se passe rien du tout</h3>
+  <p class="muted" style="margin:0">Les marchés ferment le vendredi soir et
+  rouvrent le dimanche soir. Entre les deux, aucun signal ne peut être émis,
+  par personne. Un copieur silencieux le samedi est un copieur en bonne
+  santé.</p>
+</div>
+
+<div class="card">
+  <h3>🔄 Si tu redémarres ton PC ou fermes MetaTrader</h3>
+  <p class="muted" style="margin:0">MetaTrader rouvre ses graphiques et
+  relance ses programmes tout seul au démarrage suivant : tu n'as
+  <b>rien à réinstaller</b>, et ta clé reste enregistrée. Vérifie juste que le
+  bouton <b>Algo Trading</b> est bien redevenu vert.
+  <br><br>
+  Pendant que ton PC est éteint, le copieur ne relève évidemment plus rien —
+  il reprendra au réveil, sans rejouer les signaux manqués. En revanche, les
+  positions déjà ouvertes <b>gardent leur stop chez le courtier</b> : elles
+  restent protégées même PC éteint.</p>
+</div>
+
+<div class="card">
+  <h3>📉 Il y aura des trades perdants</h3>
+  <p class="muted" style="margin:0">Ce n'est pas un défaut, c'est le métier.
+  Une stratégie se juge sur des dizaines de trades, jamais sur les trois
+  premiers. Toutes les performances, pertes comprises, sont publiées en
+  direct sur <a href="/performance">la page performance</a> — regarde-la
+  plutôt que ton propre écran les premiers jours.</p>
+</div>
+
+<h2>Comment arrêter</h2>
 <table>
-  <thead><tr><th>Action</th><th>Possible ?</th></tr></thead>
+  <thead><tr><th>Ce que tu veux</th><th>Comment</th></tr></thead>
   <tbody>
-    <tr><td>Ajouter des fonds pendant que ça copie</td><td class="ok">✅ à tout moment</td></tr>
-    <tr><td>Retirer une partie des fonds</td><td class="ok">✅ à tout moment</td></tr>
-    <tr><td>Arrêter complètement la copie</td><td class="ok">✅ à tout moment, en un geste</td></tr>
-    <tr><td>Récupérer 100 % de ton argent</td><td class="ok">✅ tu arrêtes la copie et tu retires tout</td></tr>
-    <tr><td>AlphaScalp peut-il toucher à ton argent ?</td><td class="no">❌ jamais</td></tr>
+    <tr><td>Mettre en pause quelques heures</td>
+        <td>Clique sur <b>Algo Trading</b> pour le passer au rouge.</td></tr>
+    <tr><td>Arrêter complètement</td>
+        <td>Clic droit sur le graphique → <b>Liste des experts</b> → Supprimer.</td></tr>
+    <tr><td>Tout enlever de ton PC</td>
+        <td>Supprime les deux fichiers du dossier <code>MQL5/Experts</code>.</td></tr>
+    <tr><td>Effacer ton compte AlphaScalp</td>
+        <td>Un message à <a href="mailto:zioqsen@gmail.com">zioqsen@gmail.com</a> suffit.</td></tr>
   </tbody>
 </table>
+<p class="muted" style="font-size:14px">
+  <b>Si tu arrêtes le copieur alors que des positions sont ouvertes</b>, elles
+  ne sont plus suivies, mais elles gardent leur stop et leur objectif : elles
+  se fermeront dessus toutes seules. Elles ne restent jamais sans filet.
+</p>
 
 <h2>Questions fréquentes</h2>
 <div class="faq">
-  <b>Dois-je laisser mon ordinateur allumé ?&nbsp;<span class="muted">(oui pendant la bêta, non ensuite)</span></b>
-  <p>Non. La copie tourne sur les serveurs du broker, en continu.</p>
+  <b>Est-ce que ça va me coûter quelque chose ?</b>
+  <p>Non. La bêta est gratuite et se fait sur compte de démonstration : il n'y
+  a aucun argent en jeu, donc rien à payer ni à perdre.</p>
+
+  <b>Dois-je laisser mon ordinateur allumé ?</b>
+  <p>Oui, pendant la bêta. Le copieur tourne dans <i>ton</i> MetaTrader ; PC
+  éteint, il ne relève plus rien. Les positions déjà ouvertes gardent
+  néanmoins leur stop chez le courtier, elles ne sont pas en danger.</p>
 
   <b>Est-ce que je dois m'y connaître en trading ?</b>
-  <p>Non pour l'utilisation. Mais tu dois comprendre <b>le risque</b> : tu peux
-  perdre de l'argent, y compris une part importante de ton dépôt. Ne confie
-  jamais à une stratégie automatisée de l'argent dont tu as besoin.</p>
+  <p>Non pour installer et faire tourner. Le seul prérequis est de savoir
+  utiliser un ordinateur.</p>
 
-  <b>Combien ça coûte ?</b>
-  <p>La bêta est gratuite. Ensuite, un abonnement mensuel
-  <span class="muted">(les tarifs affichés sur la page d'accueil sont indicatifs et
-  seront confirmés au lancement)</span>. S'y ajoutent les frais normaux de ton
-  broker (spreads, commissions), qui ne nous reviennent pas.</p>
+  <b>Combien de trades vais-je voir par jour ?</b>
+  <p>Environ un, en moyenne, avec des journées à zéro. Voir plus haut — c'est
+  la question qui revient le plus souvent.</p>
 
-  <b>Que se passe-t-il si la stratégie perd ?</b>
-  <p>Tu perds proportionnellement, comme tout le monde — nous y compris. C'est
-  pourquoi nous publions <a href="/performance">toutes nos performances en
-  direct</a>, pertes comprises, avant même de vendre quoi que ce soit.</p>
+  <b>Le copieur peut-il toucher aux trades que j'ouvre moi-même ?</b>
+  <p>Non. Il ne gère que les siens, qu'il reconnaît à un numéro interne. Tes
+  propres positions lui sont invisibles.</p>
 
-  <b>Puis-je essayer sans risquer d'argent ?</b>
-  <p>Oui, c'est même recommandé : la plupart des brokers proposent un compte de
-  démonstration. Tu vois la stratégie tourner avec de l'argent fictif avant de
-  décider.</p>
+  <b>Mon courtier n'a pas le symbole XAUUSD, il l'appelle autrement.</b>
+  <p>Fréquent : <code>XAUUSD.r</code>, <code>XAUUSDm</code>,
+  <code>XAUUSD#</code>… Regarde dans « Observation du marché » comment il
+  s'appelle chez toi et renseigne la partie qui s'ajoute dans
+  <code>SuffixeSymbole</code> ou <code>PrefixeSymbole</code>. Le détail est
+  sur <a href="/telecharger">la page d'installation</a>.</p>
 
-  <b>Pourquoi ce n'est pas encore disponible ?</b>
-  <p>Parce que nous refusons de vendre une stratégie non prouvée. Nous
-  accumulons un historique vérifiable ; les plateformes de copie exigent
-  d'ailleurs un track record minimum avant d'accepter un fournisseur. Nous
-  ouvrirons quand les chiffres le justifieront — pas avant.</p>
+  <b>Quelles données avez-vous sur moi ?</b>
+  <p>Prénom, email, date de naissance, et ce que le copieur remonte sur son
+  propre fonctionnement (sa version, le nom de ton courtier, s'il rencontre
+  une erreur). <b>Jamais ton solde, jamais tes positions, jamais tes
+  identifiants.</b> Tout est détaillé dans la
+  <a href="/confidentialite">politique de confidentialité</a>.</p>
+
+  <b>Je suis bloqué et rien ne marche.</b>
+  <p>Le groupe des testeurs est fait pour ça, et le sujet « Aide » en
+  particulier. Copie-colle les lignes du <b>Journal des experts</b> : elles
+  disent presque toujours ce qui cloche, en toutes lettres.</p>
 </div>
 
+<div id="zoneGroupe"></div>
+
+<h2>Et plus tard ?</h2>
+<p>
+  L'objectif à terme est de passer la copie <b>chez le courtier lui-même</b> :
+  ce sont alors ses serveurs qui répliquent les trades, il n'y a plus aucun
+  programme à installer ni aucun ordinateur à laisser allumé. C'est ce qui
+  permettra de tout piloter depuis un téléphone.
+</p>
+<p class="muted">
+  Ce n'est <b>pas</b> ce que tu fais aujourd'hui, et ce n'est pas encore
+  ouvert : les plateformes de copie exigent un historique vérifié sur
+  plusieurs mois avant d'accepter une stratégie, et c'est très bien ainsi.
+  Cette page sera mise à jour le moment venu — avec le nom du courtier et les
+  montants réels, qui n'ont volontairement pas leur place ici tant que la
+  bêta tourne sur de l'argent fictif.
+</p>
+
 <div class="warn">
-  <b>Avertissement.</b> Le trading comporte un risque de perte en capital, pouvant
-  aller jusqu'à la totalité des sommes engagées. Les performances passées ne
-  préjugent pas des performances futures. AlphaScalp ne fournit pas de conseil en
-  investissement personnalisé et ne gère pas les fonds de ses utilisateurs.
-  N'investis que ce que tu peux te permettre de perdre.
+  <b>Avertissement.</b> Le trading comporte un risque de perte en capital,
+  pouvant aller jusqu'à la totalité des sommes engagées. Les performances
+  passées ne préjugent pas des performances futures. AlphaScalp ne fournit pas
+  de conseil en investissement personnalisé et ne gère pas les fonds de ses
+  utilisateurs. La bêta se déroule exclusivement sur compte de démonstration.
 </div>
 
 <div class="cta">
   <a class="btn" href="/rejoindre">Rejoindre la bêta</a>
   <div class="muted" style="font-size:12.5px;margin-top:10px">
-    Gratuit · sans engagement · on te prévient à l'ouverture
+    Gratuit · compte de démonstration · aucun paiement, aucune pièce d'identité
   </div>
 </div>
 
 <footer>
   AlphaScalp publie les signaux d'une stratégie algorithmique. L'exécution des
-  ordres et la conservation des fonds sont assurées par un broker régulé, jamais
-  par AlphaScalp. Ce guide sera mis à jour avec les informations définitives
-  (broker partenaire, montants, tarifs) à l'ouverture du service.
+  ordres a lieu sur ton propre terminal MetaTrader, sur ton compte de
+  démonstration. AlphaScalp ne détient jamais de fonds et n'a jamais accès à
+  ton compte.
+  <br>
+  <a href="/mentions-legales">Mentions légales</a> ·
+  <a href="/confidentialite">Confidentialité</a> ·
+  <a href="mailto:zioqsen@gmail.com">Contact</a>
 </footer>
 
 </div>
+
+<script>
+// Lien vers le groupe des testeurs, recupere aupres du serveur pour ne pas
+// figer une invitation dans la page : si elle est revoquee, un lien code en
+// dur mene a une erreur sans que rien ne le signale.
+// NB : aucune apostrophe dans les chaines ci-dessous. Ce fichier est aussi
+// servi depuis Python, et une apostrophe mal echappee y a deja tue un script
+// entier -- page figee, aucune erreur nulle part.
+(async function () {
+  try {
+    const j = await (await fetch("/api/health")).json();
+    if (!j || !j.invitation) return;
+    document.getElementById("zoneGroupe").innerHTML =
+      "<div class=\"card\" style=\"border-color:rgba(59,130,246,.35)\">"
+      + "<h3>💬 Le groupe des testeurs</h3>"
+      + "<p class=\"muted\" style=\"margin:0 0 12px\">Une question, un blocage, "
+      + "une remarque ? On y r&eacute;pond, et les retours servent directement "
+      + "&agrave; corriger.</p>"
+      + "<a class=\"btn\" href=\"" + j.invitation + "\" target=\"_blank\" "
+      + "rel=\"noopener noreferrer\">Rejoindre le groupe</a></div>";
+  } catch (e) { /* le guide reste lisible sans le groupe */ }
+})();
+</script>
 </body>
 </html>

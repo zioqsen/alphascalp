@@ -94,6 +94,23 @@ chose comme :
 
 À partir de là, il n'y a plus rien à faire. Laisse tourner.
 
+## 6. Et maintenant ? Il ne va rien se passer tout de suite
+
+**C'est normal, et c'est le point le plus important de cette notice.**
+
+La stratégie sort en moyenne **environ un trade par jour**, et il arrive
+régulièrement qu'il n'y en ait **aucun pendant deux ou trois jours**. Le bot
+ne trade que quand ses conditions sont réunies : rester à l'écart fait partie
+de la stratégie, ce n'est pas une panne.
+
+Ajoute que **les marchés sont fermés du vendredi soir au dimanche soir**. Si
+tu installes le vendredi, tu peux très bien ne rien voir avant mardi.
+
+**Ne désinstalle rien, ne relance rien.** Pour savoir si ça marche, ne regarde
+pas les trades — regarde si ton copieur est vivant : recolle ta clé sur la
+page d'installation du site, elle affiche *« Ton copieur tourne — vu il y a
+1 min »*. C'est ça, la bonne réponse à « est-ce que ça fonctionne ? ».
+
 ---
 
 ## Si ça ne marche pas
