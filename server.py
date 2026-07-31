@@ -69,10 +69,14 @@ TG_GROUPE_ID = os.environ.get("ALPHASCALP_TG_GROUPE_ID", "")
 # Telegram interdit à un bot d'ajouter quelqu'un à un groupe, et ce
 # serait une donnée personnelle de plus pour un résultat nul.
 TG_INVITATION = os.environ.get("ALPHASCALP_TG_INVITATION", "")
-# Nom du bot (sans @), pour construire les liens profonds t.me/<bot>?start=...
-TG_BOT_NOM = os.environ.get("ALPHASCALP_TG_BOT", "")
-# Nom du bot (sans @), pour construire les liens profonds t.me/<bot>?start=...
-TG_BOT_NOM = os.environ.get("ALPHASCALP_TG_BOT", "")
+# Nom du bot, pour les liens profonds t.me/<bot>?start=...
+# On NETTOIE la valeur : un @ ou une adresse complete collee depuis
+# Telegram donneraient t.me/@monbot?start=... ou
+# t.me/https://t.me/monbot?start=... — tous deux invalides, et l'echec
+# serait SILENCIEUX : le bouton menerait a une erreur Telegram sans que
+# rien ne le signale de notre cote.
+TG_BOT_NOM = (os.environ.get("ALPHASCALP_TG_BOT", "")
+              .strip().lstrip("@").rsplit("/", 1)[-1].split("?")[0])
 
 
 def _heure_paris() -> str:
