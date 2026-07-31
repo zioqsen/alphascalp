@@ -225,6 +225,14 @@
     }
 
     /* ── SECTIONS ── */
+    /* [31/07] La barre de navigation est `position: fixed` sur 72 px. Sans
+       cette marge, cliquer « Les bots » amenait la cible SOUS le menu : le
+       titre et l'introduction de la section étaient recouverts, et on
+       atterrissait au milieu du contenu sans comprendre pourquoi.
+       `scroll-margin-top` décale le point d'ancrage sans rien déplacer
+       visuellement. Sur mobile la barre passe sur deux lignes, donc plus haut. */
+    section[id], [id] { scroll-margin-top: 92px; }
+    @media (max-width: 768px) { section[id], [id] { scroll-margin-top: 140px; } }
     section {
       position: relative; z-index: 1;
       padding: 100px 6%;
@@ -520,6 +528,17 @@
       }
       .nav-links::-webkit-scrollbar { display: none; }
       .nav-links a { white-space: nowrap; font-size: 14px; padding: 6px 0; }
+      /* [31/07] Les cinq liens mesurent ~494 px pour une fenêtre de 375 :
+         ils défilaient horizontalement, mais la barre de défilement est
+         masquée, donc RIEN n'indiquait que « Tarifs » et « FAQ » existaient
+         au-delà du bord. Trois relectures ont décrit le menu comme « serré »,
+         « coupé » ou « qui se chevauche » — c'est le même symptôme.
+         On garde les deux liens qui servent réellement à un nouveau visiteur.
+         Les autres restent atteignables en faisant défiler la page et depuis
+         le pied de page : rien n'est perdu, la barre cesse d'être illisible. */
+      .nav-links a[href="#bots"],
+      .nav-links a[href="#tarifs"],
+      .nav-links a[href="#faq"] { display: none; }
       .nav-cta { margin-left: auto; padding: 10px 16px; }
 
       .stats-band { grid-template-columns: repeat(2, 1fr); }
@@ -682,27 +701,35 @@
 <section id="bots" style="padding-top:0">
   <div class="reveal">
     <div class="section-label">Technologie</div>
-    <h2 class="section-title">Les 3 bots AlphaScalp</h2>
-    <p class="section-desc">Trois stratégies complémentaires pour couvrir différents régimes de marché.</p>
+    <h2 class="section-title">Une stratégie testée, deux en préparation</h2>
+    <p class="section-desc">Seule la première est diffusée aujourd'hui. Les deux autres n'ont pas fini leur validation, et rien ne dit qu'elles la passeront.</p>
   </div>
+  <!-- [31/07] Deux corrections ici.
+       1) « Trades rapides, GAINS RÉGULIERS, risque maîtrisé » : promesse
+          implicite de résultat, sur une stratégie affichée à 1,12 de facteur
+          de profit et étiquetée « en calibrage ». C'est la phrase la plus
+          exposée que contenait le site — remplacée par du factuel vérifiable.
+       2) Trois cartes marquées « En calibrage » côte à côte donnaient
+          l'impression d'un catalogue déguisé : une seule stratégie répétée
+          trois fois. On dit ce qui est vrai — une diffusée, deux en attente. -->
   <div class="bots-grid">
     <div class="bot-card featured reveal">
       <div class="bot-icon">⚡</div>
       <h3>ScalpBot</h3>
-      <p>Notre bot principal. Stratégie de scalping court terme sur EURUSD et XAUUSD. Trades rapides, gains réguliers, risque maîtrisé.</p>
-      <span class="bot-tag">● En calibrage</span>
+      <p>La seule stratégie diffusée pendant la bêta. Scalping court terme sur EURUSD et XAUUSD : chaque entrée respecte des critères prédéfinis et une limite de risque calculée avant l'ordre. Ses résultats, gains et pertes, sont publics.</p>
+      <span class="bot-tag">● Diffusée · en validation</span>
     </div>
     <div class="bot-card reveal">
       <div class="bot-icon">🤖</div>
       <h3>AutoTradeBot</h3>
-      <p>Trading automatique sur positions moyennes. Analyse les tendances de fond et prend des positions plus larges sur les grandes moves.</p>
-      <span class="bot-tag">● En calibrage</span>
+      <p>Positions moyennes sur les tendances de fond. <b>Non diffusé.</b> Repassé en simulation après 14 trades réels perdants — il n'en sortira que si les mesures le justifient, à échéance fixée.</p>
+      <span class="bot-tag">● En simulation</span>
     </div>
     <div class="bot-card reveal">
       <div class="bot-icon">🌊</div>
       <h3>SwingBot</h3>
-      <p>Trading de tendance long terme. Peu de trades, positions tenues plusieurs jours, sorties par trailing pour laisser courir les mouvements.</p>
-      <span class="bot-tag">● En calibrage</span>
+      <p>Tendance long terme, positions tenues plusieurs jours, sorties par trailing. <b>Non diffusé.</b> Trop peu de trades à ce jour pour juger quoi que ce soit.</p>
+      <span class="bot-tag">● Échantillon insuffisant</span>
     </div>
   </div>
 </section>
