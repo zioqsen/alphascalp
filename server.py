@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 # ─────────────────────────────────────────────────────────────
@@ -806,6 +806,76 @@ def guide_page():
 
 
 _CONFID = os.path.join(_HERE, "landing page", "confidentialite.html")
+
+
+# ─────────────────────────────────────────────────────────────
+# TÉLÉCHARGEMENT DU CLIENT DE COPIE  [31/07]
+# ─────────────────────────────────────────────────────────────
+# Un bêta-testeur ne va pas chercher un fichier sur GitHub. On sert l'EA
+# depuis le site, avec les étapes d'installation SUR LA MÊME PAGE : ouvrir un
+# second document pendant qu'on manipule MetaTrader fait perdre tout le monde.
+#
+# Pas de protection par clé : l'EA ne fait rien sans une clé ACTIVE, et le
+# code source est de toute façon public. Verrouiller le téléchargement
+# ajouterait une friction sans rien protéger.
+_TELECHARGER = os.path.join(_HERE, "landing page", "telecharger.html")
+
+
+@app.get("/telecharger", response_class=HTMLResponse)
+def telecharger_page():
+    """Page d'installation du copieur : téléchargements + étapes sur la MÊME
+    page. Un testeur qui manipule MetaTrader ne doit pas avoir à jongler avec
+    un second document ouvert ailleurs."""
+    return _serve_file(_TELECHARGER, "<p>Page indisponible.</p>")
+
+
+_CLIENT_DIR = os.path.join(_HERE, "client")
+_FICHIERS_CLIENT = {
+    "AlphaScalpCopier.ex5": "application/octet-stream",
+    "AlphaScalpCopier.mq5": "text/plain; charset=utf-8",
+}
+
+
+@app.get("/api/client/verifier")
+def verifier_cle(x_api_key: Optional[str] = Header(None)):
+    """Vérifie qu'une clé existe, pour déverrouiller la page de
+    téléchargement. Renvoie 401 si elle est inconnue.
+
+    On n'exige PAS que la clé soit active : le copieur est conçu pour attendre
+    l'activation en veille, et l'installation prend une dizaine de minutes.
+    Autant laisser le testeur préparer son poste pendant ce temps plutôt que
+    de lui imposer un aller-retour.
+    """
+    c = get_client(x_api_key)
+    return {"ok": True, "nom": c["name"], "active": bool(c["active"])}
+
+
+@app.get("/telecharger/{nom}")
+def telecharger_client(nom: str, x_api_key: Optional[str] = Header(None)):
+    """Sert un fichier du client de copie, RÉSERVÉ AUX INSCRITS.
+
+    [31/07] La clé est exigée ici, côté serveur, et pas seulement pour cacher
+    un bouton dans la page : un verrou uniquement visuel se contourne en
+    ouvrant l'adresse du fichier à la main. C'est pour ça que la page
+    télécharge par requête authentifiée plutôt que par simple lien.
+
+    ⚠️ À savoir : ceci contrôle l'ACCÈS AU SERVICE, pas la confidentialité du
+    fichier — le dépôt GitHub est public et le .mq5 s'y trouve. Rendre le
+    fichier réellement privé demanderait de sortir `client/` du dépôt public,
+    ce qui est une autre décision.
+
+    La liste blanche `_FICHIERS_CLIENT` empêche par ailleurs un `nom`
+    malveillant (`../../server.py`, `../.env`) de faire sortir n'importe quel
+    fichier : on ne nettoie pas le chemin, on n'accepte QUE des noms connus.
+    Une liste blanche ne se contourne pas par une astuce d'encodage.
+    """
+    get_client(x_api_key)                    # 401 si clé absente ou inconnue
+    if nom not in _FICHIERS_CLIENT:
+        raise HTTPException(status_code=404, detail="Fichier inconnu")
+    chemin = os.path.join(_CLIENT_DIR, nom)
+    if not os.path.isfile(chemin):
+        raise HTTPException(status_code=404, detail="Fichier indisponible")
+    return FileResponse(chemin, media_type=_FICHIERS_CLIENT[nom], filename=nom)
 
 
 _MENTIONS = os.path.join(_HERE, "landing page", "mentions-legales.html")

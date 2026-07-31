@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installer le copieur — AlphaScalp</title>
+<meta name="description" content="Télécharger et installer le copieur AlphaScalp sur MetaTrader 5. Compte démo, 10 minutes.">
+<style>
+  :root{color-scheme:dark;
+    --bg:#080b10; --bg2:#0e1420; --border:rgba(255,255,255,.07);
+    --blue:#3b82f6; --green:#22c55e; --amber:#fab219; --red:#ef4444;
+    --text:#f0f4ff; --muted:#6b7a99;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+    font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 20px 70px}
+  .wrap{max-width:760px;margin:0 auto}
+  nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px 4px;
+    padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:30px}
+  nav .brand{font-weight:800;letter-spacing:-.4px;margin-right:auto}
+  nav .brand span{color:var(--blue)}
+  nav a{color:var(--muted);text-decoration:none;font-size:14px;margin-left:16px;white-space:nowrap}
+  nav a:hover{color:var(--text)}
+  h1{font-size:29px;letter-spacing:-.6px;line-height:1.2;margin-bottom:8px}
+  .sous{color:var(--muted);margin-bottom:26px}
+  h2{font-size:19px;margin:32px 0 10px;letter-spacing:-.3px}
+  p{margin-bottom:12px}
+  ul,ol{margin:0 0 12px 22px}
+  li{margin-bottom:8px}
+  a{color:var(--blue)}
+  code{background:var(--bg2);border:1px solid var(--border);border-radius:5px;
+    padding:2px 7px;font-size:13.5px;word-break:break-all}
+  .dl{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0 8px}
+  .btn{flex:1 1 260px;display:flex;align-items:center;gap:12px;
+    background:var(--blue);color:#fff;text-decoration:none;border-radius:12px;
+    padding:16px 18px;font-weight:600;min-height:56px}
+  .btn.sec{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-weight:500}
+  .btn small{display:block;font-weight:400;font-size:12.5px;opacity:.8;margin-top:2px}
+  .etape{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+    padding:18px 20px;margin:14px 0}
+  .etape h3{font-size:15.5px;margin-bottom:8px;display:flex;align-items:center;gap:9px}
+  .n{display:inline-flex;width:25px;height:25px;flex:0 0 25px;border-radius:50%;
+    background:var(--blue);color:#fff;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700}
+  .cle{border-color:rgba(250,178,25,.4)}
+  .cle h3{color:var(--amber)}
+  .muted{color:var(--muted)}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px}
+  th{text-align:left;color:var(--muted);font-size:12px;text-transform:uppercase;
+    letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border)}
+  td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
+  details{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+    padding:14px 18px;margin:10px 0}
+  summary{cursor:pointer;font-weight:600;font-size:15px}
+  details p{margin:10px 0 0}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:13px}
+  html,body{max-width:100%;overflow-x:hidden}
+  @media(max-width:640px){
+    body{font-size:15.5px}
+    h1{font-size:24px}
+    h2{font-size:18px}
+    nav a{margin-left:0;margin-right:14px}
+    table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    th,td{padding:8px;font-size:13.5px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <div class="brand">Alpha<span>Scalp</span></div>
+  <a href="/">Accueil</a>
+  <a href="/performance">Performance</a>
+  <a href="/guide">Guide</a>
+  <a href="/rejoindre">Rejoindre</a>
+</nav>
+
+<h1>Installer le copieur</h1>
+<div class="sous">Compte de démonstration · environ 10 minutes, une seule fois</div>
+
+<div class="etape cle">
+  <h3>⚠️ Avant de commencer</h3>
+  <p class="muted" style="margin:0">Il te faut un <b>PC qui reste allumé</b>
+  avec MetaTrader ouvert, ou un VPS. MetaTrader sur téléphone n'exécute pas ce
+  type de programme — c'est une limite de MetaQuotes. Ton téléphone reste
+  parfait pour suivre tes résultats.</p>
+</div>
+
+<div class="etape" id="porte">
+  <h3>🔑 Ta clé bêta</h3>
+  <p class="muted" style="margin-bottom:12px">Le téléchargement est réservé aux
+  inscrits. Colle ta clé — celle qui commence par <code>as_</code>.
+  Pas encore inscrit ? <a href="/rejoindre">C'est par ici</a>.</p>
+  <input id="cle" type="text" spellcheck="false" autocomplete="off"
+         placeholder="as_…"
+         style="width:100%;background:#080b10;border:1px solid rgba(255,255,255,.12);
+                border-radius:10px;padding:13px 14px;color:#f0f4ff;font-size:15px;
+                min-height:48px;font-family:ui-monospace,Consolas,monospace">
+  <button id="btnCle" onclick="verifier()"
+          style="width:100%;background:#3b82f6;color:#fff;border:0;border-radius:10px;
+                 padding:14px;font-size:15px;font-weight:600;cursor:pointer;
+                 margin-top:12px;min-height:48px">Débloquer le téléchargement</button>
+  <div id="msgCle" style="font-size:13.5px;margin-top:12px;min-height:20px"></div>
+</div>
+
+<div id="zoneDl" style="display:none">
+  <div class="dl">
+    <a class="btn" href="#" onclick="recuperer('AlphaScalpCopier.ex5');return false">
+      ⬇️ <span>Télécharger le copieur<small>AlphaScalpCopier.ex5 — le programme</small></span>
+    </a>
+    <a class="btn sec" href="#" onclick="recuperer('AlphaScalpCopier.mq5');return false">
+      📄 <span>Code source<small>AlphaScalpCopier.mq5 — pour le lire</small></span>
+    </a>
+  </div>
+  <p class="muted" style="font-size:13.5px">Le code source est fourni parce que
+  ce programme va passer des ordres sur ton compte : tu as le droit de voir ce
+  qu'il fait. Tu peux le recompiler toi-même si tu préfères
+  (<code>F4</code> puis <code>F7</code> dans MetaTrader).</p>
+</div>
+
+<h2>Les 5 étapes</h2>
+
+<div class="etape">
+  <h3><span class="n">1</span> Poser les fichiers</h3>
+  <p style="margin:0">Dans MetaTrader 5 :
+  <b>Fichier → Ouvrir le dossier de données</b>. Va dans <code>MQL5</code>
+  puis <code>Experts</code>, et copie les deux fichiers téléchargés dedans.<br><br>
+  Reviens dans MetaTrader, clic droit sur <b>Expert Advisors</b> dans la
+  fenêtre « Navigateur » (à gauche) → <b>Actualiser</b>.
+  <code>AlphaScalpCopier</code> apparaît.</p>
+</div>
+
+<div class="etape">
+  <h3><span class="n">2</span> Autoriser l'accès au serveur</h3>
+  <p style="margin:0"><b>C'est l'étape que tout le monde oublie, et sans elle
+  rien ne fonctionne.</b><br><br>
+  <b>Outils → Options → onglet Expert Advisors</b> :<br>
+  • coche <b>« Autoriser les WebRequest pour les URL listées »</b><br>
+  • ajoute exactement :
+  <code>https://alphascalp.onrender.com</code><br>
+  • valide avec <b>OK</b><br><br>
+  <span class="muted">Sans autorisation, le copieur démarre mais ne reçoit
+  jamais rien. Il te le dira dans son journal, en toutes lettres.</span></p>
+</div>
+
+<div class="etape">
+  <h3><span class="n">3</span> Activer le trading automatique</h3>
+  <p style="margin:0">Dans la barre d'outils, le bouton
+  <b>« Algo Trading »</b> doit être <b>vert</b>. S'il est rouge ou gris,
+  clique dessus.</p>
+</div>
+
+<div class="etape">
+  <h3><span class="n">4</span> Lancer le copieur</h3>
+  <p style="margin:0">Ouvre <b>n'importe quel graphique</b> — le symbole n'a
+  aucune importance, le copieur travaille sur tous les symboles reçus.
+  Fais glisser <code>AlphaScalpCopier</code> dessus.<br><br>
+  Onglet <b>Paramètres d'entrée</b> :</p>
+  <table>
+    <tr><th>Réglage</th><th>À mettre</th></tr>
+    <tr><td><code>CleApi</code></td><td><b>ta clé bêta</b> (<code>as_…</code>)</td></tr>
+    <tr><td><code>RisqueParTrade</code></td><td><code>1.0</code> — soit 1 % du capital par trade</td></tr>
+    <tr><td><code>SuffixeSymbole</code></td><td>vide (voir plus bas si erreur)</td></tr>
+    <tr><td><code>PositionsMaximum</code></td><td><code>3</code></td></tr>
+  </table>
+  <p style="margin:0">Onglet <b>Commun</b> : coche
+  <b>« Autoriser le trading automatique »</b>, puis <b>OK</b>.<br>
+  Un visage souriant apparaît en haut à droite du graphique.</p>
+</div>
+
+<div class="etape">
+  <h3><span class="n">5</span> Vérifier</h3>
+  <p style="margin:0">Onglet <b>« Journal des experts »</b>, en bas. Tu dois
+  lire quelque chose comme :</p>
+  <p class="muted" style="font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+     background:#080b10;border:1px solid var(--border);border-radius:8px;padding:12px;
+     margin-top:10px;white-space:pre-wrap;overflow-x:auto">[AlphaScalp] === AlphaScalp Copier v1.00 ===
+[AlphaScalp] Premier lancement — départ au signal n°42
+[AlphaScalp] Compte 12345678 | capital 10000.00 EUR | risque 1.0%
+[AlphaScalp] Rappel : ce terminal doit rester ALLUMÉ</p>
+  <p style="margin:10px 0 0">À partir de là, il n'y a plus rien à faire.
+  Laisse tourner.</p>
+</div>
+
+<h2>Si ça ne marche pas</h2>
+
+<details>
+  <summary>« Adresse NON AUTORISÉE dans MetaTrader »</summary>
+  <p class="muted">L'étape 2 n'a pas été faite, ou l'adresse comporte une
+  faute. Elle doit être exactement <code>https://alphascalp.onrender.com</code>,
+  sans barre oblique finale.</p>
+</details>
+
+<details>
+  <summary>« Clé encore INACTIVE côté AlphaScalp »</summary>
+  <p class="muted">Normal juste après l'inscription : ta clé doit être activée
+  à la main. Laisse le copieur tourner, il se réveillera tout seul le moment
+  venu. Rien à relancer.</p>
+</details>
+
+<details>
+  <summary>« Symbole XAUUSD introuvable chez ton broker »</summary>
+  <p class="muted">Beaucoup de brokers renomment les symboles :
+  <code>XAUUSD.r</code>, <code>XAUUSDm</code>, <code>XAUUSD#</code>… Regarde
+  dans ta fenêtre « Observation du marché » comment le tien s'appelle, et
+  renseigne la partie qui s'ajoute dans <code>SuffixeSymbole</code>
+  (par exemple <code>.r</code>) ou <code>PrefixeSymbole</code>.</p>
+</details>
+
+<details>
+  <summary>« au volume minimum, la perte serait de X alors que le risque cible est Y »</summary>
+  <p class="muted">Ce n'est pas une erreur. Le copieur refuse d'ouvrir parce
+  que le plus petit volume que ton broker accepte ferait risquer plus que
+  prévu. Ça arrive sur les indices avec un petit capital.
+  <b>Ne monte pas le risque juste pour faire passer un trade</b> — accepte que
+  ce symbole-là ne soit pas copié.</p>
+</details>
+
+<details>
+  <summary>« COMPTE NON DÉMO détecté — démarrage REFUSÉ »</summary>
+  <p class="muted">Le copieur est attaché à un compte réel. La bêta se fait
+  sur compte de démonstration, et ce refus est volontaire.</p>
+</details>
+
+<details>
+  <summary>Rien ne se passe, aucun message</summary>
+  <p class="muted">Vérifie le bouton « Algo Trading » (vert) et le visage
+  souriant en haut à droite du graphique. Un visage triste = trading
+  automatique désactivé pour cet EA, dans l'onglet Commun de ses réglages.</p>
+</details>
+
+<h2>Ce que le copieur fait, et ne fait pas</h2>
+<p><b>Il fait :</b> relever les signaux, ouvrir et fermer <i>ses</i>
+positions, calculer la taille de position depuis <b>ton</b> capital.</p>
+<p><b>Il ne fait pas :</b> toucher aux positions que tu ouvres à la main,
+envoyer la moindre donnée personnelle (seule ta clé circule), modifier tes
+réglages.</p>
+<p>La taille des positions <b>n'est pas copiée telle quelle</b> : elle est
+recalculée depuis ton capital et le pourcentage de risque que tu as choisi.
+Si AlphaScalp risque 1 % du sien, tu risques 1 % du tien.</p>
+<p>Si tu arrêtes le copieur, les positions déjà ouvertes ne sont plus suivies
+mais <b>gardent leur stop et leur objectif</b>. Elles ne restent pas sans
+filet.</p>
+
+<footer>
+  ⚠️ Le trading comporte un risque de perte en capital. AlphaScalp ne fournit
+  pas de conseil en investissement et ne garantit aucun résultat. ·
+  <a href="/guide">Guide</a> ·
+  <a href="/confidentialite">Confidentialité</a> ·
+  <a href="/mentions-legales">Mentions légales</a>
+</footer>
+
+</div>
+
+<script>
+// La clé voyage dans un EN-TÊTE, jamais dans l'adresse : une URL finit dans
+// l'historique, les favoris et les journaux du serveur. Le fichier est donc
+// récupéré par requête authentifiée puis enregistré depuis le navigateur,
+// plutôt que par un simple lien.
+let cleValide = sessionStorage.getItem('as_cle') || '';
+
+function msg(texte, couleur) {
+  const e = document.getElementById('msgCle');
+  e.textContent = texte;
+  e.style.color = couleur || '#6b7a99';
+}
+
+function deverrouiller(nom, active) {
+  document.getElementById('zoneDl').style.display = '';
+  const p = document.getElementById('porte');
+  p.querySelector('h3').innerHTML = '✅ Clé reconnue';
+  p.querySelector('p').innerHTML = active
+    ? 'Bienvenue <b>' + nom + '</b>. Ta clé est <b>active</b> : tout est prêt.'
+    : 'Bienvenue <b>' + nom + '</b>. Ta clé n&#39;est <b>pas encore activée</b> — '
+      + 'installe quand même le copieur, il attendra tout seul et se réveillera '
+      + 'à l&#39;activation. Rien à relancer.';
+  document.getElementById('cle').style.display = 'none';
+  document.getElementById('btnCle').style.display = 'none';
+  msg('');
+}
+
+async function verifier() {
+  const k = document.getElementById('cle').value.trim();
+  if (!k) { msg('Colle ta clé bêta.', '#ef4444'); return; }
+  msg('Vérification…');
+  try {
+    const r = await fetch('/api/client/verifier', {headers: {'X-API-Key': k}});
+    if (r.status === 401) { msg('Clé inconnue. Vérifie que tu as bien tout copié.', '#ef4444'); return; }
+    if (!r.ok) { msg('Erreur ' + r.status, '#ef4444'); return; }
+    const j = await r.json();
+    cleValide = k;
+    sessionStorage.setItem('as_cle', k);
+    deverrouiller(j.nom || 'testeur', j.active);
+  } catch (e) { msg('Serveur injoignable.', '#ef4444'); }
+}
+
+async function recuperer(nom) {
+  if (!cleValide) { msg('Renseigne d&#39;abord ta clé.', '#ef4444'); return; }
+  msg('Téléchargement de ' + nom + '…');
+  try {
+    const r = await fetch('/telecharger/' + nom, {headers: {'X-API-Key': cleValide}});
+    if (r.status === 401) {
+      sessionStorage.removeItem('as_cle'); cleValide = '';
+      msg('Clé refusée. Recharge la page et ressaie.', '#ef4444'); return;
+    }
+    if (!r.ok) { msg('Erreur ' + r.status, '#ef4444'); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    msg('✅ ' + nom + ' téléchargé.', '#22c55e');
+  } catch (e) { msg('Téléchargement impossible.', '#ef4444'); }
+}
+
+document.getElementById('cle').addEventListener('keydown', ev => {
+  if (ev.key === 'Enter') verifier();
+});
+// Clé déjà saisie dans cet onglet : on ne la redemande pas.
+if (cleValide) {
+  fetch('/api/client/verifier', {headers: {'X-API-Key': cleValide}})
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(j => deverrouiller(j.nom || 'testeur', j.active))
+    .catch(() => { sessionStorage.removeItem('as_cle'); cleValide = ''; });
+}
+</script>
+</body>
+</html>
