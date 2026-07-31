@@ -104,6 +104,8 @@
   <div id="msgCle" style="font-size:13.5px;margin-top:12px;min-height:20px"></div>
 </div>
 
+<div id="zoneGroupeDl"></div>
+
 <div id="zoneDl" style="display:none">
   <div class="dl">
     <a class="btn" href="#" onclick="recuperer('AlphaScalpCopier.ex5');return false">
@@ -315,6 +317,22 @@ async function recuperer(nom) {
   } catch (e) { msg('Téléchargement impossible.', '#ef4444'); }
 }
 
+// Lien du groupe, lu depuis le serveur : rien en dur dans la page.
+(async function(){
+  try{
+    const j = await (await fetch('/api/health')).json();
+    if(!j.invitation) return;
+    document.getElementById('zoneGroupeDl').innerHTML =
+      '<div class="etape" style="border-color:rgba(59,130,246,.35)">'
+      + '<h3>\uD83D\uDCAC Le groupe des testeurs</h3>'
+      + '<p class="muted" style="margin:0 0 12px">Une question pendant '
+      + 'l&#39;installation ? On est la.</p>'
+      + '<a href="' + j.invitation + '" target="_blank" '
+      + 'style="display:inline-block;background:#3b82f6;color:#fff;'
+      + 'text-decoration:none;border-radius:10px;padding:12px 18px;'
+      + 'font-weight:600;min-height:44px">Rejoindre sur Telegram</a></div>';
+  }catch(e){}
+})();
 document.getElementById('cle').addEventListener('keydown', ev => {
   if (ev.key === 'Enter') verifier();
 });

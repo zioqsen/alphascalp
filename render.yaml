@@ -57,6 +57,10 @@ services:
       # devient inutilisable. C est pourquoi la recherche en renvoyait deux.
       - key: ALPHASCALP_TG_GROUPE_ID
         value: "-1003916010308"
+      # Lien d invitation au groupe. Genere une fois depuis /admin puis colle
+      # ici. Ce n est pas un secret : c est justement ce qu on distribue.
+      - key: ALPHASCALP_TG_INVITATION
+        sync: false
 
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter

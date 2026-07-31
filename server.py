@@ -63,6 +63,12 @@ TG_CHAT_ID = os.environ.get("ALPHASCALP_TG_CHAT_ID", "")
 # transmettre aux autres testeurs, ce que la politique de
 # confidentialité promet explicitement de ne pas faire.
 TG_GROUPE_ID = os.environ.get("ALPHASCALP_TG_GROUPE_ID", "")
+# Lien d'invitation au groupe (t.me/+...). Sans lui, un inscrit n'a
+# aucun moyen de nous rejoindre : il obtient sa clé et se retrouve seul.
+# On NE demande PAS de numéro de téléphone pour l'ajouter d'office :
+# Telegram interdit à un bot d'ajouter quelqu'un à un groupe, et ce
+# serait une donnée personnelle de plus pour un résultat nul.
+TG_INVITATION = os.environ.get("ALPHASCALP_TG_INVITATION", "")
 
 
 def _heure_paris() -> str:
@@ -562,6 +568,9 @@ def health():
         "notify_telegram": bool(TG_TOKEN and TG_CHAT_ID),
         "tg_token_present": bool(TG_TOKEN),
         "tg_chat_id_present": bool(TG_CHAT_ID),
+        # Le lien d'invitation n'est pas un secret : c'est justement ce qu'on
+        # distribue. Les pages le lisent ici plutôt que de l'écrire en dur.
+        "invitation": TG_INVITATION,
     }
 
 
@@ -687,6 +696,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="chercherGroupes()">Trouver le groupe Telegram</button>
   <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
   <button class="ghost" onclick="amenager()">Aménager le groupe</button>
+  <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
@@ -805,6 +815,16 @@ async function load(){
 }
 // [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
 // deja le jeton du bot, inutile de le faire transiter vers un terminal.
+async function lienInvitation(){
+  const z = document.getElementById('zoneGroupes');
+  z.innerHTML = 'Creation…';
+  try{
+    const j = await api('/api/admin/invitation', 'POST');
+    z.innerHTML = '<div>Lien cree :</div><div><code>' + esc(j.lien) + '</code></div>'
+      + '<div class="muted" style="margin-top:8px;font-size:12px">'
+      + 'A coller dans Render sous <code>ALPHASCALP_TG_INVITATION</code></div>';
+  }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
 async function amenager(){
   const z = document.getElementById('zoneGroupes');
   if(!confirm('Creer les sujets, poser la description et epingler l accueil ?')) return;
@@ -1072,6 +1092,22 @@ a{color:#3b82f6}
 // [31/07] Recuperation en libre-service. La cle etant derivee de l'email,
 // la retrouver est un calcul : plus besoin de passer par Flo, et ca marche
 // meme apres une reinitialisation de la base.
+// Le lien du groupe est LU depuis /api/health plutot qu'ecrit en dur : s'il
+// change (revocation, nouveau groupe), les pages suivent sans redeploiement.
+async function afficherGroupe(){
+  try{
+    const j = await (await fetch('/api/health')).json();
+    const z = document.getElementById('zoneGroupe');
+    if(!j.invitation || !z) return;
+    z.innerHTML = '<a href="' + j.invitation + '" target="_blank" '
+      + 'style="display:block;background:#3b82f6;color:#fff;text-decoration:none;'
+      + 'border-radius:10px;padding:13px;text-align:center;font-weight:600;'
+      + 'margin:14px 0;min-height:46px">Rejoindre le groupe Telegram</a>'
+      + '<p style="color:#6b7a99;font-size:12.5px;margin:0">'
+      + 'C&#39;est la qu&#39;on annonce les activations et qu&#39;on repond aux '
+      + 'questions.</p>';
+  }catch(e){}
+}
 async function retrouver(){
   const email = (document.getElementById('email').value || '').trim();
   const msg = document.getElementById('msg');
@@ -1120,9 +1156,11 @@ async function submit(){
       '<div class="msg"><span class="ok">✅ '+(j.already?'Tu es déjà inscrit !':'Inscription reçue !')+'</span>'
       +'<p style="margin-top:10px;color:#6b7a99">Voici ta clé bêta (garde-la) :</p>'
       +'<div class="key">'+j.api_key+'</div>'
+      +'<div id="zoneGroupe"></div>'
       +'<ol class="steps"><li>Ta clé est <b>en attente d\\'activation</b> — on t\\'ouvre l\\'accès très vite (places limitées).</li>'
       +'<li>Tu recevras alors les instructions pour relier ton compte démo à la stratégie, en 1 clic chez le broker.</li>'
       +'<li>Ensuite tout est automatique : tu suis tes résultats, tu ne touches à rien.</li></ol>';
+      afficherGroupe();
   }catch(e){ msg.innerHTML='<span class=err>'+e.message+'</span>'; btn.disabled=false; btn.textContent='Rejoindre la bêta'; }
 }
 document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
@@ -1322,6 +1360,27 @@ def _tg_appel(methode: str, params: dict) -> dict:
             return {"ok": False, "description": f"HTTP {e.code}: {corps[:120]}"}
     except Exception as e:                          # noqa: BLE001
         return {"ok": False, "description": str(e)[:120]}
+
+
+@app.post("/api/admin/invitation")
+def admin_invitation(token: Optional[str] = Query(None),
+                     x_admin_token: Optional[str] = Header(None)):
+    """Crée un lien d'invitation au groupe et le renvoie.
+
+    Le lien est créé UNE FOIS puis collé dans les variables d'environnement :
+    en générer un à chaque démarrage encombrerait le groupe de liens morts.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN or not TG_GROUPE_ID:
+        raise HTTPException(status_code=400,
+                            detail="Jeton Telegram ou identifiant de groupe absent.")
+    r = _tg_appel("createChatInviteLink",
+                  {"chat_id": TG_GROUPE_ID, "name": "Bêta AlphaScalp"})
+    if not r.get("ok"):
+        raise HTTPException(status_code=502,
+                            detail=f"Telegram : {r.get('description', '?')}")
+    return {"ok": True, "lien": r["result"]["invite_link"],
+            "a_coller": "ALPHASCALP_TG_INVITATION"}
 
 
 @app.post("/api/admin/amenager")
