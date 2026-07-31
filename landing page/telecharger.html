@@ -281,6 +281,8 @@ filet.</p>
 // récupéré par requête authentifiée puis enregistré depuis le navigateur,
 // plutôt que par un simple lien.
 let cleValide = sessionStorage.getItem('as_cle') || '';
+let lienTg = '';
+let infosServeur = {};
 
 function msg(texte, couleur) {
   const e = document.getElementById('msgCle');
@@ -298,6 +300,20 @@ function deverrouiller(nom, active) {
       + 'installe quand même le copieur, il attendra tout seul et se réveillera '
       + 'à l&#39;activation. Rien à relancer.';
   document.getElementById('cle').style.display = 'none';
+  // Lien profond : le testeur clique, le bot apprend qui il est, et pourra le
+  // prevenir a l activation. Sans ca, on n a AUCUN moyen de le joindre.
+  if (infosServeur.bot && lienTg) {
+    const d = document.createElement('div');
+    d.style.cssText = 'margin-top:14px';
+    d.innerHTML = '<a href="https://t.me/' + infosServeur.bot + '?start=' + lienTg
+      + '" target="_blank" style="display:block;background:#0e1420;'
+      + 'border:1px solid rgba(59,130,246,.45);color:#f0f4ff;text-decoration:none;'
+      + 'border-radius:10px;padding:13px;text-align:center;font-weight:600;'
+      + 'min-height:46px">Etre prevenu sur Telegram quand mon acces s ouvre</a>'
+      + '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Facultatif. '
+      + 'Tu recevras un message avec la marche a suivre, rien d autre.</p>';
+    document.getElementById('porte').appendChild(d);
+  }
   document.getElementById('btnCle').style.display = 'none';
   msg('');
 }
@@ -311,6 +327,7 @@ async function verifier() {
     if (r.status === 401) { msg('Clé inconnue. Vérifie que tu as bien tout copié.', '#ef4444'); return; }
     if (!r.ok) { msg('Erreur ' + r.status, '#ef4444'); return; }
     const j = await r.json();
+    lienTg = j.lien_tg || '';
     cleValide = k;
     sessionStorage.setItem('as_cle', k);
     deverrouiller(j.nom || 'testeur', j.active);
@@ -341,6 +358,7 @@ async function recuperer(nom) {
 (async function(){
   try{
     const j = await (await fetch('/api/health')).json();
+    infosServeur = j;
     if(!j.invitation) return;
     document.getElementById('zoneGroupeDl').innerHTML =
       '<div class="etape" style="border-color:rgba(59,130,246,.35)">'
@@ -360,7 +378,7 @@ document.getElementById('cle').addEventListener('keydown', ev => {
 if (cleValide) {
   fetch('/api/client/verifier', {headers: {'X-API-Key': cleValide}})
     .then(r => r.ok ? r.json() : Promise.reject())
-    .then(j => deverrouiller(j.nom || 'testeur', j.active))
+    .then(j => { lienTg = j.lien_tg || ''; deverrouiller(j.nom || 'testeur', j.active); })
     .catch(() => { sessionStorage.removeItem('as_cle'); cleValide = ''; });
 }
 </script>

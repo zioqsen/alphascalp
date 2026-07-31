@@ -61,6 +61,11 @@ services:
       # ici. Ce n est pas un secret : c est justement ce qu on distribue.
       - key: ALPHASCALP_TG_INVITATION
         sync: false
+      # Nom du bot SANS @ (ex: alphascalp_signup_bot). Sert a construire les
+      # liens profonds t.me/<bot>?start=... qui permettent a un testeur de lier
+      # son Telegram et d etre prevenu a l activation de sa cle.
+      - key: ALPHASCALP_TG_BOT
+        sync: false
 
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter

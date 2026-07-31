@@ -69,6 +69,10 @@ TG_GROUPE_ID = os.environ.get("ALPHASCALP_TG_GROUPE_ID", "")
 # Telegram interdit à un bot d'ajouter quelqu'un à un groupe, et ce
 # serait une donnée personnelle de plus pour un résultat nul.
 TG_INVITATION = os.environ.get("ALPHASCALP_TG_INVITATION", "")
+# Nom du bot (sans @), pour construire les liens profonds t.me/<bot>?start=...
+TG_BOT_NOM = os.environ.get("ALPHASCALP_TG_BOT", "")
+# Nom du bot (sans @), pour construire les liens profonds t.me/<bot>?start=...
+TG_BOT_NOM = os.environ.get("ALPHASCALP_TG_BOT", "")
 
 
 def _heure_paris() -> str:
@@ -455,6 +459,13 @@ def _creer_tables(conn):
     # courtier, type de compte, symboles introuvables, refus. JAMAIS de
     # solde, de positions ni de resultats -- ce n'est pas necessaire pour
     # depanner, et collecter au-dela du besoin est le debut des ennuis.
+    # [31/07] Identifiant Telegram du testeur, appris quand il clique sur le
+    # lien profond. C'est le SEUL canal dont on dispose pour le joindre : ni
+    # service d'email, ni numero de telephone (qu'on ne veut pas collecter).
+    try:
+        conn.execute("ALTER TABLE clients ADD COLUMN tg_chat TEXT")
+    except sqlite3.OperationalError:
+        pass
     for _colonne in ("etat_version TEXT", "etat_courtier TEXT",
                      "etat_compte TEXT", "etat_probleme TEXT",
                      "etat_maj TEXT"):
@@ -528,6 +539,19 @@ def cle_pour(email: str, date_naissance: str) -> str:
                          graine.encode("utf-8"),
                          hashlib.sha256).digest()
     return "as_" + base64.urlsafe_b64encode(empreinte).decode("ascii")[:24]
+
+
+def code_liaison(api_key: str) -> str:
+    """Code court pour le lien profond Telegram.
+
+    On ne met PAS la cle d'API dans le lien : elle apparaitrait en clair dans
+    l'historique de conversation du testeur (« /start as_xxx »), ce qu'on
+    s'interdit depuis qu'on l'a retiree des notifications. Ce code ne permet
+    que d'associer un compte Telegram a une cle — il ne donne acces a rien.
+    """
+    e = hmac.new(MASTER_TOKEN.encode("utf-8"),
+                 ("lien:" + api_key).encode("utf-8"), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(e).decode("ascii")[:20].replace("-", "_")
 
 
 def admin_ok(token: Optional[str], entete: Optional[str] = None) -> bool:
@@ -611,6 +635,7 @@ def health():
         # Le lien d'invitation n'est pas un secret : c'est justement ce qu'on
         # distribue. Les pages le lisent ici plutôt que de l'écrire en dur.
         "invitation": TG_INVITATION,
+        "bot": TG_BOT_NOM,
     }
 
 
@@ -673,6 +698,57 @@ def admin_create(name: str = Query(...), plan: str = Query("beta"),
     return {"ok": True, "api_key": key, "name": name, "plan": plan, "active": True}
 
 
+MODE_EMPLOI = (
+    "\U0001F389 <b>Ton acces AlphaScalp est ACTIVE</b>\n\n"
+    "Voici la marche a suivre, une seule fois :\n\n"
+    "<b>1.</b> Il te faut un <b>PC allume</b> avec MetaTrader 5 et un compte de "
+    "<b>demonstration</b>. Le telephone ne peut pas executer le copieur.\n"
+    "<b>2.</b> Telecharge le copieur et suis les 5 etapes :\n"
+    "https://alphascalp.onrender.com/telecharger\n"
+    "<b>3.</b> N&#39;oublie pas l&#39;autorisation dans "
+    "<i>Outils &gt; Options &gt; Expert Advisors</i> — c&#39;est l&#39;etape que "
+    "tout le monde saute, et sans elle rien ne fonctionne.\n\n"
+    "Ensuite tu ne touches plus a rien : les trades apparaissent sur ton compte, "
+    "ajustes a <b>ton</b> capital.\n\n"
+    "Un souci ? Ecris dans le groupe, avec une capture du "
+    "<i>Journal des experts</i> en bas de MetaTrader."
+)
+
+
+def _prevenir_activation(api_key: str) -> None:
+    """Previent le testeur, sur SON Telegram, que son acces est ouvert.
+
+    [31/07] Avant, l'activation ne lui parvenait par AUCUN canal : il devait
+    deviner, ou revenir verifier sur le site. C'est le moment ou il est le
+    plus dispose a installer -- le rater, c'est le perdre.
+    Silencieux s'il n'a pas lie son compte : c'est facultatif.
+    """
+    with db() as conn:
+        r = conn.execute("SELECT tg_chat FROM clients WHERE api_key = ?",
+                         (api_key,)).fetchone()
+    if r and r["tg_chat"]:
+        _notify_telegram_a(r["tg_chat"], MODE_EMPLOI)
+
+
+def _notify_telegram_a(destination: str, texte: str) -> None:
+    """Envoi vers une conversation precise, non bloquant."""
+    if not TG_TOKEN or not destination:
+        return
+
+    def _post():
+        try:
+            data = urllib.parse.urlencode({
+                "chat_id": destination, "text": texte, "parse_mode": "HTML",
+                "disable_web_page_preview": "true"}).encode()
+            urllib.request.urlopen(urllib.request.Request(
+                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                data=data), timeout=15).read()
+        except Exception as e:                      # noqa: BLE001
+            print(f"NOTIFY_CLIENT_KO | {e}", flush=True)
+
+    threading.Thread(target=_post, daemon=True).start()
+
+
 @app.post("/api/admin/clients/{api_key}/toggle")
 def admin_toggle(api_key: str, token: Optional[str] = Query(None),
                  x_admin_token: Optional[str] = Header(None)):
@@ -683,6 +759,8 @@ def admin_toggle(api_key: str, token: Optional[str] = Query(None),
             raise HTTPException(status_code=404, detail="Clé inconnue")
         new_state = 0 if row["active"] else 1
         conn.execute("UPDATE clients SET active = ? WHERE api_key = ?", (new_state, api_key))
+    if new_state:
+        _prevenir_activation(api_key)
     return {"ok": True, "api_key": api_key, "active": bool(new_state)}
 
 
@@ -737,6 +815,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
   <button class="ghost" onclick="amenager()">Aménager le groupe</button>
   <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
+  <button class="ghost" onclick="poserWebhook()">Activer les notifications aux testeurs</button>
   <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
   <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire » (lecture seule)</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
@@ -857,6 +936,15 @@ async function load(){
 }
 // [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
 // deja le jeton du bot, inutile de le faire transiter vers un terminal.
+async function poserWebhook(){
+  const z = document.getElementById('zoneGroupes');
+  z.innerHTML = 'Enregistrement…';
+  try{
+    const j = await api('/api/admin/webhook', 'POST');
+    z.innerHTML = '<span style="color:#0ca30c">Notifications activees.</span> '
+      + 'Les testeurs qui lient leur Telegram seront prevenus a l activation.';
+  }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
 async function general(action){
   const z = document.getElementById('zoneGroupes');
   z.innerHTML = 'En cours…';
@@ -1495,6 +1583,26 @@ def admin_general(action: str = Query("restaurer"),
     return {"action": action, "etapes": etapes}
 
 
+@app.post("/api/admin/webhook")
+def admin_webhook(token: Optional[str] = Query(None),
+                  x_admin_token: Optional[str] = Header(None)):
+    """Declare l'adresse du webhook aupres de Telegram.
+
+    A lancer UNE FOIS. Telegram poussera alors les messages du bot vers le
+    serveur, au lieu qu'on aille les chercher -- ce qui evite tout conflit
+    getUpdates avec un autre consommateur du meme jeton.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN:
+        raise HTTPException(status_code=400, detail="Jeton Telegram absent.")
+    url = "https://alphascalp.onrender.com/api/telegram/webhook"
+    r = _tg_appel("setWebhook", {"url": url, "allowed_updates": '["message"]'})
+    if not r.get("ok"):
+        raise HTTPException(status_code=502,
+                            detail=f"Telegram : {r.get('description', '?')}")
+    return {"ok": True, "webhook": url}
+
+
 @app.post("/api/admin/invitation")
 def admin_invitation(token: Optional[str] = Query(None),
                      x_admin_token: Optional[str] = Header(None)):
@@ -1650,6 +1758,55 @@ def admin_groupes(token: Optional[str] = Query(None),
                      "Telegram ne conserve ces événements que 24 h.")}
 
 
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Recoit les messages du bot. Sert UNIQUEMENT a associer un testeur.
+
+    Aucune authentification par jeton ici : Telegram ne peut pas en fournir.
+    La protection tient au fait que l'adresse contient le jeton du bot, connu
+    de nous seuls, et qu'on n'agit que sur une commande /start suivie d'un
+    code valide. Un appel non sollicite ne produit rien.
+    """
+    try:
+        maj = await request.json()
+    except Exception:
+        return {"ok": True}
+    msg = maj.get("message") or {}
+    texte = (msg.get("text") or "").strip()
+    chat = (msg.get("chat") or {}).get("id")
+    if not chat or not texte.startswith("/start"):
+        return {"ok": True}
+    parties = texte.split(maxsplit=1)
+    if len(parties) < 2:
+        _tg_appel("sendMessage", {
+            "chat_id": chat,
+            "text": "Bonjour ! Pour recevoir tes notifications AlphaScalp, "
+                    "utilise le bouton depuis la page de ton inscription."})
+        return {"ok": True}
+    code = parties[1].strip()
+    with db() as conn:
+        lignes = conn.execute("SELECT api_key, name FROM clients").fetchall()
+        cible = next((r for r in lignes if code_liaison(r["api_key"]) == code), None)
+        if cible:
+            conn.execute("UPDATE clients SET tg_chat = ? WHERE api_key = ?",
+                         (str(chat), cible["api_key"]))
+    if cible:
+        _tg_appel("sendMessage", {
+            "chat_id": chat, "parse_mode": "HTML",
+            "text": "\u2705 <b>C&#39;est noté !</b>\n\nJe te préviendrai ici dès "
+                    "que ton accès sera activé, avec la marche à suivre.\n\n"
+                    "Tu peux déjà installer le copieur : il attend tout seul et "
+                    "se met en route sans que tu aies rien à relancer.\n"
+                    "https://alphascalp.onrender.com/telecharger"})
+        print(f"TG_LIE | {cible['name']}", flush=True)
+    else:
+        _tg_appel("sendMessage", {
+            "chat_id": chat,
+            "text": "Ce lien n'est plus valide. Retourne sur la page "
+                    "d'inscription pour en obtenir un nouveau."})
+    return {"ok": True}
+
+
 @app.get("/api/stats")
 def stats(x_master_token: Optional[str] = Header(None)):
     """État de la chaîne, pour le tableau de bord local.
@@ -1744,7 +1901,8 @@ def verifier_cle(x_api_key: Optional[str] = Header(None)):
     de lui imposer un aller-retour.
     """
     c = get_client(x_api_key)
-    return {"ok": True, "nom": c["name"], "active": bool(c["active"])}
+    return {"ok": True, "nom": c["name"], "active": bool(c["active"]),
+            "lien_tg": code_liaison(c["api_key"])}
 
 
 @app.get("/telecharger/{nom}")
