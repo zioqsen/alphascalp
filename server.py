@@ -841,7 +841,7 @@ async function amenager(){
 }
 async function posterAccueil(){
   const z = document.getElementById('zoneGroupes');
-  if(!confirm('Poster le message d\'accueil dans le groupe et l\'epingler ?')) return;
+  if(!confirm('Publier le message de bienvenue dans le groupe, puis epingler ?')) return;
   z.innerHTML = 'Envoi…';
   try{
     const j = await api('/api/admin/accueil', 'POST');
@@ -1113,7 +1113,7 @@ async function retrouver(){
   const msg = document.getElementById('msg');
   const ddn = document.getElementById('ddn').value;
   if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){
-    msg.innerHTML = '<span class=err>Saisis d'abord ton email ci-dessus.</span>'; return; }
+    msg.innerHTML = '<span class=err>Renseigne ton email ci-dessus.</span>'; return; }
   if(!ddn){
     msg.innerHTML = '<span class=err>Saisis aussi ta date de naissance — '
       + 'la meme qu&#39;a l&#39;inscription. Sans elle, n&#39;importe qui '
@@ -1129,7 +1129,7 @@ async function retrouver(){
       + '<div class="key">' + j.api_key + '</div>'
       + '<p style="color:#6b7a99;font-size:13px">'
       + (j.active ? 'Elle est <b>active</b>.'
-                  : 'Elle est <b>en attente d'activation</b>.')
+                  : 'Elle est <b>en attente de validation</b>.')
       + ' Note-la — mais tu peux toujours la retrouver ici avec ton email.</p>';
   }catch(e){ msg.innerHTML = '<span class=err>' + e.message + '</span>'; }
 }
