@@ -24,6 +24,9 @@ Config par variables d'environnement (sinon valeurs par défaut de dev) :
     ALPHASCALP_DB             chemin de la base SQLite
 """
 
+import base64
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -129,6 +132,65 @@ def _notify_signup(email: str, rang: Optional[int] = None,
     threading.Thread(target=_post, daemon=True).start()
 
 
+def _notify_telegram(texte: str) -> None:
+    """Envoi Telegram générique, non bloquant et silencieux en cas d'échec."""
+    if not TG_TOKEN or not TG_CHAT_ID:
+        return
+
+    def _post():
+        try:
+            data = urllib.parse.urlencode({
+                "chat_id": TG_CHAT_ID, "text": texte, "parse_mode": "HTML",
+                "disable_web_page_preview": "true"}).encode()
+            urllib.request.urlopen(urllib.request.Request(
+                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                data=data), timeout=10).read()
+        except Exception as e:                      # noqa: BLE001
+            print(f"NOTIFY_KO | {e}", flush=True)
+
+    threading.Thread(target=_post, daemon=True).start()
+
+
+def _notify_restauration(email: str) -> None:
+    _notify_telegram(
+        "\U0001F511 <b>Clé restaurée</b>\n<i>AlphaScalp</i>\n\n"
+        f"\U0001F4E7 <code>{_echappe(email)}</code>\n"
+        f"\U0001F553 {_heure_paris()}\n\n"
+        "Cette adresse a demandé sa clé et sa ligne n'existait plus — base "
+        "réinitialisée, ou adresse jamais inscrite.\n"
+        "⏳ Clé recréée <b>inactive</b> : vérifie dans ton historique que tu "
+        "connais bien cette personne avant d'activer.\n"
+        "➡️ <a href=\"https://alphascalp.onrender.com/admin\">Ouvrir l'admin</a>")
+
+
+def _alerte_base_vide() -> None:
+    """[31/07] Prévient quand le serveur démarre sur une base VIDE.
+
+    L'hébergement gratuit a un stockage éphémère : à chaque redémarrage, les
+    clés ET leur statut actif/inactif disparaissent. Les copieurs des testeurs
+    se mettent alors en 401 ou en pause, et personne n'est prévenu — encore
+    une panne qui ne dit pas son nom. Ce message la rend visible : il faut
+    réactiver les clés.
+    """
+    try:
+        with db() as conn:
+            n = conn.execute("SELECT COUNT(*) AS n FROM clients").fetchone()["n"]
+    except Exception:
+        return
+    if n == 0:
+        print("EMPTY_DB | demarrage sur une base vide", flush=True)
+        _notify_telegram(
+            "⚠️ <b>Base réinitialisée</b>\n<i>AlphaScalp</i>\n\n"
+            f"\U0001F553 {_heure_paris()}\n\n"
+            "Le serveur a redémarré sur une base <b>vide</b> : toutes les clés "
+            "et leurs activations ont disparu (stockage éphémère de l'offre "
+            "gratuite).\n\n"
+            "Conséquence : les copieurs des testeurs reçoivent une erreur et "
+            "s'arrêtent d'ouvrir. Ils se réveilleront seuls dès réactivation.\n"
+            "Les testeurs peuvent retrouver leur clé eux-mêmes avec leur "
+            "email — elle est identique à celle d'avant.")
+
+
 app = FastAPI(title="AlphaScalp Server", version="0.1.0")
 
 
@@ -137,58 +199,77 @@ app = FastAPI(title="AlphaScalp Server", version="0.1.0")
 # ─────────────────────────────────────────────────────────────
 @contextmanager
 def db():
+    # [31/07] Le stockage est ÉPHÉMÈRE : le fichier peut disparaître pendant
+    # que le processus tourne, sans redémarrage. Sans ce contrôle, SQLite
+    # recrée alors un fichier VIDE, sans les tables — et chaque requête échoue
+    # sur « no such table » jusqu'au prochain redéploiement. Le serveur répond,
+    # le site s'affiche, mais plus rien ne fonctionne. Encore une panne
+    # silencieuse. On vérifie donc l'existence du fichier à chaque connexion :
+    # un appel système négligeable pour ce trafic.
+    manquant = not os.path.exists(DB_PATH)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
+        if manquant:
+            print("EMPTY_DB | fichier de base disparu — recréation des tables",
+                  flush=True)
+            _creer_tables(conn)
+            conn.commit()
         yield conn
         conn.commit()
     finally:
         conn.close()
 
 
-def init_db():
-    with db() as conn:
-        conn.executescript("""
-        CREATE TABLE IF NOT EXISTS clients (
-            api_key     TEXT PRIMARY KEY,
-            name        TEXT NOT NULL,
-            plan        TEXT NOT NULL DEFAULT 'beta',
-            active      INTEGER NOT NULL DEFAULT 1,
-            created_at  TEXT NOT NULL,
-            last_seen   TEXT
-        );
-        CREATE TABLE IF NOT EXISTS signals (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            action      TEXT NOT NULL,           -- 'open' | 'close'
-            ref_id      TEXT NOT NULL,           -- identifiant logique du trade (ticket maître)
-            symbol      TEXT NOT NULL,
-            direction   TEXT,                    -- 'BUY' | 'SELL' (sur open)
-            volume_ref  REAL,                    -- volume du maître (le follower adaptera au sien)
-            price       REAL,
-            sl          REAL,
-            tp          REAL,
-            regime      TEXT,                    -- info contextuelle (TREND/RANGE...)
-            created_at  TEXT NOT NULL
-        );
-        """)
-        # [28/07] Migration sûre : colonne email pour l'inscription publique.
-        # ALTER TABLE ADD COLUMN est idempotent si on avale l'erreur "duplicate".
+def _creer_tables(conn):
+    """Schéma + migrations. Extrait de init_db pour être rejouable :
+    db() s'en sert quand le fichier a disparu en cours de route."""
+
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS clients (
+        api_key     TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        plan        TEXT NOT NULL DEFAULT 'beta',
+        active      INTEGER NOT NULL DEFAULT 1,
+        created_at  TEXT NOT NULL,
+        last_seen   TEXT
+    );
+    CREATE TABLE IF NOT EXISTS signals (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        action      TEXT NOT NULL,           -- 'open' | 'close'
+        ref_id      TEXT NOT NULL,           -- identifiant logique du trade (ticket maître)
+        symbol      TEXT NOT NULL,
+        direction   TEXT,                    -- 'BUY' | 'SELL' (sur open)
+        volume_ref  REAL,                    -- volume du maître (le follower adaptera au sien)
+        price       REAL,
+        sl          REAL,
+        tp          REAL,
+        regime      TEXT,                    -- info contextuelle (TREND/RANGE...)
+        created_at  TEXT NOT NULL
+    );
+    """)
+    # [28/07] Migration sûre : colonne email pour l'inscription publique.
+    # ALTER TABLE ADD COLUMN est idempotent si on avale l'erreur "duplicate".
+    try:
+        conn.execute("ALTER TABLE clients ADD COLUMN email TEXT")
+    except sqlite3.OperationalError:
+        pass  # colonne déjà présente
+    # [30/07] Identité + date de naissance : un produit financier ne peut
+    # pas être proposé à un mineur. La déclaration sur l'honneur reste
+    # faible — elle n'empêche personne de mentir — mais c'est la première
+    # barrière, celle que tout le monde applique à l'inscription. La
+    # vérification sérieuse (pièce d'identité) est de toute façon faite par
+    # le BROKER à l'ouverture du compte : c'est lui qui détient les fonds.
+    for _colonne in ("prenom TEXT", "nom TEXT", "date_naissance TEXT"):
         try:
-            conn.execute("ALTER TABLE clients ADD COLUMN email TEXT")
+            conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
         except sqlite3.OperationalError:
             pass  # colonne déjà présente
-        # [30/07] Identité + date de naissance : un produit financier ne peut
-        # pas être proposé à un mineur. La déclaration sur l'honneur reste
-        # faible — elle n'empêche personne de mentir — mais c'est la première
-        # barrière, celle que tout le monde applique à l'inscription. La
-        # vérification sérieuse (pièce d'identité) est de toute façon faite par
-        # le BROKER à l'ouverture du compte : c'est lui qui détient les fonds.
-        for _colonne in ("prenom TEXT", "nom TEXT", "date_naissance TEXT"):
-            try:
-                conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
-            except sqlite3.OperationalError:
-                pass  # colonne déjà présente
 
+
+def init_db():
+    with db() as conn:
+        _creer_tables(conn)
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -215,6 +296,29 @@ class SignalIn(BaseModel):
 def require_master(x_master_token: Optional[str]):
     if not x_master_token or not secrets.compare_digest(x_master_token, MASTER_TOKEN):
         raise HTTPException(status_code=401, detail="Jeton maître invalide")
+
+
+def cle_pour(email: str) -> str:
+    """Clé DÉRIVÉE de l'email, et non tirée au hasard.
+
+    [31/07] Motif : la base est éphémère. Avec des clés aléatoires, un
+    redémarrage de l'hébergeur les faisait toutes disparaître — et comme la
+    clé ne figure plus dans la notification Telegram (retirée à raison, une
+    clé n'a rien à faire dans un fil de discussion), PERSONNE ne pouvait la
+    restituer, ni le testeur ni nous.
+
+    En la dérivant de l'email, la même adresse redonne toujours la même clé :
+    le testeur la retrouve seul, et le fil Telegram — qui contient les emails
+    — devient une sauvegarde complète.
+
+    Le secret est le jeton maître, qui vit dans les variables d'environnement
+    et survit donc aux redémarrages.
+    ⚠️ Le régénérer invaliderait toutes les clés existantes.
+    """
+    empreinte = hmac.new(MASTER_TOKEN.encode("utf-8"),
+                         email.strip().lower().encode("utf-8"),
+                         hashlib.sha256).digest()
+    return "as_" + base64.urlsafe_b64encode(empreinte).decode("ascii")[:24]
 
 
 def admin_ok(token: Optional[str], entete: Optional[str] = None) -> bool:
@@ -632,7 +736,7 @@ def public_signup(body: SignupIn):
             # Déjà inscrit → on renvoie sa clé (idempotent, pas de doublon).
             return {"ok": True, "already": True, "api_key": existing["api_key"],
                     "active": bool(existing["active"])}
-        key = "as_" + secrets.token_urlsafe(18)
+        key = cle_pour(email)          # dérivée, donc retrouvable
         conn.execute(
             "INSERT INTO clients (api_key, name, email, plan, active, created_at, "
             "prenom, nom, date_naissance) VALUES (?,?,?,?,0,?,?,?,?)",
@@ -718,6 +822,10 @@ a{color:#3b82f6}
     <div class="hint">Le trading est réservé aux personnes majeures.</div>
     <button id="btn" onclick="submit()">Rejoindre la bêta</button>
     <div id="msg" class="msg"></div>
+    <div class="hint" style="margin-top:16px;text-align:center">
+      Déjà inscrit et clé perdue ?
+      <a href="#" onclick="retrouver();return false">La retrouver avec mon email</a>
+    </div>
   </div>
   <div class="note">
     En t'inscrivant, tu acceptes que le trading comporte un risque de perte.
@@ -744,6 +852,28 @@ a{color:#3b82f6}
   ddn.max=iso(new Date(d.getFullYear()-18,d.getMonth(),d.getDate()));
   ddn.min=iso(new Date(d.getFullYear()-100,d.getMonth(),d.getDate()));
 })();
+// [31/07] Recuperation en libre-service. La cle etant derivee de l'email,
+// la retrouver est un calcul : plus besoin de passer par Flo, et ca marche
+// meme apres une reinitialisation de la base.
+async function retrouver(){
+  const email = (document.getElementById('email').value || '').trim();
+  const msg = document.getElementById('msg');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+    msg.innerHTML = '<span class=err>Saisis d'abord ton email ci-dessus.</span>'; return; }
+  msg.textContent = 'Recherche…';
+  try{
+    const r = await fetch('/api/retrouver', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({email})});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.detail || 'Erreur');
+    msg.innerHTML = '<span class="ok">Voici ta clé :</span>'
+      + '<div class="key">' + j.api_key + '</div>'
+      + '<p style="color:#6b7a99;font-size:13px">'
+      + (j.active ? 'Elle est <b>active</b>.'
+                  : 'Elle est <b>en attente d'activation</b>.')
+      + ' Note-la — mais tu peux toujours la retrouver ici avec ton email.</p>';
+  }catch(e){ msg.innerHTML = '<span class=err>' + e.message + '</span>'; }
+}
 async function submit(){
   const email=document.getElementById('email').value.trim();
   const prenom=document.getElementById('prenom').value.trim();
@@ -848,6 +978,47 @@ _FICHIERS_CLIENT = {
 }
 
 
+class RetrouverIn(BaseModel):
+    email: str
+
+
+@app.post("/api/retrouver")
+def retrouver_cle(body: RetrouverIn):
+    """Retrouve sa clé à partir de son email — en libre-service.
+
+    [31/07] Avant, une clé perdue était perdue : elle ne s'affichait qu'une
+    fois à l'inscription, ne figurait plus dans la notification Telegram, et
+    la base qui la contenait est effacée à chaque redémarrage de l'hébergeur.
+    Ni le testeur ni nous ne pouvions la restituer.
+
+    Maintenant qu'elle est DÉRIVÉE de l'email, la retrouver est un calcul, pas
+    une lecture. Si la ligne a disparu avec la base, on la recrée — INACTIVE,
+    parce qu'une réactivation automatique laisserait n'importe qui réactiver
+    l'accès de quelqu'un d'autre en connaissant son adresse.
+    """
+    email = (body.email or "").strip().lower()
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Email invalide.")
+    key = cle_pour(email)
+    with db() as conn:
+        row = conn.execute("SELECT api_key, active FROM clients WHERE email = ?",
+                           (email,)).fetchone()
+        if row:
+            return {"ok": True, "api_key": row["api_key"],
+                    "active": bool(row["active"]), "restauree": False}
+        # Ligne absente : soit la base a été réinitialisée, soit l'adresse
+        # n'a jamais été inscrite. On ne peut pas distinguer les deux, et on
+        # n'a pas à le faire : dans les deux cas la clé est inactive et c'est
+        # Flo qui décide, avec son historique Telegram sous les yeux.
+        conn.execute(
+            "INSERT INTO clients (api_key, name, email, plan, active, created_at) "
+            "VALUES (?,?,?,?,0,?)",
+            (key, email.split("@")[0], email, "beta", now_iso()))
+    print(f"RECOVER | {now_iso()} | {email}", flush=True)
+    _notify_restauration(email)
+    return {"ok": True, "api_key": key, "active": False, "restauree": True}
+
+
 @app.get("/api/client/verifier")
 def verifier_cle(x_api_key: Optional[str] = Header(None)):
     """Vérifie qu'une clé existe, pour déverrouiller la page de
@@ -912,6 +1083,8 @@ def confidentialite_page():
 
 # ─────────────────────────────────────────────────────────────
 init_db()
+# Doit venir APRÈS init_db : les tables doivent exister pour être comptées.
+_alerte_base_vide()
 
 if __name__ == "__main__":
     import sys as _sys, uvicorn
