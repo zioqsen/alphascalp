@@ -195,6 +195,95 @@ app = FastAPI(title="AlphaScalp Server", version="0.1.0")
 
 
 # ─────────────────────────────────────────────────────────────
+# SÉCURITÉ  [31/07]
+# ─────────────────────────────────────────────────────────────
+# Limitation de débit MAISON, volontairement simple : en mémoire, sans
+# dépendance. Elle se remet à zéro au redémarrage — acceptable ici, l'objectif
+# n'est pas d'arrêter une attaque distribuée mais d'empêcher qu'on essaie des
+# milliers de jetons admin ou qu'on énumère des adresses depuis une machine.
+# À l'échelle commerciale, ça se remplace par un vrai limiteur en frontal.
+_COMPTEURS: dict = {}
+_VERROU_DEBIT = threading.Lock()
+
+# (fenêtre en secondes, nombre d'appels autorisés) par chemin surveillé
+_LIMITES = {
+    "/api/admin": (300, 20),        # jeton admin : forçage brutal
+    "/api/retrouver": (300, 10),    # énumération d'adresses
+    "/api/signup": (3600, 15),      # création en masse
+    "/telecharger/": (3600, 40),
+}
+
+
+def _ip_de(request: Request) -> str:
+    """IP réelle derrière le frontal de l'hébergeur.
+
+    X-Forwarded-For est fourni par le proxy de Render ; on prend la PREMIÈRE
+    entrée, seule non falsifiable par le client (les suivantes sont ajoutées
+    en amont et peuvent être forgées).
+    """
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _debit_depasse(cle: str, fenetre: int, maximum: int) -> bool:
+    maintenant = datetime.now(timezone.utc).timestamp()
+    with _VERROU_DEBIT:
+        appels = [t for t in _COMPTEURS.get(cle, []) if maintenant - t < fenetre]
+        if len(appels) >= maximum:
+            _COMPTEURS[cle] = appels
+            return True
+        appels.append(maintenant)
+        _COMPTEURS[cle] = appels
+        # purge opportuniste : sans elle, le dictionnaire grossirait sans fin
+        if len(_COMPTEURS) > 5000:
+            for k in [k for k, v in _COMPTEURS.items()
+                      if not v or maintenant - v[-1] > 3600]:
+                _COMPTEURS.pop(k, None)
+    return False
+
+
+@app.middleware("http")
+async def garde_securite(request: Request, call_next):
+    chemin = request.url.path
+    for prefixe, (fenetre, maximum) in _LIMITES.items():
+        if chemin.startswith(prefixe):
+            if _debit_depasse(f"{_ip_de(request)}|{prefixe}", fenetre, maximum):
+                print(f"RATE_LIMIT | {_ip_de(request)} | {chemin}", flush=True)
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Trop de requêtes. Réessaie dans quelques minutes."})
+            break
+
+    reponse = await call_next(request)
+
+    # En-têtes de sécurité. Aucun n'était présent.
+    reponse.headers["X-Content-Type-Options"] = "nosniff"      # pas de devinette de type
+    reponse.headers["X-Frame-Options"] = "DENY"                # pas d'iframe : anti-clickjacking
+    reponse.headers["Referrer-Policy"] = "no-referrer"         # l'URL ne fuit pas vers l'extérieur
+    reponse.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    # HSTS : impose HTTPS pour les visites suivantes. Sans danger, l'hébergeur
+    # ne sert qu'en HTTPS.
+    reponse.headers["Strict-Transport-Security"] = "max-age=31536000"
+    # CSP : les pages sont autonomes (styles et scripts en ligne, aucune
+    # ressource tierce). On interdit donc tout ce qui vient d'ailleurs, ce qui
+    # neutralise l'injection d'un script externe.
+    if reponse.headers.get("content-type", "").startswith("text/html"):
+        reponse.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "form-action 'self'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'none'; "
+            "object-src 'none'")
+    return reponse
+
+
+# ─────────────────────────────────────────────────────────────
 # BASE DE DONNÉES
 # ─────────────────────────────────────────────────────────────
 @contextmanager
@@ -298,7 +387,7 @@ def require_master(x_master_token: Optional[str]):
         raise HTTPException(status_code=401, detail="Jeton maître invalide")
 
 
-def cle_pour(email: str) -> str:
+def cle_pour(email: str, date_naissance: str) -> str:
     """Clé DÉRIVÉE de l'email, et non tirée au hasard.
 
     [31/07] Motif : la base est éphémère. Avec des clés aléatoires, un
@@ -311,12 +400,19 @@ def cle_pour(email: str) -> str:
     le testeur la retrouve seul, et le fil Telegram — qui contient les emails
     — devient une sauvegarde complète.
 
+    ⚠️ LA DATE DE NAISSANCE FAIT PARTIE DE LA GRAINE, et ce n'est pas un
+    détail. Avec l'email seul, quiconque connaît l'adresse d'un testeur
+    pourrait redemander sa clé et récupérer son flux de signaux — la
+    récupération deviendrait une porte d'entrée. Il faut donc les DEUX
+    éléments, dont un que seul l'intéressé connaît.
+
     Le secret est le jeton maître, qui vit dans les variables d'environnement
     et survit donc aux redémarrages.
     ⚠️ Le régénérer invaliderait toutes les clés existantes.
     """
+    graine = f"{email.strip().lower()}|{(date_naissance or '').strip()}"
     empreinte = hmac.new(MASTER_TOKEN.encode("utf-8"),
-                         email.strip().lower().encode("utf-8"),
+                         graine.encode("utf-8"),
                          hashlib.sha256).digest()
     return "as_" + base64.urlsafe_b64encode(empreinte).decode("ascii")[:24]
 
@@ -736,7 +832,7 @@ def public_signup(body: SignupIn):
             # Déjà inscrit → on renvoie sa clé (idempotent, pas de doublon).
             return {"ok": True, "already": True, "api_key": existing["api_key"],
                     "active": bool(existing["active"])}
-        key = cle_pour(email)          # dérivée, donc retrouvable
+        key = cle_pour(email, body.date_naissance)   # dérivée, donc retrouvable
         conn.execute(
             "INSERT INTO clients (api_key, name, email, plan, active, created_at, "
             "prenom, nom, date_naissance) VALUES (?,?,?,?,0,?,?,?,?)",
@@ -753,7 +849,11 @@ def public_signup(body: SignupIn):
     # des béta-testeurs seraient définitivement perdus. Les logs, eux, sont
     # conservés par la plateforme → inscriptions récupérables.
     try:
-        print(f"SIGNUP | {now_iso()} | {email} | {key}", flush=True)
+        # [31/07] La CLÉ n'est plus journalisée. C'était un filet quand elle
+        # était aléatoire et introuvable autrement ; depuis qu'elle se dérive
+        # de l'email + la date de naissance, la consigner ne sert plus à rien
+        # et l'expose dans les journaux de l'hébergeur.
+        print(f"SIGNUP | {now_iso()} | {email}", flush=True)
     except Exception:
         pass
     # [30/07] Second filet, DURABLE celui-là : chaque inscription part en
@@ -858,12 +958,18 @@ a{color:#3b82f6}
 async function retrouver(){
   const email = (document.getElementById('email').value || '').trim();
   const msg = document.getElementById('msg');
+  const ddn = document.getElementById('ddn').value;
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
     msg.innerHTML = '<span class=err>Saisis d'abord ton email ci-dessus.</span>'; return; }
+  if(!ddn){
+    msg.innerHTML = '<span class=err>Saisis aussi ta date de naissance — '
+      + 'la meme qu&#39;a l&#39;inscription. Sans elle, n&#39;importe qui '
+      + 'connaissant ton email pourrait recuperer ta cle.</span>'; return; }
   msg.textContent = 'Recherche…';
   try{
     const r = await fetch('/api/retrouver', {method:'POST',
-      headers:{'Content-Type':'application/json'}, body: JSON.stringify({email})});
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, date_naissance: ddn})});
     const j = await r.json();
     if(!r.ok) throw new Error(j.detail || 'Erreur');
     msg.innerHTML = '<span class="ok">Voici ta clé :</span>'
@@ -980,6 +1086,7 @@ _FICHIERS_CLIENT = {
 
 class RetrouverIn(BaseModel):
     email: str
+    date_naissance: Optional[str] = None
 
 
 @app.post("/api/retrouver")
@@ -999,11 +1106,29 @@ def retrouver_cle(body: RetrouverIn):
     email = (body.email or "").strip().lower()
     if not _EMAIL_RE.match(email):
         raise HTTPException(status_code=400, detail="Email invalide.")
-    key = cle_pour(email)
+    # La date de naissance est EXIGÉE : sans elle, connaître l'adresse d'un
+    # testeur suffirait à récupérer sa clé, donc son flux de signaux. La
+    # récupération deviendrait une porte d'entrée au lieu d'un dépannage.
+    if _age_le(body.date_naissance or "") is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Date de naissance requise — la même qu'à l'inscription.")
+    key = cle_pour(email, body.date_naissance)
     with db() as conn:
-        row = conn.execute("SELECT api_key, active FROM clients WHERE email = ?",
-                           (email,)).fetchone()
+        row = conn.execute(
+            "SELECT api_key, active, date_naissance FROM clients WHERE email = ?",
+            (email,)).fetchone()
         if row:
+            # ⚠️ La date DOIT être vérifiée ici aussi. Sans ce contrôle, le
+            # garde-fou ne servait à rien : on renvoyait la clé de la ligne
+            # trouvée par email, sans regarder la date fournie. Il ne
+            # protégeait que le cas — rare — où la ligne a disparu.
+            attendue = (row["date_naissance"] or "").strip()
+            fournie = (body.date_naissance or "").strip()
+            if attendue and fournie != attendue:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Date de naissance incorrecte.")
             return {"ok": True, "api_key": row["api_key"],
                     "active": bool(row["active"]), "restauree": False}
         # Ligne absente : soit la base a été réinitialisée, soit l'adresse
