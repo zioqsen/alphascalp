@@ -698,6 +698,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="amenager()">Aménager le groupe</button>
   <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
   <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
+  <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire » (lecture seule)</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
@@ -1392,9 +1393,22 @@ def admin_general(action: str = Query("restaurer"),
         raise HTTPException(status_code=400,
                             detail="Jeton Telegram ou identifiant de groupe absent.")
     etapes = []
+    # Trois etats possibles, et il faut les distinguer :
+    #   restaurer   -> visible ET ouvert a l ecriture
+    #   verrouiller -> visible mais LECTURE SEULE (ce qu on veut pour A lire :
+    #                  le mode d emploi se lit, il ne se commente pas, sinon il
+    #                  redevient le fourre-tout qu on cherchait a eviter)
+    #   masquer     -> retire de la liste
+    # Telegram impose l ordre : rendre visible AVANT de renommer, et fermer
+    # APRES avoir renomme (un sujet ferme n accepte plus de modification).
     if action == "masquer":
         sequence = [("closeGeneralForumTopic", {}),
                     ("hideGeneralForumTopic", {})]
+    elif action == "verrouiller":
+        sequence = [("unhideGeneralForumTopic", {}),
+                    ("reopenGeneralForumTopic", {}),
+                    ("editGeneralForumTopic", {"name": "A lire"}),
+                    ("closeGeneralForumTopic", {})]
     else:
         sequence = [("unhideGeneralForumTopic", {}),
                     ("reopenGeneralForumTopic", {}),
