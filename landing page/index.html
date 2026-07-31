@@ -351,6 +351,13 @@
     }
 
     .plan-price span { font-size: 16px; font-weight: 400; color: var(--muted); }
+    /* [31/07] « Sans engagement » juste sous le prix, et non perdu dans les
+       puces : c'est une objection qu'on lève au moment exact où elle se pose,
+       en regardant le montant. Vert, comme tout ce qui rassure sur ce site. */
+    .plan-engagement {
+      font-size: 12.5px; color: var(--green); font-weight: 600;
+      margin-bottom: 12px; letter-spacing: .01em;
+    }
     .plan-desc { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
 
     .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.75rem; }
@@ -660,12 +667,29 @@
     <div class="section-label">Abonnements</div>
     <h2 class="section-title">Tarifs simples et transparents</h2>
     <p class="section-desc">Lancement prévu courant 2026 · Inscription bêta gratuite disponible dès maintenant.</p>
+    <!-- [31/07] Repère assumé : ces montants sont des ordres de grandeur, pas
+         une offre. Trois cartes de prix sur un produit qu'on ne peut pas
+         acheter créent une incohérence — le site dit « rien n'est prêt » puis
+         affiche une grille tarifaire. On lève l'objection au lieu de la
+         laisser travailler contre nous, et on le fait ICI, juste au-dessus
+         des cartes, pas dans une note de bas de page que personne ne lit. -->
+    <p style="text-align:center;max-width:640px;margin:14px auto 0;
+              padding:12px 18px;border:1px solid rgba(250,178,25,.35);
+              background:rgba(250,178,25,.06);border-radius:10px;
+              font-size:13.5px;color:#c9d3e8;line-height:1.6">
+      <b style="color:#fab219">Tarifs indicatifs.</b> Rien n'est facturé
+      aujourd'hui et aucun moyen de paiement n'est demandé.
+      <b>La bêta est entièrement gratuite</b>, sur compte de démonstration.
+      Ces montants donnent un ordre de grandeur de ce que coûtera le service
+      au lancement — ils seront confirmés à ce moment-là.
+    </p>
   </div>
   <div class="pricing-grid">
     <!-- STARTER -->
     <div class="pricing-card reveal">
       <div class="plan-name">Starter</div>
       <div class="plan-price">29€ <span>/ mois</span></div>
+      <div class="plan-engagement">Sans engagement · résiliable à tout moment</div>
       <div class="plan-desc">Pour suivre les performances et découvrir le système.</div>
       <ul class="plan-features">
         <li>Accès dashboard complet</li>
@@ -683,6 +707,7 @@
       <div class="popular-badge">⭐ Recommandé</div>
       <div class="plan-name">Pro</div>
       <div class="plan-price">49€ <span>/ mois</span></div>
+      <div class="plan-engagement">Sans engagement · résiliable à tout moment</div>
       <div class="plan-desc">Pour les traders qui veulent copier les signaux en temps réel.</div>
       <ul class="plan-features">
         <li>Tout le plan Starter</li>
@@ -699,6 +724,7 @@
     <div class="pricing-card reveal">
       <div class="plan-name">VIP</div>
       <div class="plan-price">99€ <span>/ mois</span></div>
+      <div class="plan-engagement">Sans engagement · résiliable à tout moment</div>
       <div class="plan-desc">Le système complet avec accompagnement personnalisé.</div>
       <ul class="plan-features">
         <li>Tout le plan Pro</li>

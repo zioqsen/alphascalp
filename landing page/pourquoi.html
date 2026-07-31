@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pourquoi AlphaScalp existe</title>
+<meta name="description" content="Ce que je reproche au trading vendu sur les réseaux, ce que j'ai décidé de faire à la place, et où j'en suis vraiment.">
+<style>
+  :root{color-scheme:dark;
+    --bg:#080b10; --bg2:#0e1420; --border:rgba(255,255,255,.07);
+    --blue:#3b82f6; --green:#22c55e; --amber:#fab219; --red:#ef4444;
+    --text:#f0f4ff; --muted:#6b7a99;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+    font:16px/1.75 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 20px 60px}
+  .wrap{max-width:680px;margin:0 auto}
+  header{text-align:center;padding:48px 0 8px}
+  .logo{font-size:28px;font-weight:800;letter-spacing:-.5px}
+  .logo span{color:var(--blue)}
+  .sub{color:var(--muted);margin-top:6px}
+  .nav{text-align:center;margin-top:10px;font-size:14px}
+  .nav a{margin:0 10px;color:var(--blue)}
+  h1{font-size:30px;line-height:1.25;letter-spacing:-.5px;margin:36px 0 6px}
+  h2{font-size:20px;margin:38px 0 12px;letter-spacing:-.2px}
+  p{color:#c9d3e8;margin:14px 0}
+  a{color:var(--blue)}
+  .muted{color:var(--muted)}
+  .lead{font-size:18px;line-height:1.7;color:var(--text)}
+  .card{background:rgba(255,255,255,.03);border:1px solid var(--border);
+    border-radius:14px;padding:18px 20px;margin:16px 0}
+  .card b{color:var(--text)}
+  .card .n{color:var(--blue);font-weight:700}
+  .trou{border:1px dashed var(--amber);background:rgba(250,178,25,.07);
+    border-radius:10px;padding:14px 16px;margin:16px 0;color:#e8d9b0;font-size:14.5px}
+  .trou b{color:var(--amber);display:block;margin-bottom:4px}
+  .sign{margin-top:34px;padding-top:20px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:14.5px}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);
+    color:var(--muted);font-size:12px;line-height:1.7}
+  .cta{text-align:center;margin:34px 0 10px}
+  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;
+    padding:14px 30px;border-radius:10px;font-weight:600;min-height:48px}
+  html,body{max-width:100%;overflow-x:hidden}
+  @media(max-width:768px){
+    body{font-size:15.5px;padding:0 16px 60px}
+    h1{font-size:25px}
+    h2{font-size:18.5px}
+    .lead{font-size:16.5px}
+    .nav{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 0}
+    .nav a{margin:0 8px;white-space:nowrap}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo">Alpha<span>Scalp</span></div>
+  <div class="sub">Pourquoi ce projet existe</div>
+  <div class="nav">
+    <a href="/">Accueil</a> ·
+    <a href="/performance">Performance</a> ·
+    <a href="/guide">Guide</a> ·
+    <a href="/rejoindre">Rejoindre la bêta</a>
+  </div>
+</header>
+
+<h1>Pourquoi AlphaScalp existe</h1>
+
+<p class="lead">
+  Ouvre TikTok et cherche « trading ». Tu vas tomber sur des captures de gains,
+  des voitures, des courbes qui ne montent jamais que vers la droite, et des
+  gens qui te vendent une méthode plutôt que de l'utiliser. On ne te montre
+  jamais les pertes. Jamais.
+</p>
+
+<p>
+  Ce projet est né de cet agacement-là. Pas d'une méthode secrète, pas d'une
+  révélation : juste l'envie de voir à quoi ressemblerait la même chose,
+  faite honnêtement.
+</p>
+
+<div class="trou">
+  <b>À COMPLÉTER — seulement toi peux écrire ça</b>
+  Deux ou trois phrases sur ce qui t'a amené là : depuis quand tu t'intéresses
+  au trading, ce que tu faisais avant les bots, ce qui t'a décidé à coder le
+  premier. Ce sont les seules lignes de cette page que je ne peux pas écrire à
+  ta place, et ce sont probablement celles qu'on lira le plus attentivement.
+</div>
+
+<h2>Ce que « honnêtement » veut dire, concrètement</h2>
+
+<p>
+  C'est facile à écrire. Alors voilà ce que ça a coûté, en décisions réelles,
+  vérifiables sur ce site.
+</p>
+
+<div class="card">
+  <b>J'ai supprimé une fonctionnalité dont j'étais fier.</b>
+  <p class="muted" style="margin:8px 0 0">
+    Une intelligence artificielle validait chaque trade avant exécution. Ça
+    faisait sérieux. Sur <span class="n">665 appels mesurés</span>, elle a
+    répondu « confiance 3 sur 10 » à <span class="n">100 %</span> d'entre eux.
+    Une réponse qui ne varie jamais n'apporte aucune information : elle
+    décorait. Je l'ai coupée.
+  </p>
+</div>
+
+<div class="card">
+  <b>J'ai rétrogradé un bot qui perdait, au lieu de le régler.</b>
+  <p class="muted" style="margin:8px 0 0">
+    L'AutoTradeBot avait pris <span class="n">14 trades réels</span> :
+    <span class="n">14 % de réussite</span>, <span class="n">−607 $</span>.
+    Le réflexe aurait été de bricoler les paramètres jusqu'à ce que les
+    chiffres passent. Je l'ai basculé en simulation, et gelé jusqu'au
+    1<sup>er</sup> septembre. Il n'y reviendra que si les mesures le
+    justifient — pas parce que j'en ai envie.
+  </p>
+</div>
+
+<div class="card">
+  <b>Je publie la stratégie qui perd, à côté de celle qui gagne.</b>
+  <p class="muted" style="margin:8px 0 0">
+    Sur la <a href="/performance">page performance</a>, XAUUSD affiche un
+    facteur de profit de <span class="n">1,12</span>. Juste en dessous,
+    EURUSD affiche <span class="n">0,79</span> — c'est-à-dire qu'il perd de
+    l'argent. Il serait trivial de ne montrer que le premier. Les deux sont là,
+    avec la courbe et le détail de chaque trade, gagnants comme perdants.
+  </p>
+</div>
+
+<div class="card">
+  <b>Je livre le code source du programme.</b>
+  <p class="muted" style="margin:8px 0 0">
+    Le copieur que tu installes va passer des ordres sur ton compte. Tu as le
+    droit de lire ce qu'il fait avant de le lancer, et de le recompiler
+    toi-même si tu préfères. Les deux fichiers sont fournis ensemble.
+  </p>
+</div>
+
+<h2>Ce que je ne promets pas</h2>
+
+<p>
+  Aucun rendement. Aucun pourcentage mensuel. Aucune date à laquelle « ça
+  décolle ». Je n'en sais rien, et quiconque prétend le savoir te ment ou se
+  ment.
+</p>
+
+<p>
+  La bêta se déroule <b>exclusivement sur compte de démonstration</b> — de
+  l'argent fictif. Aucun versement, aucune carte bancaire, aucune pièce
+  d'identité. Le programme <b>refuse de démarrer sur un compte réel</b>, par
+  défaut et volontairement. Ce n'est pas une précaution juridique : tant que
+  la stratégie n'a pas fait ses preuves, je ne veux l'argent de personne
+  dessus, y compris le mien.
+</p>
+
+<h2>Où j'en suis vraiment</h2>
+
+<p>
+  Quatre robots tournent en continu depuis le printemps. Les paramètres sont
+  <b>gelés</b> : aucun réglage ne bouge avant le 1<sup>er</sup> septembre, et
+  les décisions sont prises à des dates fixées à l'avance, pas quand une
+  semaine se passe mal. C'est la seule façon d'éviter de courir après le
+  hasard — une semaine de trading, statistiquement, ne dit à peu près rien.
+</p>
+
+<p>
+  À ce stade, rien n'est prouvé. Les échantillons sont petits, l'un des deux
+  instruments perd, et je ne sais pas encore si ce que je construis a une
+  valeur réelle. C'est précisément pour ça que la bêta est gratuite et sur
+  démo : je préfère te le dire maintenant plutôt que de te le facturer.
+</p>
+
+<div class="trou">
+  <b>À COMPLÉTER — ton objectif</b>
+  Une ou deux phrases : où tu veux emmener ce projet, et ce que tu attends des
+  premiers testeurs. Est-ce que c'est un produit que tu veux vendre un jour,
+  un défi technique, autre chose ? Dis-le simplement, même si la réponse est
+  « je ne sais pas encore » — ce serait déjà plus honnête que la moyenne du
+  secteur.
+</div>
+
+<div class="sign">
+  Si tu veux suivre la suite, tout se passe sur la
+  <a href="/performance">page performance</a>, mise à jour automatiquement.
+  Elle continuera d'afficher les mauvais chiffres quand il y en aura.
+</div>
+
+<div class="cta">
+  <a class="btn" href="/rejoindre">Rejoindre la bêta</a>
+  <div class="muted" style="font-size:12.5px;margin-top:10px">
+    Gratuit · compte de démonstration · aucun paiement, aucune pièce d'identité
+  </div>
+</div>
+
+<footer>
+  AlphaScalp est un projet personnel, sans activité commerciale à ce jour.
+  Le trading comporte un risque de perte en capital. Les performances passées
+  ne préjugent pas des performances futures. Ceci n'est pas un conseil en
+  investissement.
+  <br>
+  <a href="/mentions-legales">Mentions légales</a> ·
+  <a href="/confidentialite">Confidentialité</a> ·
+  <a href="mailto:zioqsen@gmail.com">Contact</a>
+</footer>
+
+</div>
+</body>
+</html>

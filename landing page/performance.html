@@ -85,8 +85,16 @@
   </header>
 
   <div class="beta">
+    <!-- [31/07] "drawdown" retire de cette promesse : il n'etait affiche
+         NULLE PART sur la page. Annoncer un chiffre qu'on ne montre pas, dans
+         la phrase d'accroche d'un projet dont tout le positionnement est
+         l'honnetete, c'est l'endroit le plus couteux possible pour une
+         promesse non tenue. On promet exactement ce qu'on affiche, et rien
+         de plus. Le jour ou le drawdown est calcule et affiche, on remet le
+         mot -- pas avant. -->
     🔬 <b>Bêta en compte de démonstration.</b> La stratégie est en phase de
-    <b>validation publique</b> : nous montrons TOUT — gains, pertes, drawdown —
+    <b>validation publique</b> : nous montrons TOUT — chaque trade, gagnant
+    comme perdant, et la courbe de capital telle qu'elle est —
     en temps réel, pour construire une preuve honnête avant tout passage en réel.
     <b>Aucun résultat n'est garanti.</b> Ce n'est pas un conseil en investissement.
   </div>
@@ -132,7 +140,7 @@
         crédible</b>. On préfère ne rien afficher plutôt qu'un chiffre trompeur.
       </p>
       <div class="stats">
-        <div class="stat"><div class="stat-v" style="">9,877 EUR</div><div class="stat-l">capital (démo)</div></div>
+        <div class="stat"><div class="stat-v" style="">9,884 EUR</div><div class="stat-l">capital (démo)</div></div>
         <div class="stat"><div class="stat-v" style="">20</div><div class="stat-l">signaux détectés</div></div>
         <div class="stat"><div class="stat-v" style="">5</div><div class="stat-l">trades pris</div><div class="stat-h">filtres stricts</div></div>
         <div class="stat"><div class="stat-v" style="">2</div><div class="stat-l">position(s) en cours</div></div>
@@ -141,17 +149,29 @@
 
   <h2>Comment ça marche</h2>
   <div class="how">
+    <!-- [31/07] Ces trois etapes decrivaient la copie COTE BROKER : "un clic
+         pour connecter ton compte au broker", "chaque trade est copie par le
+         broker". C'est la cible a terme, pas la beta -- exactement la meme
+         incoherence que celle corrigee la veille dans le guide, restee ici
+         parce que cette page est GENEREE : corriger le .html ne servait a
+         rien, le prochain passage l'aurait ecrase. La source de verite est ce
+         fichier.
+         "Email et c'est tout" etait faux aussi : le formulaire demande
+         prenom, nom, email et date de naissance. -->
     <div class="step"><div class="step-n">1</div>
       <b>Tu t'inscris</b><div class="muted" style="font-size:13px;margin-top:4px">
-      Email et c'est tout. Accès bêta gratuit.</div></div>
+      Prénom, email, date de naissance. Ta clé s'affiche tout de suite.
+      Gratuit, aucun moyen de paiement demandé.</div></div>
     <div class="step"><div class="step-n">2</div>
-      <b>Tu relies ton compte</b><div class="muted" style="font-size:13px;margin-top:4px">
-      Un clic pour connecter ton compte au broker. Tes identifiants restent chez le broker,
-      jamais chez nous.</div></div>
+      <b>Tu installes le copieur</b><div class="muted" style="font-size:13px;margin-top:4px">
+      Un programme à poser dans ton MetaTrader 5, sur un compte de
+      <b>démonstration</b>. Environ 10 minutes, une seule fois. Il te faut un
+      PC allumé : le téléphone n'exécute pas ce type de programme.</div></div>
     <div class="step"><div class="step-n">3</div>
-      <b>La copie est automatique</b><div class="muted" style="font-size:13px;margin-top:4px">
-      Chaque trade est copié sur ton compte par le broker. Tu ne touches à rien,
-      tu suis tes résultats.</div></div>
+      <b>La copie se fait toute seule</b><div class="muted" style="font-size:13px;margin-top:4px">
+      Le copieur relève les signaux et recalcule la taille depuis <b>ton</b>
+      capital. Tes identifiants de courtier restent chez toi : AlphaScalp n'a
+      aucun accès à ton compte.</div></div>
   </div>
 
   <div class="cta">
@@ -161,7 +181,7 @@
   </div>
 
   <footer>
-    Dernière mise à jour : 31/07/2026 à 19:01.
+    Dernière mise à jour : 31/07/2026 à 21:19.
     AlphaScalp diffuse les signaux d'une stratégie algorithmique ; l'exécution et la
     conservation des fonds sont assurées par ton broker (service régulé), jamais par AlphaScalp.
     <br><br>

@@ -36,3 +36,7 @@ venv/
 *.tmp
 .DS_Store
 Thumbs.db
+
+# Dossier temporaire du client Google Drive. Ce projet est synchronisé, et
+# le client y dépose des fragments pendant l'envoi. Rien à versionner.
+.tmp.driveupload/
