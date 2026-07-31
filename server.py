@@ -659,6 +659,10 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <select id="plan"><option value="beta">beta</option><option value="starter">starter</option><option value="pro">pro</option><option value="vip">vip</option></select>
   <button onclick="createClient()">Créer une clé</button>
 </div>
+<div style="margin:10px 0 16px">
+  <button class="ghost" onclick="chercherGroupes()">Trouver le groupe Telegram</button>
+  <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
+</div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Plan</th><th>État</th><th>Vu</th><th></th></tr></thead>
 <tbody id="rows"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody></table>
 <script>
@@ -772,6 +776,25 @@ async function load(){
         <button class="danger" onclick="del('${c.api_key}')">Suppr.</button>
       </div></td></tr>`).join('');
   }catch(e){ document.getElementById('rows').innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(''+e.message)+'</td></tr>'; }
+}
+// [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
+// deja le jeton du bot, inutile de le faire transiter vers un terminal.
+async function chercherGroupes(){
+  const z = document.getElementById('zoneGroupes');
+  z.innerHTML = 'Recherche…';
+  try{
+    const j = await api('/api/admin/groupes');
+    const noms = Object.keys(j.groupes || {});
+    if(!noms.length){
+      z.innerHTML = '<span style="color:#fab219">Aucun groupe trouve.</span> '
+        + esc(j.aide || ''); return;
+    }
+    z.innerHTML = noms.map(id =>
+      '<div style="margin:6px 0">' + esc(j.groupes[id])
+      + ' &rarr; <code>' + esc(id) + '</code></div>').join('')
+      + '<div class="muted" style="margin-top:8px;font-size:12px">'
+      + 'A coller dans Render : <code>ALPHASCALP_TG_GROUPE_ID</code></div>';
+  }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
 }
 async function createClient(){
   const name = document.getElementById('name').value.trim();
@@ -1185,6 +1208,51 @@ def retrouver_cle(body: RetrouverIn):
     print(f"RECOVER | {now_iso()} | {email}", flush=True)
     _notify_restauration(email)
     return {"ok": True, "api_key": key, "active": False, "restauree": True}
+
+
+@app.get("/api/admin/groupes")
+def admin_groupes(token: Optional[str] = Query(None),
+                  x_admin_token: Optional[str] = Header(None)):
+    """Liste les groupes Telegram où le bot est présent.
+
+    [31/07] Le serveur détient déjà le jeton du bot : il peut interroger
+    Telegram lui-même. Ça évite de faire transiter un secret depuis Render
+    vers un terminal — surtout depuis un téléphone, où le copier-coller entre
+    deux applications est le meilleur moyen de laisser traîner un jeton dans
+    un presse-papier.
+
+    Le jeton du bot n'est JAMAIS renvoyé, seulement les identifiants de
+    groupe. Ils ne sont pas secrets : sans le jeton, ils ne servent à rien.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN:
+        raise HTTPException(status_code=400,
+                            detail="Aucun jeton Telegram configuré côté serveur.")
+    try:
+        with urllib.request.urlopen(
+                f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates?limit=50",
+                timeout=20) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except Exception as e:                          # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Telegram injoignable : {e}")
+
+    if not data.get("ok"):
+        raise HTTPException(status_code=502,
+                            detail=f"Telegram : {data.get('description', '?')}")
+
+    groupes, prive = {}, None
+    for maj in data.get("result", []):
+        msg = (maj.get("message") or maj.get("channel_post")
+               or maj.get("my_chat_member") or {})
+        chat = msg.get("chat") or {}
+        if chat.get("type") in ("group", "supergroup", "channel"):
+            groupes[str(chat["id"])] = chat.get("title", "(sans titre)")
+        elif chat.get("type") == "private":
+            prive = str(chat["id"])
+    return {"groupes": groupes, "prive": prive,
+            "aide": ("Aucun groupe ? Le bot doit y avoir reçu un événement : "
+                     "son ajout, sa promotion, ou une commande /start@sonnom. "
+                     "Telegram ne conserve ces événements que 24 h.")}
 
 
 @app.get("/api/stats")
