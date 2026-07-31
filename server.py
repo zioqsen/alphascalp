@@ -1207,10 +1207,24 @@ async function submit(){
       '<div class="msg"><span class="ok">✅ '+(j.already?'Tu es déjà inscrit !':'Inscription reçue !')+'</span>'
       +'<p style="margin-top:10px;color:#6b7a99">Voici ta clé bêta (garde-la) :</p>'
       +'<div class="key">'+j.api_key+'</div>'
+      +'<p style="color:#6b7a99;font-size:12.5px;margin:-4px 0 14px">'
+      +'Note-la, mais tu peux toujours la retrouver ici avec ton email et ta '
+      +'date de naissance.</p>'
+      +'<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
+      +'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
+      +'font-weight:600;margin:0 0 6px;min-height:46px">Installer le copieur &rarr;</a>'
+      +'<p style="color:#6b7a99;font-size:12.5px;margin:0 0 10px">'
+      +'Environ 15 min, une seule fois. Tu peux le faire <b>maintenant</b> : le '
+      +'copieur attend tout seul que ton acces soit ouvert, et se met en route '
+      +'sans que tu aies rien a relancer.</p>'
       +'<div id="zoneGroupe"></div>'
-      +'<ol class="steps"><li>Ta clé est <b>en attente d\\'activation</b> — on t\\'ouvre l\\'accès très vite (places limitées).</li>'
-      +'<li>Tu recevras alors les instructions pour relier ton compte démo à la stratégie, en 1 clic chez le broker.</li>'
-      +'<li>Ensuite tout est automatique : tu suis tes résultats, tu ne touches à rien.</li></ol>';
+      +'<ol class="steps">'
+      +'<li>Il te faut un <b>PC allume</b> avec MetaTrader 5 et un compte de '
+      +'<b>demonstration</b>. Tout est explique sur la page d&#39;installation.</li>'
+      +'<li>Ta cle est <b>en attente de validation</b>. Une fenetre s&#39;ouvrira '
+      +'dans MetaTrader des que ton acces sera actif.</li>'
+      +'<li>Ensuite tu ne touches plus a rien : les trades apparaissent sur ton '
+      +'compte, ajustes a <b>ton</b> capital.</li></ol>';
       afficherGroupe();
   }catch(e){ msg.innerHTML='<span class=err>'+e.message+'</span>'; btn.disabled=false; btn.textContent='Rejoindre la bêta'; }
 }

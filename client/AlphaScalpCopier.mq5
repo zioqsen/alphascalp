@@ -582,6 +582,9 @@ void Relever()
          enPause = true;
          Alerte("Clé INACTIVE côté serveur : plus aucune nouvelle entrée. "
                 "Les positions déjà ouvertes restent gérées par leur SL/TP.");
+         // Une mise en pause silencieuse ferait croire a une panne. On le dit.
+         Alert("AlphaScalp : ton accès est en PAUSE. Aucune nouvelle position "
+               "ne sera ouverte. Les positions en cours gardent leur stop.");
         }
       return;
      }
@@ -605,7 +608,17 @@ void Relever()
       return;
      }
 
-   if(enPause) { enPause = false; Info("Clé réactivée — reprise des entrées."); }
+   if(enPause)
+     {
+      enPause = false;
+      Info("Clé réactivée — reprise des entrées.");
+      // Alert() ouvre une fenetre et joue un son : le testeur est prevenu
+      // MEME s'il ne regarde pas le journal. Sans ca, l'activation de sa cle
+      // ne lui parvenait par AUCUN canal -- ni email, ni message : on ne
+      // dispose que de son terminal pour l'atteindre.
+      Alert("AlphaScalp : ton accès est ACTIVÉ. La copie démarre, "
+            "tu n'as plus rien à faire.");
+     }
 
    //--- Le serveur est-il reparti de zéro ? --------------------------------
    // La base du serveur est éphémère : à son redémarrage la table repart vide
