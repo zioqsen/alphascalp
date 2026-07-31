@@ -41,7 +41,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 # ─────────────────────────────────────────────────────────────
@@ -274,6 +275,14 @@ def _alerte_base_vide() -> None:
 
 app = FastAPI(title="AlphaScalp Server", version="0.1.0")
 
+# [31/07] Compression. Aucune n'était active : le HTML partait brut. Ces pages
+# sont du texte avec beaucoup de CSS répété, elles se compressent d'un facteur
+# 4 à 5. Gain immédiat, aucune contrepartie, aucune dépendance ajoutée —
+# GZipMiddleware fait partie de Starlette, déjà présent via FastAPI.
+# minimum_size : en dessous de 500 octets, compresser coûte plus que ça ne
+# rapporte.
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
 
 # ─────────────────────────────────────────────────────────────
 # SÉCURITÉ  [31/07]
@@ -390,6 +399,20 @@ async def garde_securite(request: Request, call_next):
             "frame-ancestors 'none'; "
             "base-uri 'none'; "
             "object-src 'none'")
+    # [31/07] Cache. Aucun en-tête n'était envoyé : chaque visite
+    # retéléchargeait tout, y compris les pages qui ne changent presque jamais.
+    # `must-revalidate` garde la main — le navigateur revérifie, il ne sert pas
+    # une version périmée pendant une heure. Les pages de performance changent
+    # toutes les heures, on les garde plus courtes.
+    if "cache-control" not in (k.lower() for k in reponse.headers):
+        if chemin.startswith("/api/") or chemin.startswith("/admin"):
+            reponse.headers["Cache-Control"] = "no-store"
+        elif chemin in ("/performance", "/"):
+            reponse.headers["Cache-Control"] = "public, max-age=300, must-revalidate"
+        elif chemin.startswith("/telecharger/"):
+            reponse.headers["Cache-Control"] = "private, max-age=0, no-store"
+        else:
+            reponse.headers["Cache-Control"] = "public, max-age=1800, must-revalidate"
     return reponse
 
 
@@ -1365,6 +1388,66 @@ def _serve_file(path, fallback):
             return HTMLResponse(f.read())
     except Exception:
         return HTMLResponse(fallback)
+
+
+# ─────────────────────────────────────────────────────────────
+# IDENTITÉ WEB — favicon, robots, sitemap
+#
+# [31/07] Les trois répondaient 404. Le favicon donnait un onglet générique ;
+# l'absence de robots/sitemap n'aide pas au référencement. Mais le vrai coût
+# était ailleurs : sans balises Open Graph, TOUT lien partagé sur Telegram,
+# WhatsApp ou Discord affichait un aperçu vide. Pour un produit qui se diffuse
+# de la main à la main et par messagerie, c'était le manque le plus cher du
+# site — et le moins cher à combler.
+# ─────────────────────────────────────────────────────────────
+SITE = os.environ.get("ALPHASCALP_URL", "https://alphascalp.onrender.com").rstrip("/")
+
+# Favicon en SVG : quelques centaines d'octets, net à toutes les tailles,
+# aucune image binaire à versionner. Reprend le bleu du logo et la forme du
+# point « live » de la barre de navigation.
+_FAVICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+    '<rect width="64" height="64" rx="14" fill="#080b10"/>'
+    '<path d="M12 44 L24 30 L34 38 L52 16" fill="none" stroke="#3b82f6" '
+    'stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>'
+    '<circle cx="52" cy="16" r="6" fill="#22c55e"/>'
+    "</svg>"
+)
+
+
+@app.get("/favicon.svg")
+@app.get("/favicon.ico")
+def favicon():
+    return Response(content=_FAVICON, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/robots.txt")
+def robots():
+    # L'administration et les API n'ont rien à faire dans un index.
+    corps = ("User-agent: *\n"
+             "Allow: /\n"
+             "Disallow: /admin\n"
+             "Disallow: /api/\n"
+             "Disallow: /telecharger/\n"
+             f"\nSitemap: {SITE}/sitemap.xml\n")
+    return Response(content=corps, media_type="text/plain")
+
+
+@app.get("/sitemap.xml")
+def sitemap():
+    pages = [("/", "1.0"), ("/performance", "0.9"), ("/guide", "0.8"),
+             ("/rejoindre", "0.8"), ("/telecharger", "0.6"),
+             ("/mentions-legales", "0.3"), ("/confidentialite", "0.3")]
+    jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    corps = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
+    for chemin, prio in pages:
+        corps += (f"  <url><loc>{SITE}{chemin}</loc>"
+                  f"<lastmod>{jour}</lastmod>"
+                  f"<priority>{prio}</priority></url>\n")
+    corps += "</urlset>\n"
+    return Response(content=corps, media_type="application/xml")
 
 
 @app.get("/", response_class=HTMLResponse)
