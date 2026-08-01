@@ -67,6 +67,32 @@ services:
       - key: ALPHASCALP_TG_BOT
         sync: false
 
+      # ── [01/08] PERSISTANCE DES INSCRITS DANS GOOGLE DRIVE ──────────
+      # Le disque de ce plan est éphémère : au réveil de l'instance la table
+      # `clients` est vide et toutes les clés bêta disparaissent. Ces quatre
+      # variables font vivre un instantané de la table dans un fichier du
+      # Drive de Flo — écrit à chaque changement, relu au démarrage.
+      #
+      # Elles DOIVENT figurer ici même sans valeur : ce service est un
+      # Blueprint, et une variable ajoutée à la main dans le tableau de bord
+      # mais absente de ce fichier est SUPPRIMÉE à la synchro suivante. C'est
+      # exactement ce qui a fait disparaître deux variables le 30/07.
+      #
+      # `sync: false` = Render crée la variable et demande sa valeur dans le
+      # tableau de bord. Les valeurs s'obtiennent avec
+      # outils/obtenir_jeton_drive.py — voir outils/GUIDE_DRIVE.md.
+      #
+      # Tant que les quatre ne sont pas renseignées, le mécanisme reste
+      # INERTE et le serveur fonctionne exactement comme avant.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_FILE_ID
+        sync: false
+
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter
     # 2. décommenter les 6 lignes ci-dessous

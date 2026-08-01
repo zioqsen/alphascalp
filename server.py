@@ -515,6 +515,190 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# ═════════════════════════════════════════════════════════════
+# PERSISTANCE DES INSCRITS DANS GOOGLE DRIVE
+#
+# LE PROBLÈME. L'hébergement gratuit a un système de fichiers ÉPHÉMÈRE et
+# endort le service après 15 min sans trafic. Au réveil, conteneur neuf : la
+# table `clients` est vide. Toutes les clés bêta disparaissent d'un coup, les
+# copieurs reçoivent 401, et il faut que chaque testeur revienne récupérer sa
+# clé pendant que Flo les réactive un par un. À chaque fois.
+#
+# LA SOLUTION. Un instantané de la table `clients` vit dans un fichier de
+# Drive : écrit à chaque changement, relu au démarrage. Le fichier appartient
+# à Flo, il peut l'ouvrir depuis son téléphone.
+#
+# CE QUE CE N'EST PAS. Ce n'est pas une base de données : c'est un fichier
+# réécrit en entier. Pas de transaction, pas de verrou distribué. À l'échelle
+# d'une bêta — quelques dizaines de lignes, quelques écritures par jour — le
+# compromis est bon. Il ne le serait plus à une autre échelle.
+#
+# PÉRIMÈTRE `drive.file` : l'application n'accède QU'aux fichiers qu'elle a
+# créés. Même compromise, elle ne voit rien d'autre du Drive de Flo. C'est
+# aussi ce périmètre qui permet de publier l'application sans vérification
+# Google, donc d'avoir un jeton qui n'expire pas au bout de 7 jours.
+#
+# INERTE PAR DÉFAUT : sans les quatre variables, tout ceci ne fait rien et le
+# serveur se comporte exactement comme avant.
+# ═════════════════════════════════════════════════════════════
+_G_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+_G_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+_G_REFRESH = os.environ.get("GOOGLE_REFRESH_TOKEN", "").strip()
+_G_FICHIER = os.environ.get("GOOGLE_FILE_ID", "").strip()
+
+_drive_verrou = threading.Lock()
+_drive_signal = threading.Event()
+_drive_jeton = {"valeur": None, "expire": 0.0}
+# État exposé par /api/health : une sauvegarde silencieusement cassée est pire
+# que pas de sauvegarde, parce qu'on se croit protégé.
+_drive_etat = {"actif": False, "restaure": None, "lignes": 0,
+               "derniere_sauvegarde": None, "dernier_echec": None}
+
+
+def drive_actif() -> bool:
+    return all((_G_ID, _G_SECRET, _G_REFRESH, _G_FICHIER))
+
+
+def _drive_alerte(texte: str) -> None:
+    """Une panne de ce mécanisme doit ARRIVER quelque part, pas rester dans un
+    journal que personne ne lit. C'est la leçon la plus chère du projet."""
+    print(f"DRIVE_KO | {texte}", flush=True)
+    _drive_etat["dernier_echec"] = f"{now_iso()} — {texte}"
+    try:
+        _notify_telegram(f"⚠️ AlphaScalp — sauvegarde des inscrits : {texte}")
+    except Exception:                                   # noqa: BLE001
+        pass
+
+
+def _drive_token() -> Optional[str]:
+    """Échange le jeton de rafraîchissement contre un jeton d'accès (1 h).
+    Un simple POST : pas de bibliothèque Google, pas de signature RSA, donc
+    aucune dépendance ajoutée — le serveur n'a que fastapi et uvicorn."""
+    if _drive_jeton["valeur"] and time.time() < _drive_jeton["expire"] - 60:
+        return _drive_jeton["valeur"]
+    try:
+        data = urllib.parse.urlencode({
+            "client_id": _G_ID, "client_secret": _G_SECRET,
+            "refresh_token": _G_REFRESH, "grant_type": "refresh_token"}).encode()
+        with urllib.request.urlopen(urllib.request.Request(
+                "https://oauth2.googleapis.com/token", data=data), timeout=30) as r:
+            j = json.loads(r.read().decode("utf-8"))
+        _drive_jeton["valeur"] = j.get("access_token")
+        _drive_jeton["expire"] = time.time() + float(j.get("expires_in", 3600))
+        return _drive_jeton["valeur"]
+    except Exception as e:                              # noqa: BLE001
+        _drive_alerte(f"jeton refusé par Google ({e}). L'application est-elle "
+                      f"toujours publiée et l'accès non révoqué ?")
+        return None
+
+
+def _drive_lire() -> Optional[list]:
+    jeton = _drive_token()
+    if not jeton:
+        return None
+    try:
+        req = urllib.request.Request(
+            f"https://www.googleapis.com/drive/v3/files/{_G_FICHIER}?alt=media",
+            headers={"Authorization": f"Bearer {jeton}"})
+        with urllib.request.urlopen(req, timeout=45) as r:
+            brut = r.read().decode("utf-8").strip()
+        if not brut:
+            return []                                   # fichier neuf : normal
+        contenu = json.loads(brut)
+        return contenu.get("clients", []) if isinstance(contenu, dict) else contenu
+    except Exception as e:                              # noqa: BLE001
+        _drive_alerte(f"lecture impossible ({e})")
+        return None
+
+
+def _drive_ecrire(lignes: list) -> bool:
+    jeton = _drive_token()
+    if not jeton:
+        return False
+    corps = json.dumps({"maj": now_iso(), "n": len(lignes), "clients": lignes},
+                       ensure_ascii=False, indent=1).encode("utf-8")
+    try:
+        req = urllib.request.Request(
+            f"https://www.googleapis.com/upload/drive/v3/files/{_G_FICHIER}"
+            f"?uploadType=media",
+            data=corps, method="PATCH",
+            headers={"Authorization": f"Bearer {jeton}",
+                     "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            r.read()
+        _drive_etat["derniere_sauvegarde"] = now_iso()
+        _drive_etat["lignes"] = len(lignes)
+        print(f"DRIVE_OK | {len(lignes)} inscrit(s) sauvegardé(s)", flush=True)
+        return True
+    except Exception as e:                              # noqa: BLE001
+        _drive_alerte(f"écriture impossible ({e})")
+        return False
+
+
+def restaurer_clients() -> None:
+    """Au démarrage : réinjecte les inscrits que la base éphémère a perdus.
+
+    INSERT OR IGNORE, jamais UPDATE ni DELETE. Une ligne déjà présente en base
+    fait toujours autorité sur l'instantané : on ne peut donc pas écraser une
+    activation récente avec une photo plus ancienne.
+    """
+    if not drive_actif():
+        print("DRIVE | inactif (variables absentes) — "
+              "la base reste éphémère.", flush=True)
+        return
+    _drive_etat["actif"] = True
+    lignes = _drive_lire()
+    if lignes is None:
+        _drive_etat["restaure"] = False
+        _drive_alerte("RESTAURATION ÉCHOUÉE au démarrage — le serveur repart "
+                      "sur une base vide, les copieurs vont recevoir 401.")
+        return
+    remis = 0
+    with db() as conn:
+        colonnes = [d[1] for d in conn.execute("PRAGMA table_info(clients)")]
+        for ligne in lignes:
+            champs = [c for c in colonnes if c in ligne]
+            if "api_key" not in champs:
+                continue
+            marques = ",".join("?" * len(champs))
+            try:
+                cur = conn.execute(
+                    f"INSERT OR IGNORE INTO clients ({','.join(champs)}) "
+                    f"VALUES ({marques})", [ligne[c] for c in champs])
+                remis += cur.rowcount
+            except Exception:                           # noqa: BLE001
+                continue
+    _drive_etat["restaure"] = True
+    _drive_etat["lignes"] = len(lignes)
+    print(f"DRIVE | restauration : {remis} inscrit(s) réinjecté(s) "
+          f"sur {len(lignes)} dans l'instantané", flush=True)
+
+
+def planifier_sauvegarde() -> None:
+    """Demande une sauvegarde. Ne bloque JAMAIS l'appelant : une inscription
+    ne doit pas attendre Google. Les demandes rapprochées sont fusionnées —
+    trois changements en deux secondes ne font qu'un seul envoi."""
+    if drive_actif():
+        _drive_signal.set()
+
+
+def _boucle_sauvegarde() -> None:
+    while True:
+        _drive_signal.wait()
+        time.sleep(2)                    # laisse le temps aux changements groupés
+        _drive_signal.clear()
+        try:
+            with _drive_verrou:
+                # On relit la table ENTIÈRE à chaque fois : l'instantané est
+                # toujours complet et cohérent, jamais un patch partiel.
+                with db() as conn:
+                    lignes = [dict(r) for r in conn.execute(
+                        "SELECT * FROM clients ORDER BY created_at")]
+                _drive_ecrire(lignes)
+        except Exception as e:                          # noqa: BLE001
+            _drive_alerte(f"boucle de sauvegarde : {e}")
+
+
 # ─────────────────────────────────────────────────────────────
 # MODÈLES
 # ─────────────────────────────────────────────────────────────
@@ -663,6 +847,18 @@ def health():
         # distribue. Les pages le lisent ici plutôt que de l'écrire en dur.
         "invitation": TG_INVITATION,
         "bot": TG_BOT_NOM,
+        # [01/08] État de la sauvegarde des inscrits. Sans ça, une persistance
+        # silencieusement cassée resterait invisible jusqu'au jour où la base
+        # s'efface pour de bon — et c'est très exactement le motif qu'on passe
+        # notre temps à corriger. Aucune valeur sensible : des booléens, un
+        # compte et des horodatages.
+        "drive": {
+            "actif": _drive_etat["actif"],
+            "restaure_au_demarrage": _drive_etat["restaure"],
+            "inscrits_sauvegardes": _drive_etat["lignes"],
+            "derniere_sauvegarde": _drive_etat["derniere_sauvegarde"],
+            "dernier_echec": _drive_etat["dernier_echec"],
+        },
     }
 
 
@@ -722,6 +918,7 @@ def admin_create(name: str = Query(...), plan: str = Query("beta"),
             "INSERT INTO clients (api_key, name, plan, active, created_at) VALUES (?,?,?,1,?)",
             (key, name.strip(), plan.strip(), now_iso()),
         )
+    planifier_sauvegarde()   # cle creee depuis l admin
     return {"ok": True, "api_key": key, "name": name, "plan": plan, "active": True}
 
 
@@ -786,6 +983,7 @@ def admin_toggle(api_key: str, token: Optional[str] = Query(None),
             raise HTTPException(status_code=404, detail="Clé inconnue")
         new_state = 0 if row["active"] else 1
         conn.execute("UPDATE clients SET active = ? WHERE api_key = ?", (new_state, api_key))
+    planifier_sauvegarde()   # activation ou mise en pause
     if new_state:
         _prevenir_activation(api_key)
     return {"ok": True, "api_key": api_key, "active": bool(new_state)}
@@ -797,6 +995,7 @@ def admin_delete(api_key: str, token: Optional[str] = Query(None),
     require_admin(token, x_admin_token)
     with db() as conn:
         conn.execute("DELETE FROM clients WHERE api_key = ?", (api_key,))
+    planifier_sauvegarde()   # suppression d un inscrit
     return {"ok": True, "deleted": api_key}
 
 
@@ -1175,6 +1374,7 @@ def public_signup(body: SignupIn):
         print(f"SIGNUP | {now_iso()} | {email}", flush=True)
     except Exception:
         pass
+    planifier_sauvegarde()   # nouvelle inscription
     # [30/07] Second filet, DURABLE celui-là : chaque inscription part en
     # Telegram. Les logs Render du plan gratuit sont conservés peu de temps et
     # se consultent à la main — inutilisable pour ne pas rater un inscrit. Une
@@ -1569,6 +1769,7 @@ def retrouver_cle(body: RetrouverIn):
             "INSERT INTO clients (api_key, name, email, plan, active, created_at) "
             "VALUES (?,?,?,?,0,?)",
             (key, email.split("@")[0], email, "beta", now_iso()))
+    planifier_sauvegarde()   # ligne recreee apres une perte de base
     print(f"RECOVER | {now_iso()} | {email}", flush=True)
     _notify_restauration(email)
     return {"ok": True, "api_key": key, "active": False, "restauree": True}
@@ -1893,6 +2094,7 @@ async def telegram_webhook(request: Request):
         if cible:
             conn.execute("UPDATE clients SET tg_chat = ? WHERE api_key = ?",
                          (str(chat), cible["api_key"]))
+            planifier_sauvegarde()   # compte Telegram lié
     if cible:
         _tg_appel("sendMessage", {
             "chat_id": chat, "parse_mode": "HTML",
@@ -2074,6 +2276,14 @@ def confidentialite_page():
 
 # ─────────────────────────────────────────────────────────────
 init_db()
+
+# [01/08] Restauration AVANT le comptage : sinon `_alerte_base_vide` crierait
+# à la base vide alors que les inscrits sont sur le point d'être réinjectés.
+# L'ordre compte — init_db crée les tables, restaurer_clients les remplit,
+# puis seulement on juge de leur contenu.
+restaurer_clients()
+threading.Thread(target=_boucle_sauvegarde, daemon=True).start()
+
 # Doit venir APRÈS init_db : les tables doivent exister pour être comptées.
 _alerte_base_vide()
 
