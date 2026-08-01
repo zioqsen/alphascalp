@@ -57,6 +57,7 @@ input group "Sécurité"
 input bool    AutoriserCompteReel = false;     // DANGER : autoriser un compte réel
 input int     GlissementPoints    = 30;        // Glissement toléré (points)
 input long    NumeroMagique       = 770777;    // Identifie NOS positions
+input int     AgeMaxSignalSec     = 300;       // Âge max d'un signal pour être joué (s)
 
 //--- État interne ---------------------------------------------------
 CTrade   trade;
@@ -450,6 +451,38 @@ ulong TrouverPosition(string refMaitre)
 //+------------------------------------------------------------------+
 //| Traite un signal                                                   |
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| Âge d'un signal, en secondes. -1 si la date est illisible.          |
+//|                                                                    |
+//| [01/08] Le serveur envoie created_at depuis toujours ; personne ne  |
+//| le lisait. Consequence : un terminal eteint quelques heures rejouait|
+//| a son retour TOUS les signaux manques — le curseur est persiste, il |
+//| redemande donc tout ce qui a suivi. Concretement, un testeur qui    |
+//| eteint son PC la nuit voyait le copieur ouvrir au matin les entrees |
+//| de la nuit, au prix du matin, avec des SL/TP calcules pour des      |
+//| niveaux qui n existaient plus.                                      |
+//|                                                                    |
+//| C est le meme defaut que le rejeu d historique corrige le 31/07,    |
+//| mais par un autre chemin : celui-la passait par un curseur perdu,   |
+//| celui-ci par un curseur parfaitement valide. Fermer une porte ne    |
+//| ferme pas l autre.                                                  |
+//|                                                                    |
+//| created_at est en UTC (format 2026-08-01T10:30:00Z), on compare     |
+//| donc a TimeGMT() et non a l heure du courtier.                      |
+//+------------------------------------------------------------------+
+int AgeSignalSecondes(string obj)
+  {
+   string iso = JsonTexte(obj, "created_at");
+   if(StringLen(iso) < 19) return -1;
+   // "2026-08-01T10:30:00Z" -> "2026.08.01 10:30:00", seul format lu par MQL5
+   string s = StringSubstr(iso, 0, 19);
+   StringReplace(s, "-", ".");
+   StringReplace(s, "T", " ");
+   datetime emis = StringToTime(s);
+   if(emis <= 0) return -1;
+   return (int)(TimeGMT() - emis);
+  }
+
 void TraiterSignal(string obj)
   {
    string action    = JsonTexte(obj, "action");
@@ -487,6 +520,28 @@ void TraiterSignal(string obj)
 
    //--- OUVERTURE -------------------------------------------------
    if(enPause) return;                 // clé inactive : aucune entrée
+
+   // Un signal perime ne se joue PAS. Le prix a bouge, le SL et le TP ont ete
+   // calcules pour un niveau qui n existe plus : on n ouvrirait pas le meme
+   // trade, on en ouvrirait un autre, moins bon, en croyant copier.
+   // On le DIT : un refus silencieux ferait croire a une panne.
+   int age = AgeSignalSecondes(obj);
+   if(age > AgeMaxSignalSec)
+     {
+      Alerte(StringFormat("Signal %s ignore : emis il y a %d min, trop ancien "
+                          "(limite %d min). Ton terminal etait probablement "
+                          "eteint. Ce n est pas une panne — le prix a bouge "
+                          "depuis, copier maintenant ouvrirait un autre trade.",
+                          symMaitre, age / 60, AgeMaxSignalSec / 60));
+      return;
+     }
+   if(age < 0)
+     {
+      // Date illisible : on ne sait pas. On refuse, comme partout ailleurs.
+      Alerte("Signal " + symMaitre + " ignore : date d emission illisible.");
+      return;
+     }
+
    if(TrouverPosition(refMaitre) != 0) return;   // déjà copié (anti-doublon)
    if(NosPositions() >= PositionsMaximum)
      {

@@ -348,10 +348,18 @@ rien à faire.</p>
   <b>rien à réinstaller</b>, et ta clé reste enregistrée. Vérifie juste que le
   bouton <b>Algo Trading</b> est bien redevenu vert.
   <br><br>
-  Pendant que ton PC est éteint, le copieur ne relève évidemment plus rien —
-  il reprendra au réveil, sans rejouer les signaux manqués. En revanche, les
-  positions déjà ouvertes <b>gardent leur stop chez le courtier</b> : elles
-  restent protégées même PC éteint.</p>
+  <b>Pendant que ton PC est éteint ou que MetaTrader est fermé, tu ne reçois
+  aucun trade.</b> Le copieur tourne dans <i>ton</i> terminal : s'il ne tourne
+  pas, personne ne relève les signaux à ta place. Les trades émis pendant ce
+  temps sont perdus pour toi — et c'est <b>volontaire</b> : au réveil, le
+  copieur <b>refuse</b> les signaux vieux de plus de quelques minutes plutôt
+  que de les rejouer. Le prix a bougé depuis, et le stop avait été calculé
+  pour un niveau qui n'existe plus : copier en retard n'ouvrirait pas le même
+  trade, mais un autre, moins bon. Il te le dit dans son journal.
+  <br><br>
+  En revanche, les positions <b>déjà ouvertes gardent leur stop chez le
+  courtier</b> : elles restent protégées même PC éteint, et se fermeront
+  dessus toutes seules si le marché va les chercher.</p>
 </div>
 
 <div class="card">

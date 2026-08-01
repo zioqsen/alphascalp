@@ -165,3 +165,20 @@ respectifs.
 **Si tu arrêtes l'EA**, les positions déjà ouvertes ne sont plus suivies mais
 gardent leur SL et leur TP. Elles se fermeront dessus. Elles ne restent pas
 sans filet.
+
+**Terminal fermé = aucun trade reçu.** L'EA tourne dans *ton* MetaTrader : PC
+éteint ou terminal fermé, personne ne relève les signaux à ta place. Les
+trades émis pendant ce temps sont perdus pour toi.
+
+C'est **volontaire** : au redémarrage, l'EA **refuse** les signaux vieux de
+plus de `AgeMaxSignalSec` secondes (5 minutes par défaut) au lieu de les
+rejouer. Le prix a bougé depuis, et le SL/TP avait été calculé pour un niveau
+qui n'existe plus — copier en retard n'ouvrirait pas le même trade, mais un
+autre, moins bon. Le journal te le dit en toutes lettres :
+
+```
+[AlphaScalp] Signal XAUUSD ignore : emis il y a 47 min, trop ancien
+(limite 5 min). Ton terminal etait probablement eteint. Ce n est pas
+une panne — le prix a bouge depuis, copier maintenant ouvrirait un
+autre trade.
+```
