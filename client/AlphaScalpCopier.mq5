@@ -775,6 +775,8 @@ int OnInit()
       Alerte("La bêta AlphaScalp se fait sur compte de démonstration.");
       Alerte("Pour passer outre en connaissance de cause : "
              "AutoriserCompteReel = true.");
+      Alert("AlphaScalp : ce compte n est pas un compte de DEMONSTRATION. "
+            "Le copieur ne demarre pas. La beta se fait sur demo.");
       return INIT_FAILED;
      }
    if(mode != ACCOUNT_TRADE_MODE_DEMO)
@@ -784,18 +786,25 @@ int OnInit()
    if(StringLen(CleApi) < 8)
      {
       Alerte("Clé d'API manquante. Colle ta clé bêta (as_...) dans CleApi.");
+      Alert("AlphaScalp : ta cle est vide. Refais glisser le copieur sur le "
+            "graphique et colle ta cle (as_...) dans le champ CleApi, "
+            "onglet Parametres d entree.");
       return INIT_FAILED;
      }
    if(!MQLInfoInteger(MQL_TRADE_ALLOWED))
      {
       Alerte("Trading automatique DÉSACTIVÉ : clique sur le bouton "
              "« Algo Trading » dans la barre d'outils de MetaTrader.");
+      Alert("AlphaScalp : le trading automatique est DESACTIVE. Clique sur "
+            "le bouton Algo Trading en haut de MetaTrader, il doit etre vert.");
       return INIT_FAILED;
      }
    if(RisqueParTrade <= 0.0 || RisqueParTrade > 5.0)
      {
       Alerte("RisqueParTrade doit être entre 0.1 et 5.0 (valeur reçue : " +
              DoubleToString(RisqueParTrade, 2) + ").");
+      Alert("AlphaScalp : RisqueParTrade doit etre entre 0.1 et 5.0. "
+            "Mets 1.0 pour commencer.");
       return INIT_FAILED;
      }
 

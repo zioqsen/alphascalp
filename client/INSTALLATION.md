@@ -82,7 +82,8 @@ graphique : l'EA tourne.
 
 ## 5. Vérifier que tout va bien
 
-Onglet **« Journal des experts »** en bas de MetaTrader. Tu dois lire quelque
+Onglet **« Experts »** en bas de MetaTrader — **pas** l'onglet « Journal »,
+qui est juste à côté et ne contient aucun message de l'EA. Tu dois lire quelque
 chose comme :
 
 ```
