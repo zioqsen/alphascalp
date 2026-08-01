@@ -41,8 +41,11 @@ except Exception:
 # n'expire pas au bout de 7 jours.
 PERIMETRE = "https://www.googleapis.com/auth/drive.file"
 NOM_FICHIER = "alphascalp_clients.json"
-PORT = 8765
-REDIRECTION = f"http://localhost:{PORT}"
+# [01/08] Le port n'est plus fixe. Un identifiant OAuth de type « application
+# de bureau » autorise n'importe quel port de bouclage : rien à déclarer dans
+# la console Google. Fixer 8765 ne servait donc à rien, et suffisait à bloquer
+# tout le montage si un autre programme l'occupait — ce qui est arrivé.
+PORTS = [8765, 8766, 8767, 8790, 8811, 8899]
 
 _code = {}
 
@@ -93,20 +96,29 @@ def main() -> int:
         print("\n  Les deux valeurs sont obligatoires. Voir GUIDE_DRIVE.md.")
         return 1
 
-    # Le port doit être libre, sinon Google renvoie sur une page morte et
-    # l'erreur serait incompréhensible.
-    with socket.socket() as s:
-        if s.connect_ex(("127.0.0.1", PORT)) == 0:
-            print(f"\n  Le port {PORT} est déjà utilisé. Ferme le programme "
-                  f"qui l'occupe et relance.")
-            return 1
-
-    serveur = http.server.HTTPServer(("127.0.0.1", PORT), _Recepteur)
+    # On prend le premier port réellement libre. `connect_ex` ne suffit pas :
+    # il dit qui écoute, pas si on peut se lier. On tente donc la liaison.
+    serveur, port = None, None
+    for essai in PORTS:
+        try:
+            serveur = http.server.HTTPServer(("127.0.0.1", essai), _Recepteur)
+            port = essai
+            break
+        except OSError:
+            continue
+    if serveur is None:
+        print("\n  Aucun port libre parmi " + ", ".join(map(str, PORTS)) +
+              ".\n  Ferme un programme qui écoute, ou dis-le-moi et j'en "
+              "ajoute d'autres.")
+        return 1
+    if port != PORTS[0]:
+        print(f"  (port {PORTS[0]} occupé — on utilise le {port})")
+    redirection = f"http://localhost:{port}"
     threading.Thread(target=serveur.handle_request, daemon=True).start()
 
     url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
         "client_id": cid,
-        "redirect_uri": REDIRECTION,
+        "redirect_uri": redirection,
         "response_type": "code",
         "scope": PERIMETRE,
         # offline + consent : sans ces deux-là, Google ne renvoie PAS de
@@ -137,7 +149,7 @@ def main() -> int:
         "code": _code["code"],
         "client_id": cid,
         "client_secret": secret,
-        "redirect_uri": REDIRECTION,
+        "redirect_uri": redirection,
         "grant_type": "authorization_code",
     })
 
