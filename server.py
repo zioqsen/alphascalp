@@ -1622,6 +1622,33 @@ def favicon():
                     headers={"Cache-Control": "public, max-age=86400"})
 
 
+_CAPTURES = os.path.join(_HERE, "landing page", "captures")
+
+
+@app.get("/captures/{nom}")
+def capture(nom: str):
+    """Captures d'écran de la notice d'installation.
+
+    [01/08] Le site n'avait aucune image, et c'était un choix de légèreté.
+    Il cède ici devant un fait mesuré : Flo, qui connaît le produit, a bloqué
+    trois minutes sur un nom d'onglet. Un débutant cherche le libellé exact
+    qu'on lui donne — une capture lève le doute qu'aucune phrase ne lève.
+
+    171 Ko pour les sept, chargées en différé : la page reste instantanée.
+
+    Le nom est validé par liste blanche de caractères plutôt que nettoyé :
+    on n'accepte QUE des noms plausibles, ce qui ne se contourne pas par une
+    astuce d'encodage. Même principe que le téléchargement du copieur.
+    """
+    if not _re.fullmatch(r"[0-9]+(\.[0-9]+)?\.png", nom or ""):
+        raise HTTPException(status_code=404, detail="Introuvable")
+    chemin = os.path.join(_CAPTURES, nom)
+    if not os.path.isfile(chemin):
+        raise HTTPException(status_code=404, detail="Introuvable")
+    return FileResponse(chemin, media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/robots.txt")
 def robots():
     # L'administration et les API n'ont rien à faire dans un index.

@@ -4,7 +4,8 @@ Compte **démo** uniquement pendant la bêta. L'EA refuse de démarrer sur un
 compte réel, c'est volontaire.
 
 **Il te faut un PC allumé** (ou un VPS). MetaTrader sur téléphone n'exécute
-pas les Expert Advisors — c'est une limite de MetaQuotes, ni AlphaScalp ni
+pas les Expert Advisors (« Expert Consultants » dans le menu français) —
+c'est une limite de MetaQuotes, ni AlphaScalp ni
 personne ne peut la contourner. Ton téléphone reste parfait pour *suivre* tes
 résultats depuis l'appli MT5.
 
@@ -14,7 +15,7 @@ Compte 10 minutes la première fois.
 
 ## 1. Poser le fichier au bon endroit
 
-Dans MetaTrader 5 : **Fichier → Ouvrir le dossier de données**. Une fenêtre
+Dans MetaTrader 5 : **Fichier → Ouvert Dossier des Données**. Une fenêtre
 d'explorateur s'ouvre.
 
 Va dans `MQL5` puis `Experts`, et copie **les deux fichiers** dedans :
@@ -28,7 +29,7 @@ Va dans `MQL5` puis `Experts`, et copie **les deux fichiers** dedans :
 > toi-même, ouvre le `.mq5` dans MetaEditor (touche `F4` depuis MT5) et
 > appuie sur `F7`.
 
-Reviens dans MetaTrader et fais un clic droit sur **Expert Advisors** dans la
+Reviens dans MetaTrader et fais un clic droit sur **Expert Consultants** dans la
 fenêtre « Navigateur » (à gauche) → **Actualiser**. `AlphaScalpCopier`
 apparaît dans la liste.
 
@@ -39,9 +40,9 @@ apparaît dans la liste.
 
 **C'est l'étape que tout le monde oublie, et sans elle rien ne marche.**
 
-**Outils → Options → onglet Expert Advisors** :
+**Outils → Options → onglet Expert Consultants** :
 
-1. coche **« Autoriser les WebRequest pour les URL listées »**
+1. coche **« Autoriser WebRequest pour les URL listées »**
 2. clique sur la ligne vide et saisis exactement :
 
 ```
@@ -55,7 +56,7 @@ journal, en toutes lettres.
 
 ## 3. Activer le trading automatique
 
-Dans la barre d'outils, le bouton **« Algo Trading »** doit être **vert**.
+Dans la barre d'outils, le bouton **« Trading Algo »** doit être **vert**.
 S'il est rouge ou gris, clique dessus.
 
 ## 4. Lancer l'EA
@@ -66,7 +67,7 @@ travaille sur tous les symboles reçus, pas sur celui du graphique).
 Fais glisser `AlphaScalpCopier` depuis le Navigateur vers le graphique. Une
 fenêtre de réglages s'ouvre.
 
-Onglet **Paramètres d'entrée** :
+Onglet **Données d'entrée** :
 
 | Réglage | À mettre |
 |---|---|
@@ -75,7 +76,7 @@ Onglet **Paramètres d'entrée** :
 | `SuffixeSymbole` | vide — sauf si ton broker ajoute un suffixe (voir plus bas) |
 | `PositionsMaximum` | `3` |
 
-Onglet **Commun** : coche **« Autoriser le trading automatique »**.
+Onglet **Général** : coche **« Autoriser le trading automatique »**.
 
 Valide avec **OK**. Un visage souriant apparaît en haut à droite du
 graphique : l'EA tourne.
@@ -143,9 +144,9 @@ pour faire passer un trade.**
 Tu as attaché l'EA à un compte réel. La bêta se fait sur démo.
 
 **Rien ne se passe, aucun message**
-Vérifie le bouton « Algo Trading » (vert), et le visage souriant en haut à
+Vérifie le bouton « Trading Algo » (vert), et le visage souriant en haut à
 droite du graphique. Un visage triste = trading automatique désactivé pour
-cet EA (onglet Commun de ses réglages).
+cet EA (onglet Général de ses réglages).
 
 ---
 

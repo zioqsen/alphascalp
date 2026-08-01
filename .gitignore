@@ -40,3 +40,7 @@ Thumbs.db
 # Dossier temporaire du client Google Drive. Ce projet est synchronisé, et
 # le client y dépose des fragments pendant l'envoi. Rien à versionner.
 .tmp.driveupload/
+
+# Captures d ecran AVANT floutage : elles contiennent le numero de compte
+# et le solde. Elles restent en local, jamais dans un depot public.
+landing page/captures/_originaux/

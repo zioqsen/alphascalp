@@ -76,6 +76,14 @@
     table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
     th,td{padding:8px;font-size:13.5px}
   }
+
+  /* [01/08] Captures d ecran. Le site n avait aucune image : c etait un choix
+     de legerete. Il cede ici devant un fait mesure — un debutant cherche le
+     libelle exact qu on lui donne, et un mot d ecart l arrete net. */
+  figure{margin:14px 0 0}
+  figure img{width:100%;height:auto;display:block;border-radius:10px;
+    border:1px solid rgba(255,255,255,.14);background:#0d0d0d}
+  figcaption{color:var(--muted);font-size:12.5px;margin-top:6px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -165,31 +173,41 @@
 <div class="etape">
   <h3><span class="n">1</span> Poser les fichiers</h3>
   <p style="margin:0">Dans MetaTrader 5 :
-  <b>Fichier → Ouvrir le dossier de données</b>. Va dans <code>MQL5</code>
+  <b>Fichier → Ouvert Dossier des Données</b>. Va dans <code>MQL5</code>
   puis <code>Experts</code>, et copie les deux fichiers téléchargés dedans.<br><br>
-  Reviens dans MetaTrader, clic droit sur <b>Expert Advisors</b> dans la
+  Reviens dans MetaTrader, clic droit sur <b>Expert Consultants</b> dans la
   fenêtre « Navigateur » (à gauche) → <b>Actualiser</b>.
   <code>AlphaScalpCopier</code> apparaît.</p>
+  <figure><img src="/captures/1.png" loading="lazy" alt="Le menu Fichier : « Ouvert Dossier des Données ». C est ce nom-là qu affiche MetaTrader en français.">
+  <figcaption>Le menu Fichier : « Ouvert Dossier des Données ». C est ce nom-là qu affiche MetaTrader en français.</figcaption></figure>
+  <figure><img src="/captures/2.png" loading="lazy" alt="Le dossier d arrivée : MQL5 puis Experts. Le .ex5 suffit à faire tourner le copieur ; le .mq5 est le code source, facultatif.">
+  <figcaption>Le dossier d arrivée : MQL5 puis Experts. Le .ex5 suffit à faire tourner le copieur ; le .mq5 est le code source, facultatif.</figcaption></figure>
 </div>
 
 <div class="etape">
   <h3><span class="n">2</span> Autoriser l'accès au serveur</h3>
   <p style="margin:0"><b>C'est l'étape que tout le monde oublie, et sans elle
   rien ne fonctionne.</b><br><br>
-  <b>Outils → Options → onglet Expert Advisors</b> :<br>
-  • coche <b>« Autoriser les WebRequest pour les URL listées »</b><br>
+  <b>Outils → Options → onglet Expert Consultants</b> :<br>
+  • coche <b>« Autoriser WebRequest pour les URL listées »</b><br>
   • ajoute exactement :
   <code>https://alphascalp.onrender.com</code><br>
   • valide avec <b>OK</b><br><br>
   <span class="muted">Sans autorisation, le copieur démarre mais ne reçoit
   jamais rien. Il te le dira dans son journal, en toutes lettres.</span></p>
+  <figure><img src="/captures/3.1.png" loading="lazy" alt="D abord : menu Outils, puis Options.">
+  <figcaption>D abord : menu Outils, puis Options.</figcaption></figure>
+  <figure><img src="/captures/3.2.png" loading="lazy" alt="Puis l onglet « Expert Consultants » : coche « Autoriser WebRequest » et ajoute l adresse. C est l étape que tout le monde saute.">
+  <figcaption>Puis l onglet « Expert Consultants » : coche « Autoriser WebRequest » et ajoute l adresse. C est l étape que tout le monde saute.</figcaption></figure>
 </div>
 
 <div class="etape">
   <h3><span class="n">3</span> Activer le trading automatique</h3>
   <p style="margin:0">Dans la barre d'outils, le bouton
-  <b>« Algo Trading »</b> doit être <b>vert</b>. S'il est rouge ou gris,
+  <b>« Trading Algo »</b> doit être <b>vert</b>. S'il est rouge ou gris,
   clique dessus.</p>
+  <figure><img src="/captures/4.png" loading="lazy" alt="Le bouton « Trading Algo » dans la barre d outils. Il doit ressembler à ça.">
+  <figcaption>Le bouton « Trading Algo » dans la barre d outils. Il doit ressembler à ça.</figcaption></figure>
 </div>
 
 <div class="etape">
@@ -197,7 +215,7 @@
   <p style="margin:0">Ouvre <b>n'importe quel graphique</b> — le symbole n'a
   aucune importance, le copieur travaille sur tous les symboles reçus.
   Fais glisser <code>AlphaScalpCopier</code> dessus.<br><br>
-  Onglet <b>Paramètres d'entrée</b> :</p>
+  Onglet <b>Données d'entrée</b> :</p>
   <table>
     <tr><th>Réglage</th><th>À mettre</th></tr>
     <tr><td><code>CleApi</code></td><td><b>ta clé bêta</b> (<code>as_…</code>)</td></tr>
@@ -205,9 +223,11 @@
     <tr><td><code>SuffixeSymbole</code></td><td>vide (voir plus bas si erreur)</td></tr>
     <tr><td><code>PositionsMaximum</code></td><td><code>3</code></td></tr>
   </table>
-  <p style="margin:0">Onglet <b>Commun</b> : coche
+  <p style="margin:0">Onglet <b>Général</b> : coche
   <b>« Autoriser le trading automatique »</b>, puis <b>OK</b>.<br>
   Un visage souriant apparaît en haut à droite du graphique.</p>
+  <figure><img src="/captures/5.png" loading="lazy" alt="La fenêtre de réglages, onglet « Données d entrée ». Sans clé dans ce champ, le copieur refuse de démarrer et te le dit dans une fenêtre.">
+  <figcaption>La fenêtre de réglages, onglet « Données d entrée ». Sans clé dans ce champ, le copieur refuse de démarrer et te le dit dans une fenêtre.</figcaption></figure>
 </div>
 
 <div class="etape">
@@ -222,6 +242,8 @@
 [AlphaScalp] Premier lancement — départ au signal n°42
 [AlphaScalp] Compte 12345678 | capital 10000.00 EUR | risque 1.0%
 [AlphaScalp] Rappel : ce terminal doit rester ALLUMÉ</p>
+  <figure><img src="/captures/6.png" loading="lazy" alt="L onglet « Experts » en bas — pas « Journal », juste à côté. Les lignes du copieur commencent toutes par [AlphaScalp].">
+  <figcaption>L onglet « Experts » en bas — pas « Journal », juste à côté. Les lignes du copieur commencent toutes par [AlphaScalp].</figcaption></figure>
   <p style="margin:10px 0 0">À partir de là, il n'y a plus rien à faire.
   Laisse tourner.</p>
 </div>
@@ -294,9 +316,9 @@
 
 <details>
   <summary>Rien ne se passe, aucun message</summary>
-  <p class="muted">Vérifie le bouton « Algo Trading » (vert) et le visage
+  <p class="muted">Vérifie le bouton « Trading Algo » (vert) et le visage
   souriant en haut à droite du graphique. Un visage triste = trading
-  automatique désactivé pour cet EA, dans l'onglet Commun de ses réglages.</p>
+  automatique désactivé pour cet EA, dans l'onglet Général de ses réglages.</p>
 </details>
 
 <h2>Ce que le copieur fait, et ne fait pas</h2>
@@ -357,7 +379,7 @@ function etatCopieur(j) {
   h += '</div>';
   if (!vivant)
     h += '<div style="color:#6b7a99;font-size:12.5px;margin-top:4px">'
-       + 'Verifie que MetaTrader est ouvert et que le bouton Algo Trading est vert.</div>';
+       + 'Verifie que MetaTrader est ouvert et que le bouton Trading Algo est vert.</div>';
   if (j.probleme)
     h += '<div style="color:#ef4444;font-size:12.5px;margin-top:4px">'
        + 'Dernier probleme signale : ' + j.probleme + '</div>';
