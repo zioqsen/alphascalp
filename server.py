@@ -52,6 +52,41 @@ MASTER_TOKEN = os.environ.get("ALPHASCALP_MASTER_TOKEN", "master-dev-changeme")
 ADMIN_TOKEN  = os.environ.get("ALPHASCALP_ADMIN_TOKEN",  "admin-dev-changeme")
 DB_PATH      = os.environ.get("ALPHASCALP_DB",           "alphascalp.db")
 
+
+def _verifier_jetons():
+    """Refuse de démarrer en écoute PUBLIQUE avec les jetons de développement.
+
+    [02/08] Ces valeurs de repli sont pratiques en local et catastrophiques en
+    ligne : elles sont dans le code, donc dans le dépôt public. Une variable
+    d'environnement oubliée chez l'hébergeur — ce qui est déjà arrivé le 30/07
+    quand une synchro de Blueprint en a supprimé deux — et les routes maître
+    et admin deviennent accessibles avec un secret que tout le monde peut lire.
+
+    On ne bloque QUE l'écoute publique : en local sur 127.0.0.1, les valeurs de
+    repli restent commodes et sans conséquence.
+
+    Mieux vaut un service qui refuse de démarrer qu'un service qui démarre
+    grand ouvert : le premier se remarque tout de suite, le second jamais.
+    """
+    if os.environ.get("HOST", "127.0.0.1") in ("127.0.0.1", "localhost"):
+        return
+    fautes = []
+    for nom, valeur in (("ALPHASCALP_MASTER_TOKEN", MASTER_TOKEN),
+                        ("ALPHASCALP_ADMIN_TOKEN", ADMIN_TOKEN)):
+        if "changeme" in valeur or len(valeur) < 24:
+            fautes.append(f"{nom} absent, trop court ou resté à sa valeur de "
+                          f"développement")
+    if MASTER_TOKEN == ADMIN_TOKEN:
+        fautes.append("les deux jetons sont identiques")
+    if fautes:
+        raise SystemExit(
+            "\n  DÉMARRAGE REFUSÉ — écoute publique avec des secrets faibles :\n"
+            + "".join("    • %s\n" % f for f in fautes)
+            + "  Renseigne ces variables chez l'hébergeur, puis redéploie.\n")
+
+
+_verifier_jetons()
+
 # [30/07] Notification Telegram des inscriptions. À renseigner dans les
 # variables d'environnement de l'hébergeur — JAMAIS en dur dans le code, ce
 # dépôt est public. Absentes = fonctionnalité simplement inactive.
@@ -1373,9 +1408,27 @@ def public_signup(body: SignupIn):
     with db() as conn:
         existing = conn.execute("SELECT api_key, active FROM clients WHERE email = ?", (email,)).fetchone()
         if existing:
-            # Déjà inscrit → on renvoie sa clé (idempotent, pas de doublon).
-            return {"ok": True, "already": True, "api_key": existing["api_key"],
-                    "active": bool(existing["active"])}
+            # [02/08] FAILLE CORRIGÉE. Cette branche renvoyait la clé
+            # existante SANS vérifier la date de naissance. Quiconque
+            # connaissait l'adresse email d'un testeur pouvait donc appeler
+            # /api/signup avec cette adresse et une date inventée, et
+            # récupérer sa clé — donc son flux de signaux.
+            #
+            # Le garde-fou avait bien été posé le 31/07... mais uniquement sur
+            # /api/retrouver. Cette route-ci, plus permissive encore (15
+            # appels/heure contre 10), était restée ouverte. Corriger une
+            # porte sans regarder s'il y en a une seconde n'est pas corriger.
+            #
+            # On ne renvoie plus RIEN d'exploitable : la récupération passe
+            # désormais obligatoirement par /api/retrouver, qui vérifie la
+            # date ET verrouille après 5 échecs par adresse et par heure.
+            print(f"SIGNUP_DEJA | {email}", flush=True)
+            return {"ok": True, "already": True, "api_key": None,
+                    "active": None,
+                    "message": "Cette adresse est déjà inscrite. Pour "
+                               "retrouver ta clé, utilise « clé perdue » : "
+                               "il te faudra ton email ET ta date de "
+                               "naissance."}
         key = cle_pour(email, body.date_naissance)   # dérivée, donc retrouvable
         conn.execute(
             "INSERT INTO clients (api_key, name, email, plan, active, created_at, "
@@ -1568,8 +1621,27 @@ async function submit(){
       body:JSON.stringify({email,prenom,nom,date_naissance:ddn})});
     const j=await r.json();
     if(!r.ok){ throw new Error(j.detail||'Erreur'); }
+    // [02/08] Cas « deja inscrit » separe. Avant, la page affichait la cle
+    // renvoyee par le serveur — et le serveur la renvoyait sans verifier la
+    // date de naissance, ce qui suffisait a la voler en connaissant l adresse.
+    // Le serveur ne la renvoie plus ; sans ce bloc, la page ecrirait
+    // litteralement « null » dans l encadre de la cle.
+    if(j.already){
+      document.getElementById('form').innerHTML =
+        '<div class="msg"><span class="ok">Cette adresse est deja inscrite.</span>'
+        +'<p style="margin-top:10px;color:#6b7a99">Par securite, ta cle ne '
+        +'peut pas etre reaffichee ici : il suffirait de connaitre ton adresse '
+        +'pour l obtenir.</p>'
+        +'<p style="color:#6b7a99">Pour la retrouver, utilise <b>cle perdue</b> '
+        +'ci-dessous. Il te faudra ton email <b>et</b> ta date de naissance.</p>'
+        +'<a href="/telecharger" style="display:block;background:#3b82f6;'
+        +'color:#fff;text-decoration:none;border-radius:10px;padding:14px;'
+        +'text-align:center;font-weight:600;margin:14px 0 6px;min-height:46px">'
+        +'Retrouver ma cle &rarr;</a></div>';
+      return;
+    }
     document.getElementById('form').innerHTML =
-      '<div class="msg"><span class="ok">✅ '+(j.already?'Tu es déjà inscrit !':'Inscription reçue !')+'</span>'
+      '<div class="msg"><span class="ok">✅ Inscription reçue !</span>'
       +'<p style="margin-top:10px;color:#6b7a99">Voici ta clé bêta (garde-la) :</p>'
       +'<div class="key">'+j.api_key+'</div>'
       +'<p style="color:#6b7a99;font-size:12.5px;margin:-4px 0 14px">'
