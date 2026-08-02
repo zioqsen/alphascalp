@@ -128,8 +128,12 @@ def _notify_signup(email: str, rang: Optional[int] = None,
                 "\U0001F680 <b>Nouvelle inscription bêta</b>",
                 "<i>AlphaScalp</i>",
                 "",
-                f"\U0001F464 <b>{identite}</b>"
-                + (f"  ·  {age} ans" if age is not None else ""),
+                # [02/08] L'âge ne part plus. Le serveur refuse les
+                # mineurs par un 403 avant de créer la ligne : si
+                # l'inscrit existe, il est majeur. L'envoyer était
+                # donc une donnée personnelle de plus dans un fil qui
+                # la conserve indéfiniment, pour zéro information.
+                f"\U0001F464 <b>{identite}</b>",
                 f"\U0001F4E7 <code>{_echappe(email)}</code>",
                 f"\U0001F553 {_heure_paris()}",
             ]

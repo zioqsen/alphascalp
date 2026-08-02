@@ -164,9 +164,14 @@ aucune publicité. Trois prestataires interviennent techniquement :</p>
   <tr><td><b>Render</b></td>
       <td>Hébergement du site et de la base</td>
       <td>Toutes les données d'inscription, ainsi que les journaux techniques du serveur</td></tr>
+  <!-- [02/08] L'âge ne part plus vers Telegram. Le serveur refuse les mineurs
+       avant même de créer la ligne : si l'inscription existe, la personne est
+       majeure. L'envoyer était une donnée personnelle de plus, conservée
+       indéfiniment dans un fil, pour zéro information. -->
   <tr><td><b>Telegram</b></td>
       <td>Alerte à chaque nouvelle inscription</td>
-      <td>Prénom, nom, email et âge — envoyés dans une conversation privée</td></tr>
+      <td>Prénom, nom et email — envoyés dans une conversation privée.
+      <b>Ni ta date de naissance, ni ton âge.</b></td></tr>
   <tr><td><b>GitHub</b></td>
       <td>Hébergement du code source</td>
       <td>Aucune donnée personnelle : le code seul y est stocké</td></tr>
