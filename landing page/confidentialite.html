@@ -172,6 +172,15 @@ aucune publicité. Trois prestataires interviennent techniquement :</p>
       <td>Alerte à chaque nouvelle inscription</td>
       <td>Prénom, nom et email — envoyés dans une conversation privée.
       <b>Ni ta date de naissance, ni ton âge.</b></td></tr>
+  <!-- [02/08] Google Drive manquait à cette liste alors qu'il est devenu, le
+       matin même, le stockage durable des inscriptions. Le RGPD impose de
+       déclarer les destinataires : en omettre un rend la liste inexacte, même
+       si l'oubli est de bonne foi et le service anodin. -->
+  <tr><td><b>Google Drive</b></td>
+      <td>Sauvegarde durable des inscriptions</td>
+      <td>Prénom, nom, email et date de naissance — dans un fichier privé du
+      Drive de l'éditeur, auquel lui seul a accès. C'est ce qui permet à ta
+      clé de survivre à un redémarrage du serveur.</td></tr>
   <tr><td><b>GitHub</b></td>
       <td>Hébergement du code source</td>
       <td>Aucune donnée personnelle : le code seul y est stocké</td></tr>
@@ -182,28 +191,45 @@ européenne, notamment aux États-Unis.</p>
 
 <h2>Combien de temps elles sont conservées</h2>
 
-<div class="card warn">
-  <h3>Une transparence qu'on préfère assumer</h3>
-  <p style="margin:0">Pendant la bêta, le site tourne sur une offre
-  d'hébergement gratuite dont le stockage est <b>temporaire</b> : la base de
-  données est effacée à chaque redémarrage du serveur. C'est précisément
-  pourquoi une copie de chaque inscription est envoyée par Telegram — sans
-  elle, une inscription pourrait disparaître sans que personne ne s'en
-  aperçoive. Conséquence à connaître : <b>cette copie Telegram, elle, est
-  conservée sans limite de durée</b> tant que tu n'en demandes pas la
-  suppression.</p>
+<!-- [02/08] MISE À JOUR NÉCESSAIRE. Ce bloc décrivait une architecture qui
+     n'existe plus depuis ce matin : « la base de données est effacée à chaque
+     redémarrage du serveur » et « c'est précisément pourquoi une copie de
+     chaque inscription est envoyée par Telegram ».
+     C'était exact jusqu'à la mise en service de la persistance dans Drive.
+     Une politique de confidentialité qui décrit un stockage disparu est aussi
+     fausse qu'une politique mensongère — le lecteur ne peut pas faire la
+     différence, et c'est un document opposable.
+     Ironie relevée au passage : une relecture externe a cité ce paragraphe
+     comme la preuve que le problème de stockage était « reconnu et corrigé ».
+     Un document périmé peut donc passer pour une preuve de sérieux. -->
+<div class="card">
+  <h3 style="color:var(--green)">Où vivent tes données</h3>
+  <p style="margin:0">Les inscriptions sont conservées dans un <b>fichier
+  privé du Google&nbsp;Drive de l'éditeur</b>, réécrit à chaque changement et
+  relu au démarrage du serveur. Elles survivent donc aux redémarrages de
+  l'hébergement.</p>
+  <p style="margin:12px 0 0">Ce n'était pas le cas avant le 2 août 2026 : le
+  stockage était alors temporaire, et une copie de chaque inscription était
+  envoyée par Telegram pour qu'aucune ne se perde. <b>Telegram n'a plus ce
+  rôle d'archive</b> — il ne sert désormais qu'à prévenir d'une nouvelle
+  inscription.</p>
 </div>
 
 <ul>
-  <li><b>Base de données :</b> le temps de la bêta, et de fait effacée à chaque
-      redémarrage du serveur.</li>
-  <li><b>Notification Telegram :</b> conservée jusqu'à suppression manuelle.</li>
+  <li><b>Fichier de sauvegarde (Google Drive) :</b> le temps de ton
+      inscription à la bêta. Supprimé quand tu demandes ton retrait.</li>
+  <li><b>Base de travail du serveur :</b> reconstituée depuis ce fichier à
+      chaque démarrage.</li>
+  <li><b>Notification Telegram :</b> prénom, nom et email, conservés dans une
+      conversation privée jusqu'à suppression manuelle. C'est le seul endroit
+      où une donnée peut subsister après ton retrait si la suppression n'y est
+      pas faite — elle l'est sur demande.</li>
   <li><b>Journaux techniques de l'hébergeur :</b> quelques jours, selon la
       politique de rétention de Render.</li>
 </ul>
 
 <p>À la fin de la bêta, ou si tu demandes ton retrait, l'ensemble est supprimé
-— y compris la copie Telegram.</p>
+— le fichier Drive comme la copie Telegram.</p>
 
 <h2>Ce qu'AlphaScalp ne fait pas</h2>
 <ul>
