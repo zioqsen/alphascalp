@@ -32,8 +32,18 @@
 //+------------------------------------------------------------------+
 #property copyright "AlphaScalp"
 #property link      "https://alphascalp.onrender.com"
-#property version   "1.00"
+#property version   "1.10"
 #property strict
+// [02/08] La version était écrite en dur À DEUX ENDROITS (ici et dans le corps
+// du rapport d'état). Résultat : la copie installée sur le PC de test datait du
+// 31/07 — sans les gardes anti-rejeu et anti-signal-périmé — et s'annonçait
+// « 1.00 », exactement comme la version distribuée. Rien ne permettait de voir
+// l'écart. Une seule source de vérité désormais ; le numéro monte à chaque
+// changement de comportement.
+//   1.00 (31/07) — première version bêta
+//   1.10 (01/08) — garde anti-rejeu au premier lancement, refus des signaux
+//                  périmés (AgeMaxSignalSec), alertes visibles sur échec d'init
+#define COPIEUR_VERSION "1.10"
 #property description "Copie les trades AlphaScalp sur ce compte. Bêta : comptes démo."
 
 #include <Trade\Trade.mqh>
@@ -227,7 +237,7 @@ void RapporterEtat(string probleme = "")
                == ACCOUNT_TRADE_MODE_DEMO;
    string corps = StringFormat(
       "{\"version\":\"%s\",\"courtier\":\"%s\",\"compte\":\"%s\",\"probleme\":\"%s\"}",
-      "1.00", EchapperJson(courtier), (demo ? "demo" : "reel"),
+      COPIEUR_VERSION, EchapperJson(courtier), (demo ? "demo" : "reel"),
       EchapperJson(dernierProbleme));
 
    char donnees[], resultat[];
@@ -764,7 +774,7 @@ void Relever()
 //+------------------------------------------------------------------+
 int OnInit()
   {
-   Info("=== AlphaScalp Copier v1.00 ===");
+   Info("=== AlphaScalp Copier v" + COPIEUR_VERSION + " ===");
 
    //--- Garde-fou compte réel -------------------------------------
    ENUM_ACCOUNT_TRADE_MODE mode =
