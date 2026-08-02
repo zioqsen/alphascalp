@@ -536,6 +536,31 @@
       .nav-links a[href="#bots"],
       .nav-links a[href="#tarifs"],
       .nav-links a[href="#faq"] { display: none; }
+
+      /* [02/08] LA BARRE LAISSAIT LIRE LA PAGE À TRAVERS ELLE.
+         Son fond est `rgba(8,11,16,0.85)` — volontairement translucide, avec
+         un `backdrop-filter: blur(20px)` censé brouiller ce qui passe
+         dessous. Mais ce filtre n'est pas appliqué partout : certains
+         navigateurs mobiles l'ignorent, et Brave le désactive avec le blocage
+         renforcé. Sans lui, il ne reste que 15 % de transparence — assez pour
+         que le texte de la page se superpose aux liens du menu.
+         Sur mobile la barre tient sur DEUX lignes (logo + bouton, puis les
+         liens), donc la surface qui laisse passer est deux fois plus grande.
+         Constaté sur téléphone : « PROFIT FACTOR » traversait
+         « Comment ça marche · Guide ».
+         On rend le fond OPAQUE sur mobile. On y perd un effet décoratif ;
+         on y gagne un menu lisible, ce qui est son seul rôle. */
+      nav { background: var(--bg); backdrop-filter: none; }
+
+      /* LA CAUSE RÉELLE. La barre déclare `height: 72px` — une hauteur FIXE.
+         Sur mobile elle passe sur deux rangées (logo + bouton, puis les
+         liens) : le contenu réclame ~130 px et DÉBORDE de la boîte. La
+         rangée des liens se retrouve donc HORS du fond peint, posée telle
+         quelle sur la page qui défile dessous. Aucun fond, aucun flou : les
+         deux textes se superposent, exactement comme sur la capture.
+         `height: auto` laisse la barre prendre la place qu'il lui faut ;
+         `min-height` conserve son gabarit quand elle tient sur une ligne. */
+      nav { height: auto; min-height: 72px; }
       .nav-cta { margin-left: auto; padding: 10px 16px; }
 
       .stats-band { grid-template-columns: repeat(2, 1fr); }
