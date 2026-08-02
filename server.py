@@ -2292,6 +2292,64 @@ def _support_repondre(chat, texte, msg_id=None):
     return None
 
 
+@app.get("/api/admin/telegram")
+def diag_telegram(token: Optional[str] = Query(None),
+                  x_admin_token: Optional[str] = Header(None)):
+    """Pourquoi le bot ne voit-il pas les messages du groupe ?
+
+    [02/08] Trois messages postés dans le groupe n'ont produit AUCUN appel au
+    webhook. Deux causes possibles, et deviner laquelle ferait perdre du temps
+    à coup sûr :
+
+      1. le webhook n'est pas (ou plus) enregistré chez Telegram ;
+      2. le mode confidentialité du bot est encore actif POUR CE GROUPE.
+
+    Le point 2 est le piège : désactiver la confidentialité dans BotFather ne
+    s'applique PAS aux groupes où le bot est déjà présent. Il faut l'en retirer
+    et l'y remettre. Le réglage paraît fait, et il ne l'est pas là où il compte.
+
+    `can_read_all_group_messages` dit ce que Telegram pense vraiment du bot,
+    et `getWebhookInfo` dit si les messages ont où aller. Les deux ensemble
+    tranchent sans supposition.
+    """
+    require_admin(token, x_admin_token)
+    if not TG_TOKEN:
+        return {"ok": False, "raison": "ALPHASCALP_TG_TOKEN absent"}
+    moi = _tg_appel("getMe", {}).get("result", {}) or {}
+    hook = _tg_appel("getWebhookInfo", {}).get("result", {}) or {}
+    lit_groupes = bool(moi.get("can_read_all_group_messages"))
+    url = hook.get("url") or ""
+    diag = []
+    if not url:
+        diag.append("AUCUN webhook enregistré — le bot n'a nulle part où "
+                    "envoyer les messages. Clique « Enregistrer le webhook » "
+                    "dans /admin.")
+    elif "alphascalp" not in url:
+        diag.append("Le webhook pointe ailleurs : " + url)
+    if not lit_groupes:
+        diag.append("Le bot ne lit PAS tous les messages de groupe. Si tu as "
+                    "déjà fait /setprivacy → Disable dans BotFather, le "
+                    "réglage ne s'applique pas aux groupes où il est DÉJÀ "
+                    "présent : retire-le du groupe et remets-le.")
+    if hook.get("last_error_message"):
+        diag.append("Dernière erreur signalée par Telegram : "
+                    + str(hook.get("last_error_message")))
+    if hook.get("pending_update_count"):
+        diag.append("%s message(s) en attente de livraison."
+                    % hook.get("pending_update_count"))
+    return {
+        "ok": not diag,
+        "bot": moi.get("username"),
+        "lit_les_messages_de_groupe": lit_groupes,
+        "webhook": url,
+        "messages_en_attente": hook.get("pending_update_count"),
+        "derniere_erreur": hook.get("last_error_message"),
+        "groupe_surveille": TG_GROUPE_ID,
+        "support_muet": SUPPORT_MUET,
+        "diagnostic": diag or ["Tout est en place."],
+    }
+
+
 @app.post("/api/telegram/support")
 def support_diagnostic(texte: str = Query(...),
                        token: Optional[str] = Query(None),
