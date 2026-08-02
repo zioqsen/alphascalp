@@ -2305,6 +2305,186 @@ def support_diagnostic(texte: str = Query(...),
             "muet": SUPPORT_MUET}
 
 
+# ═════════════════════════════════════════════════════════════
+# COMMANDES PERSONNELLES ET VEILLE DES COPIEURS
+#
+# /moi  — en privé, un testeur obtient l'état de SON copieur sans coller sa
+#         clé nulle part : il est déjà relié par le lien profond de son
+#         inscription, le bot sait qui il est. C'est précisément ce qui évite
+#         qu'il colle sa clé dans le groupe pour demander de l'aide.
+#
+# /aide — sinon personne ne saura que le bot répond à quelque chose.
+#
+# VEILLE — quand un copieur cesse de se manifester pendant que les marchés
+#          sont ouverts, on prévient son propriétaire. Il le saura avant de
+#          s'en apercevoir, et souvent avant de se plaindre.
+#          Discipline indispensable : seuil généreux, jamais la nuit ni le
+#          week-end, une alerte par jour au maximum. Sans ça c'est le bot
+#          qu'on coupe, et on perd aussi les alertes utiles.
+# ═════════════════════════════════════════════════════════════
+
+VEILLE_ACTIVE = os.environ.get("ALPHASCALP_VEILLE", "true").lower() == "true"
+VEILLE_SEUIL_MIN = int(os.environ.get("ALPHASCALP_VEILLE_SEUIL", "45"))
+_veille_prevenus = {}          # api_key -> date de la dernière alerte
+
+
+def _marche_ouvert() -> bool:
+    """Approximation par le calendrier, faute de MT5 côté serveur.
+
+    Le forex tourne du dimanche 22 h UTC au vendredi 21 h UTC. On rétrécit
+    volontairement la fenêtre d'une heure de chaque côté : mieux vaut rater
+    une alerte en bordure que d'en envoyer une fausse à l'ouverture, quand
+    tout le monde redémarre justement sa machine.
+    """
+    m = datetime.now(timezone.utc)
+    j, h = m.weekday(), m.hour          # lundi = 0
+    if j == 5:                          # samedi
+        return False
+    if j == 6:                          # dimanche : rien avant 23 h UTC
+        return h >= 23
+    if j == 4 and h >= 20:              # vendredi soir
+        return False
+    return True
+
+
+def _minutes_depuis(iso) -> Optional[float]:
+    if not iso:
+        return None
+    try:
+        d = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - d).total_seconds() / 60.0
+    except Exception:
+        return None
+
+
+def _etat_personnel(chat) -> str:
+    """L'état du copieur de CE testeur, sans qu'il ait rien à fournir."""
+    with db() as conn:
+        r = conn.execute(
+            "SELECT * FROM clients WHERE tg_chat = ?", (str(chat),)).fetchone()
+        dernier = conn.execute(
+            "SELECT created_at FROM signals ORDER BY id DESC LIMIT 1").fetchone()
+    if not r:
+        return ("Je ne te reconnais pas encore.\n\n"
+                "Va sur " + _SITE + "/telecharger, colle ta clé, et clique sur "
+                "le bouton qui relie ton Telegram. Tu pourras alors me demander "
+                "l'état de ton copieur à tout moment avec /moi.")
+
+    lignes = ["👤 <b>" + esc_html(r["name"] or "toi") + "</b>"]
+    vu = _minutes_depuis(r["last_seen"])
+    if vu is None:
+        lignes.append("⚪ <b>Ton copieur ne s'est jamais manifesté.</b>\n"
+                      "C'est normal tant que tu ne l'as pas installé. "
+                      "La notice : " + _SITE + "/telecharger")
+    elif vu < 5:
+        lignes.append("✅ <b>Ton copieur tourne</b> — vu il y a %d min." % max(1, int(vu)))
+    else:
+        lignes.append("⚠️ <b>Ton copieur ne répond plus</b> — dernier signe il y a "
+                      "%d min.\nVérifie que MetaTrader est ouvert et que le bouton "
+                      "« Trading Algo » est vert." % int(vu))
+
+    # Si le copieur ne s'est jamais manifesté, il n'a pas pu envoyer sa
+    # version ni son courtier : les afficher serait contradictoire avec la
+    # ligne juste au-dessus. Ça ne devrait pas arriver — la télémétrie écrit
+    # les deux ensemble — mais une donnée incohérente ne doit pas produire un
+    # message incohérent devant un testeur.
+    details = []
+    if vu is None:
+        r = dict(r)
+        for c in ("etat_courtier", "etat_version", "etat_compte", "etat_probleme"):
+            r[c] = None
+    if r["etat_courtier"]:
+        details.append(esc_html(r["etat_courtier"]))
+    if r["etat_version"]:
+        details.append("v" + esc_html(r["etat_version"]))
+    if r["etat_compte"]:
+        details.append("compte " + esc_html(r["etat_compte"]))
+    if details:
+        lignes.append("<i>" + " · ".join(details) + "</i>")
+    if r["etat_probleme"]:
+        lignes.append("🔧 Dernier souci signalé : <i>"
+                      + esc_html(r["etat_probleme"]) + "</i>")
+
+    lignes.append("🔑 Ta clé est <b>"
+                  + ("active" if r["active"] else "en attente d'activation")
+                  + "</b>.")
+
+    if dernier:
+        age = _minutes_depuis(dernier["created_at"])
+        if age is not None:
+            if age < 90:
+                lignes.append("📡 Dernier signal émis il y a %d min." % int(age))
+            else:
+                lignes.append("📡 Dernier signal émis il y a %d h.%s"
+                              % (int(age // 60),
+                                 "" if _marche_ouvert()
+                                 else " Les marchés sont fermés — c'est normal."))
+    else:
+        lignes.append("📡 Aucun signal émis pour l'instant.")
+    return "\n".join(lignes)
+
+
+_AIDE = (
+    "🤖 <b>Ce que je sais faire</b>\n\n"
+    "<b>/moi</b> — l'état de ton copieur : s'il tourne, ta clé, le dernier "
+    "signal. Rien à coller, je te reconnais.\n"
+    "<b>/aide</b> — ce message.\n\n"
+    "Dans le groupe, je réponds tout seul aux questions courantes : clé "
+    "refusée, aucun trade, autorisation WebRequest, symbole introuvable, "
+    "volume minimum, Trading Algo, onglet Experts, compte démo, PC éteint, "
+    "Mac, tarifs, mobile.\n\n"
+    "Je préviens aussi si quelqu'un colle une clé ou un mot de passe ici — "
+    "ça n'a rien à faire dans un fil de discussion.\n\n"
+    "<b>Ce que je ne réponds jamais :</b> la performance, « est-ce que je "
+    "devrais », et tout ce qui touche à ton argent. Ça, c'est Flo.\n\n"
+    "Le guide complet : " + _SITE + "/guide"
+)
+
+
+def esc_html(s) -> str:
+    """Échappe pour Telegram, qui n'accepte qu'un jeu de balises restreint."""
+    return (str(s or "").replace("&", "&amp;")
+            .replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _veille_copieurs() -> None:
+    """Prévient un testeur dont le copieur s'est tu pendant que ça tradait."""
+    while True:
+        try:
+            time.sleep(600)                     # toutes les 10 minutes
+            if not (VEILLE_ACTIVE and TG_TOKEN and _marche_ouvert()):
+                continue
+            aujourdhui = datetime.now(timezone.utc).date()
+            with db() as conn:
+                lignes = conn.execute(
+                    "SELECT api_key, name, tg_chat, last_seen FROM clients "
+                    "WHERE active = 1 AND tg_chat IS NOT NULL "
+                    "AND last_seen IS NOT NULL").fetchall()
+            for r in lignes:
+                vu = _minutes_depuis(r["last_seen"])
+                if vu is None or vu < VEILLE_SEUIL_MIN:
+                    continue
+                # Une alerte par jour et par testeur. Un bot qui répète se
+                # fait couper le son, et on perd les alertes utiles avec.
+                if _veille_prevenus.get(r["api_key"]) == aujourdhui:
+                    continue
+                _veille_prevenus[r["api_key"]] = aujourdhui
+                _notify_telegram_a(r["tg_chat"],
+                    "⚠️ <b>Ton copieur s'est tu.</b>\n\n"
+                    "Dernier signe de vie il y a %d minutes, alors que les "
+                    "marchés sont ouverts.\n\n"
+                    "À vérifier : MetaTrader est-il ouvert ? Le bouton "
+                    "« Trading Algo » est-il vert ? Le visage en haut à droite "
+                    "du graphique sourit-il ?\n\n"
+                    "Tes positions déjà ouvertes gardent leur stop chez le "
+                    "courtier — elles ne sont pas en danger.\n\n"
+                    "<i>Une seule alerte par jour. Écris /moi quand tu veux "
+                    "pour l'état à jour.</i>" % int(vu))
+                print("VEILLE | %s muet depuis %d min" % (r["name"], vu), flush=True)
+        except Exception as e:                          # noqa: BLE001
+            print(f"VEILLE_KO | {e}", flush=True)
+
+
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
     """Recoit les messages du bot. Sert UNIQUEMENT a associer un testeur.
@@ -2322,6 +2502,20 @@ async def telegram_webhook(request: Request):
     texte = (msg.get("text") or "").strip()
     chat = (msg.get("chat") or {}).get("id")
     if not chat:
+        return {"ok": True}
+
+    # Commandes personnelles, en conversation privée uniquement.
+    prive = (msg.get("chat") or {}).get("type") == "private"
+    if prive and texte.split()[0].lower() in ("/moi", "/aide", "/help", "/start@"):
+        cmd = texte.split()[0].lower()
+        try:
+            rep = _AIDE if cmd in ("/aide", "/help") else _etat_personnel(chat)
+        except Exception as e:                          # noqa: BLE001
+            print(f"CMD_KO | {e}", flush=True)
+            rep = "Désolé, je n'arrive pas à lire ton état pour l'instant."
+        _tg_appel("sendMessage", {"chat_id": chat, "parse_mode": "HTML",
+                                  "text": rep,
+                                  "disable_web_page_preview": "true"})
         return {"ok": True}
 
     # [02/08] Support du groupe des testeurs. Avant, tout message qui n'était
@@ -2561,6 +2755,7 @@ init_db()
 # puis seulement on juge de leur contenu.
 restaurer_clients()
 threading.Thread(target=_boucle_sauvegarde, daemon=True).start()
+threading.Thread(target=_veille_copieurs, daemon=True).start()
 
 # Doit venir APRÈS init_db : les tables doivent exister pour être comptées.
 _alerte_base_vide()

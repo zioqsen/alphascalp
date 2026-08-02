@@ -113,6 +113,22 @@ services:
       - key: ALPHASCALP_SUPPORT_MUET
         value: "true"
 
+      # ── [02/08] VEILLE DES COPIEURS ─────────────────────────────────
+      # Prévient un testeur dont le copieur s'est tu pendant que les marchés
+      # sont ouverts. Il le saura avant de s'en apercevoir, et souvent avant
+      # de se plaindre.
+      #
+      # Discipline volontaire : jamais la nuit ni le week-end, et UNE alerte
+      # par testeur et par jour au maximum. Un bot qui répète se fait couper
+      # le son — et on perd alors les alertes utiles avec les autres.
+      #
+      # Le seuil est en minutes. 45 est généreux exprès : quelqu'un qui
+      # éteint son PC pour déjeuner ne doit pas recevoir d'alerte.
+      - key: ALPHASCALP_VEILLE
+        value: "true"
+      - key: ALPHASCALP_VEILLE_SEUIL
+        value: "45"
+
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter
     # 2. décommenter les 6 lignes ci-dessous
