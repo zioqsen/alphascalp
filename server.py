@@ -1045,7 +1045,14 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
   <button class="ghost" onclick="amenager()">Aménager le groupe</button>
   <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
-  <button class="ghost" onclick="poserWebhook()">Activer les notifications aux testeurs</button>
+  <!-- [02/08] Renommé. Il s'appelait « Activer les notifications aux
+       testeurs » — son usage d'origine. Mais il enregistre le WEBHOOK, dont
+       dépend tout ce qui arrive depuis Telegram : le lien profond /start, le
+       support du groupe, /moi. Le libellé décrivait une conséquence, pas
+       l'action, et personne ne pouvait deviner qu'il fallait cliquer ici pour
+       que le bot reçoive quoi que ce soit. Il n'avait d'ailleurs jamais été
+       cliqué : le webhook était vide. -->
+  <button class="ghost" onclick="poserWebhook()">Brancher Telegram (webhook)</button>
   <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
   <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire » (lecture seule)</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
@@ -1186,9 +1193,24 @@ async function poserWebhook(){
   const z = document.getElementById('zoneGroupes');
   z.innerHTML = 'Enregistrement…';
   try{
-    const j = await api('/api/admin/webhook', 'POST');
-    z.innerHTML = '<span style="color:#0ca30c">Notifications activees.</span> '
-      + 'Les testeurs qui lient leur Telegram seront prevenus a l activation.';
+    await api('/api/admin/webhook', 'POST');
+    // [02/08] On enchaine sur le diagnostic plutot que d annoncer un succes
+    // sur la foi d un code 200 : setWebhook peut repondre OK sans que le bot
+    // puisse pour autant lire le groupe. On montre l etat REEL.
+    // Le jeton passe par l en-tete, jamais par l URL : decision du 31/07,
+    // une URL finit dans l historique, les favoris et les journaux.
+    const d = await api('/api/admin/telegram');
+    const lignes = (d.diagnostic || []).map(function(x){
+      return '<div>&bull; ' + esc(x) + '</div>'; }).join('');
+    z.innerHTML = (d.ok
+        ? '<span style="color:#0ca30c">Telegram est branche.</span> '
+          + 'Le bot recoit desormais les messages : lien de liaison des '
+          + 'testeurs, support du groupe, commande /moi.'
+        : '<span style="color:#fab219">Branche, mais il reste ceci :</span>')
+      + '<div style="margin-top:6px;font-size:12.5px">' + lignes + '</div>'
+      + '<div class="muted" style="margin-top:6px;font-size:12px">'
+      + 'lit les messages de groupe : ' + (d.lit_les_messages_de_groupe ? 'oui' : 'non')
+      + ' &middot; en attente : ' + (d.messages_en_attente || 0) + '</div>';
   }catch(e){ z.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
 }
 async function general(action){
