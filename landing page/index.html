@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Les signaux d'une stratégie algorithmique, reproduits sur ton compte de démonstration MetaTrader 5. Bêta gratuite, performances publiques, pertes comprises.">
-<title>AlphaScalp — Automated Trading System</title>
+<title>AlphaScalp — copie de trades sur compte de démonstration</title>
 <link rel="canonical" href="https://alphascalp.onrender.com/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -17,9 +17,6 @@
 <meta name="twitter:title" content="AlphaScalp — copie de trades sur compte de démonstration">
 <meta name="twitter:description" content="Les signaux d'une stratégie algorithmique, reproduits sur ton compte de démonstration MetaTrader 5. Bêta gratuite, performances publiques, pertes comprises.">
 <meta name="theme-color" content="#080b10">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -41,7 +38,7 @@
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'DM Sans', sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       overflow-x: hidden;
@@ -70,7 +67,7 @@
     }
 
     .nav-logo {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-weight: 800; font-size: 20px;
       letter-spacing: -0.02em;
       display: flex; align-items: center; gap: 8px;
@@ -141,7 +138,7 @@
     }
 
     .hero h1 {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(48px, 7vw, 88px);
       font-weight: 800;
       letter-spacing: -0.03em;
@@ -204,7 +201,7 @@
     }
 
     .stat-value {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: 36px; font-weight: 700;
       line-height: 1;
     }
@@ -247,7 +244,7 @@
     }
 
     .section-title {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(28px, 4vw, 42px);
       font-weight: 700;
       letter-spacing: -0.02em;
@@ -278,14 +275,14 @@
     .step:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-4px); }
 
     .step-num {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: 48px; font-weight: 800;
       color: rgba(59,130,246,0.15);
       line-height: 1; margin-bottom: 1rem;
     }
 
     .step h3 {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: 18px; font-weight: 700;
       margin-bottom: 0.5rem;
     }
@@ -316,7 +313,7 @@
     }
 
     .bot-card h3 {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: 17px; font-weight: 700; margin-bottom: 6px;
     }
 
@@ -366,7 +363,7 @@
     }
 
     .plan-price {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: 42px; font-weight: 800;
       letter-spacing: -0.02em; line-height: 1;
       margin-bottom: 4px;
@@ -430,7 +427,7 @@
       width: 100%; padding: 1.25rem 1.5rem;
       display: flex; justify-content: space-between; align-items: center;
       background: none; border: none; color: var(--text);
-      font-family: 'DM Sans', sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       font-size: 15px; font-weight: 500;
       cursor: pointer; text-align: left;
       transition: background 0.2s;
@@ -459,7 +456,7 @@
     }
 
     .cta-band h2 {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(28px, 4vw, 44px);
       font-weight: 800; letter-spacing: -0.02em;
       margin-bottom: 1rem;
@@ -481,7 +478,7 @@
     }
 
     .footer-brand {
-      font-family: 'Syne', sans-serif;
+      font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
       font-size: 18px; font-weight: 800;
     }
 
@@ -633,7 +630,9 @@
     Gratuit · <b style="color:#c9d3e8">compte de démonstration uniquement</b> ·
     aucun paiement, aucune pièce d'identité
     <br>
-    ~30 minutes d'installation, une seule fois · <b style="color:#c9d3e8">un PC
+    ~30 minutes <b style="color:#c9d3e8">en tout</b> la première fois — dont
+    ~10 pour le copieur lui-même, le reste pour installer MetaTrader et ouvrir
+    un compte de démonstration · <b style="color:#c9d3e8">un PC
     Windows qui reste allumé est nécessaire</b> — MetaTrader mobile n'exécute
     pas ce type de programme
   </p>
@@ -657,7 +656,7 @@
   <div class="stat-item">
     <div class="stat-value white">88</div>
     <div class="stat-label">Trades exécutés</div>
-    <div class="stat-note">EURUSD &amp; XAUUSD</div>
+    <div class="stat-note">XAUUSD seul · EURUSD compté à part</div>
   </div>
   <div class="stat-item">
     <div class="stat-value blue">1.12</div>
