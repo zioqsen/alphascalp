@@ -2093,6 +2093,218 @@ def admin_groupes(token: Optional[str] = Query(None),
                      "Telegram ne conserve ces événements que 24 h.")}
 
 
+# ═════════════════════════════════════════════════════════════
+# RÉPONDEUR DE SUPPORT — groupe des testeurs
+#
+# PRINCIPE : il ne répond QUE ce dont il est certain, et se tait sinon.
+# Aucune génération de texte : chaque réponse est écrite à l'avance et reprend
+# mot pour mot ce que dit le guide. Un bot qui devine, sur un produit lié au
+# trading, fait plus de dégâts qu'un bot muet — et il contredirait le seul
+# argument de ce projet, qui est de ne rien affirmer sans l'avoir vérifié.
+#
+# CE QU'IL NE RÉPONDRA JAMAIS : la performance, « est-ce que je devrais »,
+# et tout ce qui concerne le compte d'une personne en particulier. Ça, c'est
+# Flo — ou personne.
+#
+# PRÉREQUIS TELEGRAM : par défaut un bot ne voit dans un groupe que les
+# messages qui commencent par « / » ou qui le mentionnent (mode
+# confidentialité). Pour que le détecteur de secrets fonctionne — c'est sa
+# raison d'être principale — il faut le désactiver dans BotFather :
+#     /setprivacy → choisir le bot → Disable
+# Sans ça, le répondeur ne verra passer que les commandes.
+# ═════════════════════════════════════════════════════════════
+
+# Mode d'essai : il journalise ce qu'il AURAIT répondu, sans rien envoyer.
+# On regarde d'abord, on laisse parler ensuite.
+SUPPORT_MUET = os.environ.get("ALPHASCALP_SUPPORT_MUET", "true").lower() == "true"
+
+_SITE = "https://alphascalp.onrender.com"
+
+# (identifiant, motifs déclencheurs, réponse) — l'ordre compte : le premier
+# qui matche gagne, donc les cas les plus spécifiques d'abord.
+_REPONSES = [
+    ("cle_refusee",
+     ["cle refusee", "clé refusée", "cle refuse", "401", "key refused",
+      "cle invalide", "clé invalide", "cle inconnue", "clé inconnue"],
+     "🔑 Deux causes possibles, et une seule solution dans les deux cas.\n\n"
+     "Soit <b>CleApi</b> comporte une faute — elle commence par <code>as_</code> "
+     "et se colle dans l'onglet « Données d'entrée ».\n"
+     "Soit le serveur a été réinitialisé et a oublié les inscriptions.\n\n"
+     "Récupère la même clé sur " + _SITE + "/rejoindre (rubrique clé perdue) "
+     "avec ton <b>email et ta date de naissance</b>, puis demande la "
+     "réactivation ici. <b>Rien à réinstaller</b> : le copieur reprend seul."),
+
+    ("rien_ne_se_passe",
+     ["rien ne se passe", "aucun trade", "pas de trade", "il fait rien",
+      "ca bouge pas", "ça bouge pas", "rien recu", "rien reçu",
+      "toujours rien", "aucune position", "combien de trade",
+      "combien de signaux", "frequence des trades", "fréquence des trades"],
+     "⏳ <b>C'est normal, et c'est la question la plus fréquente.</b>\n\n"
+     "La stratégie sort <b>environ un trade par jour</b>, et il arrive qu'il "
+     "n'y en ait <b>aucun pendant deux ou trois jours</b>. Rester à l'écart "
+     "fait partie de la stratégie, ce n'est pas une panne.\n\n"
+     "Ajoute que les marchés sont <b>fermés du vendredi soir au dimanche "
+     "soir</b>.\n\n"
+     "Pour savoir si ça marche, <b>ne regarde pas les trades</b> : recolle ta "
+     "clé sur " + _SITE + "/telecharger — elle t'affiche « Ton copieur "
+     "tourne, vu il y a X min ». C'est ça, la bonne réponse."),
+
+    ("webrequest",
+     ["webrequest", "adresse non autorisee", "adresse non autorisée",
+      "url non autorisee", "non autorisée dans metatrader", "4014", "5203"],
+     "🌐 C'est l'étape que tout le monde saute.\n\n"
+     "<b>Outils → Options → onglet « Expert Consultants »</b> :\n"
+     "• coche « Autoriser WebRequest pour les URL listées »\n"
+     "• ajoute exactement <code>" + _SITE + "</code>\n"
+     "• valide avec OK\n\n"
+     "Sans ça le copieur démarre mais ne reçoit jamais rien.\n"
+     "Captures d'écran : " + _SITE + "/telecharger"),
+
+    ("symbole",
+     ["symbole introuvable", "symbol introuvable", "xauusd introuvable",
+      "suffixe", "symbole pas trouve", "symbole pas trouvé"],
+     "🔤 Beaucoup de courtiers renomment les symboles : "
+     "<code>XAUUSD.r</code>, <code>XAUUSDm</code>, <code>XAUUSD#</code>…\n\n"
+     "Regarde dans « Observation du marché » comment il s'appelle chez toi, "
+     "et renseigne la partie qui s'ajoute dans <b>SuffixeSymbole</b> "
+     "(ex. <code>.r</code>) ou <b>PrefixeSymbole</b>."),
+
+    ("volume_min",
+     ["volume minimum", "lot min", "perte serait de", "risque cible"],
+     "⚖️ <b>Ce n'est pas une erreur.</b> Le copieur refuse d'ouvrir parce que "
+     "le plus petit volume que ton courtier accepte ferait risquer plus que "
+     "voulu. Ça arrive sur les indices avec un petit capital.\n\n"
+     "Soit tu acceptes que ce symbole ne soit pas copié, soit tu montes "
+     "<b>RisqueParTrade</b>. <b>Ne monte pas le risque juste pour faire "
+     "passer un trade</b> — c'est exactement ce que le garde-fou empêche."),
+
+    ("algo_trading",
+     ["algo trading", "trading algo", "bouton rouge", "bouton vert",
+      "trading automatique desactive", "trading automatique désactivé"],
+     "▶️ Le bouton <b>« Trading Algo »</b> dans la barre d'outils de "
+     "MetaTrader doit être <b>vert</b>. S'il est rouge ou gris, clique "
+     "dessus.\n\n"
+     "Vérifie aussi, dans les réglages du copieur, onglet <b>Général</b> : "
+     "« Autoriser le trading automatique » doit être coché."),
+
+    ("onglet_experts",
+     ["onglet experts", "ou voir les logs", "où voir les logs", "journal",
+      "ou sont les messages", "où sont les messages"],
+     "📋 Onglet <b>« Experts »</b> en bas de MetaTrader — <b>pas</b> l'onglet "
+     "« Journal » juste à côté, qui ne contient aucun message du copieur.\n\n"
+     "Toutes ses lignes commencent par <code>[AlphaScalp]</code>."),
+
+    ("compte_reel",
+     ["compte non demo", "compte non démo", "compte reel", "compte réel",
+      "demarrage refuse", "démarrage refusé"],
+     "🛑 Le copieur <b>refuse de démarrer sur un compte réel</b>, et c'est "
+     "volontaire : la bêta se fait exclusivement sur compte de "
+     "<b>démonstration</b>.\n\n"
+     "Ouvre un compte démo chez ton courtier et connecte MetaTrader dessus."),
+
+    ("pc_eteint",
+     ["pc eteint", "pc éteint", "ordinateur eteint", "ordinateur éteint",
+      "je ferme metatrader", "terminal ferme", "terminal fermé", "veille"],
+     "💻 <b>Terminal fermé = aucun trade reçu.</b> Le copieur tourne chez toi : "
+     "s'il ne tourne pas, personne ne relève les signaux à ta place.\n\n"
+     "Au redémarrage, il <b>refuse</b> les signaux trop anciens au lieu de les "
+     "rejouer — le prix a bougé, le stop ne vaut plus rien.\n\n"
+     "Tes positions déjà ouvertes, elles, <b>gardent leur stop chez le "
+     "courtier</b> et restent protégées même PC éteint."),
+
+    ("mac",
+     ["sur mac", "macbook", "macos", "imac"],
+     "🍏 Honnêtement : <b>je ne sais pas</b>. MetaTrader existe sur Mac via "
+     "une couche de compatibilité, et une machine virtuelle ou un VPS Windows "
+     "fonctionnent aussi — mais <b>personne ne l'a encore vérifié pour "
+     "AlphaScalp</b>.\n\n"
+     "Si tu essaies, dis-nous ce que ça donne : on l'ajoutera au guide avec "
+     "ta version exacte. En attendant, on préfère ne rien affirmer."),
+
+    ("prix",
+     # [02/08] « combien » et « prix » NUS retirés : ils attrapaient
+     # « combien de trades par jour » et « le prix d'entrée du dernier
+     # trade ». On exige maintenant un contexte d'argent. Un déclencheur trop
+     # large est pire qu'un déclencheur manquant — le silence laisse Flo
+     # répondre, la mauvaise réponse l'oblige à corriger devant le groupe.
+     ["ca coute", "ça coûte", "ca coûte", "combien ça", "combien ca",
+      "c'est payant", "faut payer", "je paye", "je paie", "c'est gratuit",
+      "abonnement", "tarif", "s'abonner", "sabonner"],
+     "💶 <b>La bêta est entièrement gratuite</b>, sur compte de démonstration. "
+     "Aucun moyen de paiement n'est demandé ni enregistré.\n\n"
+     "Les tarifs affichés sur le site sont <b>indicatifs</b> : ils donnent un "
+     "ordre de grandeur pour plus tard, rien n'est facturé aujourd'hui."),
+
+    ("mobile",
+     ["sur telephone", "sur téléphone", "sur mobile", "appli mt5",
+      "android", "iphone"],
+     "📱 MetaTrader sur téléphone <b>n'exécute pas</b> ce type de programme — "
+     "c'est une limite de MetaQuotes, ni AlphaScalp ni personne ne peut la "
+     "contourner.\n\n"
+     "Il te faut un <b>PC Windows allumé</b> ou un VPS. Ton téléphone reste "
+     "parfait pour <i>suivre</i> tes résultats dans l'appli MT5."),
+]
+
+# Questions qu'on REFUSE de traiter automatiquement.
+_HORS_PERIMETRE = [
+    "je devrais", "tu conseilles", "c'est rentable", "ca rapporte",
+    "ça rapporte", "combien je vais gagner", "passer en reel",
+    "passer en réel", "argent reel", "argent réel", "mon solde",
+    "ma perte", "j'ai perdu", "investir",
+]
+
+# Ce qui ne doit JAMAIS traîner dans un fil de discussion.
+_SECRETS = [
+    (r"\bas_[A-Za-z0-9_\-]{12,}", "une clé d'accès AlphaScalp"),
+    (r"\b(mot de passe|password|mdp)\s*[:=]\s*\S{4,}", "un mot de passe"),
+    (r"\b(investor|master)\s*(password|pwd)\b", "un mot de passe de courtier"),
+]
+
+_dernieres_reponses = {}      # (chat, sujet) -> horodatage
+
+
+def _support_repondre(chat, texte, msg_id=None):
+    """Analyse un message du groupe. Renvoie ce qu'il faut envoyer, ou None."""
+    bas = texte.lower()
+
+    # 1. Secret exposé — priorité absolue, avant toute autre analyse.
+    for motif, quoi in _SECRETS:
+        if _re.search(motif, texte, _re.I):
+            return ("secret",
+                    "⚠️ <b>Attention</b> — ce message semble contenir "
+                    + quoi + ".\n\n<b>Supprime-le tout de suite</b> : un fil de "
+                    "discussion garde tout, y compris dans les sauvegardes des "
+                    "téléphones de chacun.\n\n"
+                    "Rappel : <b>AlphaScalp ne demande jamais tes identifiants "
+                    "de courtier</b>, ni ici, ni par message privé, ni ailleurs. "
+                    "Quiconque te les réclame cherche à te voler.")
+
+    # 2. Hors périmètre : on ne répond pas, Flo répondra.
+    for m in _HORS_PERIMETRE:
+        if m in bas:
+            return None
+
+    # 3. Questions connues.
+    for sujet, motifs, reponse in _REPONSES:
+        if any(m in bas for m in motifs):
+            return (sujet, reponse + "\n\n<i>Réponse automatique. Si ça ne "
+                    "règle pas ton cas, dis-le : Flo prendra le relais.</i>")
+    return None
+
+
+@app.post("/api/telegram/support")
+def support_diagnostic(texte: str = Query(...),
+                       token: Optional[str] = Query(None),
+                       x_admin_token: Optional[str] = Header(None)):
+    """Permet d'essayer une formulation sans passer par Telegram."""
+    require_admin(token, x_admin_token)
+    r = _support_repondre(0, texte)
+    return {"repond": r is not None,
+            "sujet": r[0] if r else None,
+            "reponse": r[1] if r else None,
+            "muet": SUPPORT_MUET}
+
+
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
     """Recoit les messages du bot. Sert UNIQUEMENT a associer un testeur.
@@ -2109,7 +2321,42 @@ async def telegram_webhook(request: Request):
     msg = maj.get("message") or {}
     texte = (msg.get("text") or "").strip()
     chat = (msg.get("chat") or {}).get("id")
-    if not chat or not texte.startswith("/start"):
+    if not chat:
+        return {"ok": True}
+
+    # [02/08] Support du groupe des testeurs. Avant, tout message qui n'était
+    # pas « /start » était ignoré. Le répondeur ne parle que de ce dont il est
+    # certain — voir le bloc au-dessus — et se tait le reste du temps.
+    if not texte.startswith("/start"):
+        if str(chat) != str(TG_GROUPE_ID):
+            return {"ok": True}          # on n'écoute QUE le groupe des testeurs
+        try:
+            r = _support_repondre(chat, texte)
+        except Exception as e:                          # noqa: BLE001
+            print(f"SUPPORT_KO | {e}", flush=True)
+            return {"ok": True}
+        if not r:
+            return {"ok": True}
+        sujet, reponse = r
+        # On ne répète pas le même sujet dans la même heure : un bot qui
+        # radote sur trois messages de suite se fait couper le son.
+        cle = (chat, sujet)
+        if sujet != "secret" and time.time() - _dernieres_reponses.get(cle, 0) < 3600:
+            print(f"SUPPORT_DEJA_DIT | {sujet}", flush=True)
+            return {"ok": True}
+        _dernieres_reponses[cle] = time.time()
+        if SUPPORT_MUET:
+            # Mode écoute : on journalise ce qu'on AURAIT dit. Flo lit, puis
+            # décide de laisser parler. On ne met pas un bot devant des
+            # testeurs sans avoir vu ce qu'il raconte.
+            print(f"SUPPORT_MUET | {sujet} | {texte[:80]}", flush=True)
+            return {"ok": True}
+        params = {"chat_id": chat, "parse_mode": "HTML", "text": reponse,
+                  "disable_web_page_preview": "true"}
+        if msg.get("message_id"):
+            params["reply_to_message_id"] = msg["message_id"]
+        _tg_appel("sendMessage", params)
+        print(f"SUPPORT_REPONDU | {sujet}", flush=True)
         return {"ok": True}
     parties = texte.split(maxsplit=1)
     if len(parties) < 2:

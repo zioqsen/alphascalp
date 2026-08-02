@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 #  render.yaml — Déploiement AlphaScalp sur Render.com
 #  Render lit ce fichier automatiquement (Blueprint) : tu connectes
 #  ton dépôt GitHub, Render crée le service tout seul.
@@ -84,6 +84,11 @@ services:
       #
       # Tant que les quatre ne sont pas renseignées, le mécanisme reste
       # INERTE et le serveur fonctionne exactement comme avant.
+      # Repondeur de support du groupe : true = il ecoute et journalise ce
+      # qu il aurait dit, sans rien envoyer. Passer a false quand Flo aura lu
+      # ses reponses dans les journaux Render et validera qu il parle.
+      - key: ALPHASCALP_SUPPORT_MUET
+        value: "true"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
