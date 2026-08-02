@@ -5,18 +5,23 @@
 #  Voir DEPLOY.md pour le pas-à-pas.
 #
 #  ⚠️ PLAN GRATUIT = SYSTÈME DE FICHIERS ÉPHÉMÈRE
-#  Render ne permet PAS de disque persistant sur le plan free (réservé aux
-#  instances payantes). La base SQLite est donc effacée à chaque redéploiement,
-#  redémarrage ou mise en veille (le service s'endort après 15 min d'inactivité).
-#  → Les inscriptions béta seraient PERDUES.
+#  Render ne permet pas de disque persistant sur le plan free. La base SQLite
+#  est donc effacée à chaque redéploiement, redémarrage ou mise en veille (le
+#  service s'endort après 15 min sans trafic).
 #
-#  FILET DE SÉCURITÉ : chaque inscription est aussi écrite dans les LOGS Render
-#  (ligne "SIGNUP | email | clé"). Même si la base est vidée, les emails restent
-#  récupérables depuis l'onglet Logs. Suffisant pour une bêta à quelques testeurs.
+#  [02/08] CE N'EST PLUS UN PROBLÈME. Un instantané de la table `clients` vit
+#  dans un fichier du Drive de Flo : écrit à chaque changement, relu au
+#  démarrage. Éprouvé six fois en production le 2 août — la base repart vide,
+#  les inscrits reviennent seuls. Voir les variables GOOGLE_* plus bas.
 #
-#  POUR UNE BASE VRAIMENT DURABLE (quand la bêta grossit), deux options :
-#    a) passer le plan à "starter" (~7 $/mois) et décommenter le bloc disk
-#    b) utiliser une base Postgres managée (nécessite d'adapter le code)
+#  Ce paragraphe annonçait auparavant que « les inscriptions bêta seraient
+#  PERDUES » et que le filet était les logs Render. C'était vrai jusqu'à ce
+#  matin-là. Troisième document de la journée à décrire un système disparu,
+#  après le guide et la politique de confidentialité : quelque chose change,
+#  et les textes autour ne suivent pas tout seuls.
+#
+#  POUR ALLER PLUS LOIN (si la bêta grossit) : plan "starter" (~7 $/mois) avec
+#  le bloc disk ci-dessous, ou une base Postgres managée.
 # ============================================================
 services:
   - type: web
@@ -84,11 +89,6 @@ services:
       #
       # Tant que les quatre ne sont pas renseignées, le mécanisme reste
       # INERTE et le serveur fonctionne exactement comme avant.
-      # Repondeur de support du groupe : true = il ecoute et journalise ce
-      # qu il aurait dit, sans rien envoyer. Passer a false quand Flo aura lu
-      # ses reponses dans les journaux Render et validera qu il parle.
-      - key: ALPHASCALP_SUPPORT_MUET
-        value: "true"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
@@ -97,6 +97,21 @@ services:
         sync: false
       - key: GOOGLE_FILE_ID
         sync: false
+
+      # ── [02/08] RÉPONDEUR DE SUPPORT DU GROUPE ──────────────────────
+      # true  = il écoute et journalise ce qu'il AURAIT répondu, sans rien
+      #         envoyer. C'est le réglage de départ : on lit d'abord ses
+      #         réponses dans les journaux Render, on le laisse parler ensuite.
+      # false = il répond dans le groupe des testeurs.
+      #
+      # Il ne répond que ce dont il est certain — 12 sujets, réponses écrites
+      # à l'avance — et se tait sur tout le reste. Il prévient aussi quand
+      # quelqu'un colle une clé ou un mot de passe dans le fil.
+      #
+      # PRÉREQUIS : désactiver le mode confidentialité du bot dans BotFather
+      # (/setprivacy → Disable), sinon il ne voit pas les messages du groupe.
+      - key: ALPHASCALP_SUPPORT_MUET
+        value: "true"
 
     # ── Pour passer en stockage durable plus tard ──────────────────────
     # 1. remplacer  plan: free  par  plan: starter
