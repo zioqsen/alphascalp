@@ -195,16 +195,28 @@ rien à faire.</p>
   <div class="step-n">1</div>
   <div class="step-body">
     <b class="t">S'inscrire et récupérer sa clé <span class="duree">— 2 minutes</span></b>
+    <!-- [02/08] Le guide annonçait « un prénom, un email et ta date de
+         naissance » alors que le formulaire demande AUSSI le nom, et que la
+         politique de confidentialité, elle, disait vrai. Trois sources, deux
+         versions : un lecteur attentif y voit une négligence, et il a raison.
+         On aligne sur ce que le formulaire demande réellement.
+         La date de naissance servait « à deux choses » ici et à trois dans la
+         politique — c'est la politique qui était exacte : elle FABRIQUE la
+         clé. On le dit aussi ici, c'est ce qui explique pourquoi on ne peut
+         pas se contenter de l'année. -->
     <p style="margin:0">Sur <a href="/rejoindre">la page d'inscription</a>, tu
-    donnes un prénom, un email et ta date de naissance. La clé s'affiche
-    <b>immédiatement à l'écran</b> : elle commence par <code>as_</code>.</p>
+    donnes un prénom, un nom, un email et ta date de naissance. La clé
+    s'affiche <b>immédiatement à l'écran</b> : elle commence par
+    <code>as_</code>.</p>
     <p style="margin:10px 0 0"><b>Note-la quelque part.</b> Si tu la perds, tu
     peux la retrouver avec ton email <i>et</i> ta date de naissance — les deux
     sont exigés, justement pour que ton email seul ne suffise pas à quelqu'un
     d'autre.</p>
-    <p class="muted" style="margin:10px 0 0">La date de naissance sert à deux
-    choses, et à rien d'autre : vérifier que tu es majeur, et te permettre de
-    récupérer ta clé. Le détail est dans la
+    <p class="muted" style="margin:10px 0 0">La date de naissance sert à trois
+    choses, et à rien d'autre : vérifier que tu es majeur, <b>fabriquer ta
+    clé</b> — elle est calculée à partir de ton email et de ta date, ce qui
+    permet de la retrouver à l'identique — et vérifier que c'est bien toi
+    lors d'une récupération. Le détail est dans la
     <a href="/confidentialite">politique de confidentialité</a>.</p>
   </div>
 </div>
