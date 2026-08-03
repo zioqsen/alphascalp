@@ -889,6 +889,34 @@ def _valider_signal(sig: "SignalIn") -> str:
         raise HTTPException(status_code=400,
                             detail=f"direction doit être BUY ou SELL, reçu {sig.direction!r}")
 
+    # [03/08 soir] Pour une OUVERTURE, la date d'émission est OBLIGATOIRE et
+    # doit être saine. La version du matin retombait sur l'heure serveur dans
+    # tous les cas d'erreur — c'est-à-dire exactement le bug d'origine : un
+    # signal retardé arrivait estampillé « à l'instant » dès que le champ
+    # manquait ou était illisible. Fail-open déguisé en tolérance. Relevé par
+    # l'audit externe du 03/08. Une fermeture reste tolérante (_instant_emission
+    # avec repli) : la rejouer tard est inoffensif et souvent utile.
+    if not sig.emitted_at:
+        raise HTTPException(status_code=400,
+                            detail="emitted_at manquant : une ouverture sans date "
+                                   "d'émission ne peut pas être datée honnêtement")
+    try:
+        _d = datetime.fromisoformat(str(sig.emitted_at).replace("Z", "+00:00"))
+        if _d.tzinfo is None:
+            _d = _d.replace(tzinfo=timezone.utc)
+    except Exception:                                # noqa: BLE001
+        raise HTTPException(status_code=400,
+                            detail=f"emitted_at illisible : {sig.emitted_at!r}")
+    _age = (datetime.now(timezone.utc) - _d).total_seconds()
+    if _age < -60:
+        raise HTTPException(status_code=400,
+                            detail=f"emitted_at dans le futur ({-_age:.0f} s) : "
+                                   f"horloge de l'émetteur à vérifier")
+    if _age > 3600:
+        raise HTTPException(status_code=400,
+                            detail=f"ouverture émise il y a {_age/60:.0f} min : "
+                                   f"périmée, le copieur la refuserait de toute façon")
+
     if not _nombre_sain(sig.price):
         raise HTTPException(status_code=400, detail=f"prix invalide : {sig.price!r}")
     if not _nombre_sain(sig.sl):
