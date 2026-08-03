@@ -47,7 +47,28 @@
 //                  nouvelle liste. Se caler sur son dernier id sautait les
 //                  signaux déjà présents, dont pouvait faire partie une
 //                  fermeture — le suiveur restait alors ouvert.
-#define COPIEUR_VERSION "1.11"
+//   1.12 (03/08) — délais réseau réduits et bornés par la période du timer.
+//                  L'EA pouvait bloquer plus longtemps que son propre cycle :
+//                  MetaTrader paraissait figé.
+#define COPIEUR_VERSION "1.12"
+
+// [03/08] DÉLAIS RÉSEAU — à ne pas augmenter sans lire ceci.
+//
+// WebRequest est SYNCHRONE : il bloque le fil d'exécution de l'EA pendant
+// toute l'attente, et avec lui la charte. Les valeurs précédentes étaient
+// 15 s pour la relève et 10 s pour le rapport d'état, alors que le timer se
+// déclenche toutes les 10 s. Un serveur lent suffisait donc à ce que l'EA
+// bloque PLUS LONGTEMPS que son propre cycle : les événements s'empilaient et
+// MetaTrader devenait incliquable. Constaté sur le poste de test le 03/08.
+//
+// Règle : période du timer >= somme des délais + marge. Elle est calculée à
+// partir de ces constantes dans OnInit, elle n'est pas laissée au hasard.
+//
+// Un serveur qui met plus de 5 s à répondre est de toute façon indisponible
+// pour nous : on réessaie au cycle suivant, ce qui coûte moins cher que
+// d'attendre.
+#define DELAI_SIGNAUX_MS 5000
+#define DELAI_ETAT_MS    3000
 #property description "Copie les trades AlphaScalp sur ce compte. Bêta : comptes démo."
 
 #include <Trade\Trade.mqh>
@@ -194,7 +215,7 @@ int HttpGet(string url, string &reponse)
    string entetesRecus;
    string entetes = "X-API-Key: " + CleApi + "\r\n";
    ResetLastError();
-   int code = WebRequest("GET", url, entetes, 15000, corps, resultat, entetesRecus);
+   int code = WebRequest("GET", url, entetes, DELAI_SIGNAUX_MS, corps, resultat, entetesRecus);
    if(code == -1)
      {
       int err = GetLastError();
@@ -229,11 +250,24 @@ datetime dernierRapport = 0;
 
 void RapporterEtat(string probleme = "")
   {
+   // [03/08] On compare AVANT d'écraser. L'ancienne version affectait
+   // dernierProbleme dès la première ligne, ce qui rendait toute comparaison
+   // ultérieure vraie par construction — le garde-fou n'aurait rien gardé.
+   bool memeProbleme = (probleme != "" && probleme == dernierProbleme);
    if(probleme != "") dernierProbleme = probleme;
-   // Au plus un envoi toutes les 15 min, sauf nouveau problème : on ne veut
-   // pas transformer un diagnostic en source de trafic.
-   if(probleme == "" && dernierRapport > 0
-      && TimeCurrent() - dernierRapport < 900) return;
+
+   if(dernierRapport > 0)
+     {
+      // Au plus un envoi toutes les 15 min quand tout va bien : on ne veut pas
+      // transformer un diagnostic en source de trafic.
+      if(probleme == "" && TimeCurrent() - dernierRapport < 900) return;
+      // [03/08] Et au plus un envoi toutes les 5 min pour un problème IDENTIQUE.
+      // Avant, un problème était toujours envoyé. Or « symbole introuvable » se
+      // déclenche une fois PAR SIGNAL : à la reprise d'une liste, c'était autant
+      // d'envois bloquants de plusieurs secondes, à la chaîne. Le remède au
+      // silence ne doit pas devenir la cause du blocage.
+      if(memeProbleme && TimeCurrent() - dernierRapport < 300) return;
+     }
    dernierRapport = TimeCurrent();
 
    string courtier = AccountInfoString(ACCOUNT_COMPANY);
@@ -253,7 +287,7 @@ void RapporterEtat(string probleme = "")
    ResetLastError();
    // Échec silencieux volontaire : un rapport perdu ne doit surtout pas
    // perturber la copie, qui est la seule chose qui compte ici.
-   WebRequest("POST", AdresseServeur + "/api/client/etat", entetes, 10000,
+   WebRequest("POST", AdresseServeur + "/api/client/etat", entetes, DELAI_ETAT_MS,
               donnees, resultat, entetesRecus);
   }
 
@@ -909,7 +943,17 @@ int OnInit()
                          // premier lancement rejouait des signaux perimes.
      }
 
-   int periode = MathMax(5, IntervalleSecondes);
+   // [03/08] Le plancher n'est plus un chiffre choisi à la main (c'était 5),
+   // il est DÉDUIT des délais réseau. Tant que la période peut être plus courte
+   // que le temps d'attente maximal, les événements du timer s'empilent et la
+   // charte cesse de répondre. Lier les deux rend cette situation impossible
+   // par construction, y compris si quelqu'un modifie un délai plus tard.
+   int plancher = (DELAI_SIGNAUX_MS + DELAI_ETAT_MS) / 1000 + 2;   // 10 s
+   int periode  = MathMax(plancher, IntervalleSecondes);
+   if(IntervalleSecondes < plancher)
+      Alerte(StringFormat("Intervalle demandé (%d s) trop court : porté à %d s. "
+                          "En dessous, MetaTrader peut cesser de répondre.",
+                          IntervalleSecondes, periode));
    EventSetTimer(periode);
    initialisationOk = true;
 

@@ -88,7 +88,7 @@ qui est juste à côté et ne contient aucun message de l'EA. Tu dois lire quelq
 chose comme :
 
 ```
-[AlphaScalp] === AlphaScalp Copier v1.11 ===
+[AlphaScalp] === AlphaScalp Copier v1.12 ===
 [AlphaScalp] Premier lancement — départ au signal n°42 (l'historique n'est pas rejoué).
 [AlphaScalp] Compte 12345678 | capital 10000.00 EUR | risque 1.0% | max 3 positions | relève toutes les 10s
 [AlphaScalp] Rappel : ce terminal doit rester ALLUMÉ pour que la copie fonctionne.
