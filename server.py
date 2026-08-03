@@ -28,7 +28,9 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 import os
+import re as _re
 import secrets
 import sqlite3
 import threading
@@ -836,17 +838,109 @@ def get_client(api_key: Optional[str]) -> sqlite3.Row:
 # ─────────────────────────────────────────────────────────────
 # API — BOT MAÎTRE (publie les signaux)
 # ─────────────────────────────────────────────────────────────
+_SYMBOLE_OK = _re.compile(r"^[A-Za-z0-9._#+-]{1,32}$")
+
+
+def _nombre_sain(v, strictement_positif=True):
+    """Un float utilisable comme prix : ni None, ni NaN, ni infini, ni négatif.
+
+    float('nan') passe silencieusement toutes les comparaisons (nan > 0 est
+    False, nan < 0 aussi) : sans isfinite, une valeur corrompue traverserait
+    chaque contrôle sans en déclencher aucun.
+    """
+    if v is None or not isinstance(v, (int, float)):
+        return False
+    if not math.isfinite(float(v)):
+        return False
+    return float(v) > 0 if strictement_positif else float(v) >= 0
+
+
+def _valider_signal(sig: "SignalIn") -> str:
+    """Contrôle métier d'un signal AVANT insertion. Renvoie la direction
+    normalisée ('BUY'/'SELL', ou '' pour une fermeture).
+
+    [03/08] Seule `action` était vérifiée. La route exige bien le jeton maître,
+    donc ce n'est pas une porte ouverte à un tiers — c'est notre propre donnée
+    qu'on insérait sans la lire. Or le copieur fait `bool achat = (direction ==
+    "BUY")` : TOUTE valeur inattendue — chaîne vide, None, faute de frappe —
+    devient une VENTE chez les testeurs. Un champ absent ne doit pas pouvoir
+    se transformer en ordre inverse.
+
+    Relevé par le re-audit externe du 02/08.
+    """
+    if sig.action not in ("open", "close"):
+        raise HTTPException(status_code=400, detail="action doit être 'open' ou 'close'")
+
+    ref = (sig.ref_id or "").strip()
+    if not ref or len(ref) > 64:
+        raise HTTPException(status_code=400, detail="ref_id vide ou trop long")
+
+    sym = (sig.symbol or "").strip()
+    if not _SYMBOLE_OK.match(sym):
+        raise HTTPException(status_code=400, detail=f"symbole invalide : {sym!r}")
+
+    # Une fermeture ne transporte que ref_id + symbole : rien d'autre à valider.
+    if sig.action == "close":
+        return ""
+
+    direction = (sig.direction or "").strip().upper()
+    if direction not in ("BUY", "SELL"):
+        raise HTTPException(status_code=400,
+                            detail=f"direction doit être BUY ou SELL, reçu {sig.direction!r}")
+
+    if not _nombre_sain(sig.price):
+        raise HTTPException(status_code=400, detail=f"prix invalide : {sig.price!r}")
+    if not _nombre_sain(sig.sl):
+        raise HTTPException(status_code=400, detail=f"SL invalide : {sig.sl!r}")
+    if sig.tp is not None and not _nombre_sain(sig.tp, strictement_positif=False):
+        raise HTTPException(status_code=400, detail=f"TP invalide : {sig.tp!r}")
+    if sig.volume_ref is not None and not _nombre_sain(sig.volume_ref):
+        raise HTTPException(status_code=400, detail=f"volume_ref invalide : {sig.volume_ref!r}")
+
+    # Cohérence des niveaux. Un stop du mauvais côté de l'entrée n'est pas un
+    # trade serré, c'est une position qui part perdante et que rien n'arrête.
+    prix, sl = float(sig.price), float(sig.sl)
+    tp = float(sig.tp) if sig.tp else 0.0
+    if direction == "BUY":
+        if sl >= prix:
+            raise HTTPException(status_code=400,
+                                detail=f"BUY : SL ({sl}) doit être SOUS l'entrée ({prix})")
+        if tp and tp <= prix:
+            raise HTTPException(status_code=400,
+                                detail=f"BUY : TP ({tp}) doit être AU-DESSUS de l'entrée ({prix})")
+    else:
+        if sl <= prix:
+            raise HTTPException(status_code=400,
+                                detail=f"SELL : SL ({sl}) doit être AU-DESSUS de l'entrée ({prix})")
+        if tp and tp >= prix:
+            raise HTTPException(status_code=400,
+                                detail=f"SELL : TP ({tp}) doit être SOUS l'entrée ({prix})")
+    return direction
+
+
 @app.post("/api/signal")
 def publish_signal(sig: SignalIn, x_master_token: Optional[str] = Header(None)):
     require_master(x_master_token)
-    if sig.action not in ("open", "close"):
-        raise HTTPException(status_code=400, detail="action doit être 'open' ou 'close'")
+    try:
+        direction = _valider_signal(sig)
+    except HTTPException as e:
+        # Un refus DOIT laisser une trace lisible : sans elle, un signal rejeté
+        # ressemblerait exactement à un signal jamais émis, et le maître se
+        # retrouverait en position sans qu'aucun suiveur ne le sache.
+        print(f"SIGNAL_REFUSE | {sig.action} #{sig.ref_id} ({sig.symbol}) | {e.detail}",
+              flush=True)
+        raise
     with db() as conn:
         cur = conn.execute(
             """INSERT INTO signals
                (action, ref_id, symbol, direction, volume_ref, price, sl, tp, regime, created_at)
                VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (sig.action, sig.ref_id, sig.symbol, sig.direction, sig.volume_ref,
+            # direction NORMALISÉE (BUY/SELL en majuscules), pas la valeur brute :
+            # le copieur compare à "BUY" au caractère près, donc « buy » aurait
+            # ete copié comme une vente. Valider sans normaliser n'aurait
+            # deplace le probleme que d'un cran.
+            (sig.action, (sig.ref_id or "").strip(), (sig.symbol or "").strip(),
+             direction or None, sig.volume_ref,
              sig.price, sig.sl, sig.tp, sig.regime, now_iso()),
         )
         signal_id = cur.lastrowid
