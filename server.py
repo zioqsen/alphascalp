@@ -980,6 +980,13 @@ def health():
         # distribue. Les pages le lisent ici plutôt que de l'écrire en dur.
         "invitation": TG_INVITATION,
         "bot": TG_BOT_NOM,
+        # [03/08] Le répondeur parle-t-il, ou observe-t-il en silence ? Un
+        # booléen, aucun secret. Sans lui, on ne peut savoir si un changement de
+        # render.yaml a bien été appliqué qu'en postant dans le groupe et en
+        # attendant — et en cas de silence, on ne saurait toujours pas si c'est
+        # l'interrupteur ou autre chose. Un réglage qu'on ne peut pas lire est
+        # un réglage dont on n'est jamais sûr.
+        "support_repond": not SUPPORT_MUET,
         # [01/08] État de la sauvegarde des inscrits. Sans ça, une persistance
         # silencieusement cassée resterait invisible jusqu'au jour où la base
         # s'efface pour de bon — et c'est très exactement le motif qu'on passe
