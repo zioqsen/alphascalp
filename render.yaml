@@ -110,8 +110,15 @@ services:
       #
       # PRÉREQUIS : désactiver le mode confidentialité du bot dans BotFather
       # (/setprivacy → Disable), sinon il ne voit pas les messages du groupe.
+      # [03/08] Passé à false : le répondeur parle pour de vrai dans le groupe.
+      # Il a tourné en observation depuis le 02/08 — il écrivait dans les logs
+      # ce qu'il AURAIT répondu, sans rien envoyer. Repasser à "true" le rend
+      # muet à nouveau, sans rien casser : c'est un interrupteur, pas un
+      # démontage. Et il se change ICI, pas dans le tableau de bord Render —
+      # une variable présente dans ce fichier écrase la saisie manuelle à la
+      # synchro suivante (leçon du 30/07).
       - key: ALPHASCALP_SUPPORT_MUET
-        value: "true"
+        value: "false"
 
       # ── [02/08] VEILLE DES COPIEURS ─────────────────────────────────
       # Prévient un testeur dont le copieur s'est tu pendant que les marchés
