@@ -32,7 +32,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlphaScalp"
 #property link      "https://alphascalp.onrender.com"
-#property version   "1.10"
+#property version   "1.11"
 #property strict
 // [02/08] La version était écrite en dur À DEUX ENDROITS (ici et dans le corps
 // du rapport d'état). Résultat : la copie installée sur le PC de test datait du
@@ -43,7 +43,11 @@
 //   1.00 (31/07) — première version bêta
 //   1.10 (01/08) — garde anti-rejeu au premier lancement, refus des signaux
 //                  périmés (AgeMaxSignalSec), alertes visibles sur échec d'init
-#define COPIEUR_VERSION "1.10"
+//   1.11 (03/08) — remise à zéro du serveur : on reprend au DÉBUT de sa
+//                  nouvelle liste. Se caler sur son dernier id sautait les
+//                  signaux déjà présents, dont pouvait faire partie une
+//                  fermeture — le suiveur restait alors ouvert.
+#define COPIEUR_VERSION "1.11"
 #property description "Copie les trades AlphaScalp sur ce compte. Bêta : comptes démo."
 
 #include <Trade\Trade.mqh>
@@ -747,11 +751,31 @@ void Relever()
    long dernier = (long)JsonNombre(reponse, "latest", -1);
    if(dernier >= 0 && dernier < curseur)
      {
+      // [03/08] On repart de 0, PAS de `dernier`.
+      //
+      // Le recalage sur `dernier` sautait tout ce que la nouvelle table
+      // contenait déjà. Déroulé : le serveur redémarre, le maître clôture un
+      // trade cinq secondes plus tard (ce close devient le n°1), on relève
+      // cinq secondes après, on voit latest=1, on se cale sur 1 — et on ne
+      // demande plus que les signaux AU-DELÀ de 1. La fermeture, c'était le
+      // n°1. Le suiveur restait donc ouvert alors que le maître était sorti :
+      // précisément la divergence que tout ce fichier cherche à empêcher.
+      //
+      // Repartir de 0 est sûr, parce que rien de ce qui est rejoué n'agit à
+      // tort : une fermeture dont on n'a pas la position ne fait rien
+      // (TrouverPosition renvoie 0), une ouverture qu'on détient déjà est
+      // écartée par l'anti-doublon sur ref_id, et une ouverture périmée est
+      // refusée par le garde d'ancienneté (AgeMaxSignalSec). Ne restent que
+      // les signaux qu'on avait réellement manqués — ceux qu'on veut.
+      //
+      // La table ne contient de toute façon que ce qui a été émis DEPUIS le
+      // redémarrage : le rejeu est court par construction.
       Alerte(StringFormat("Le serveur est reparti de zéro (son dernier signal "
                           "est le n°%I64d, nous en étions au n°%I64d). "
-                          "Recalage automatique — aucune action de ta part.",
+                          "Reprise depuis le début de sa nouvelle liste — "
+                          "aucune action de ta part.",
                           dernier, curseur));
-      curseur = dernier;
+      curseur = 0;
       SauverCurseur();
      }
 
