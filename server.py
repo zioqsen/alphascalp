@@ -753,6 +753,7 @@ class SignalIn(BaseModel):
     sl: Optional[float] = None
     tp: Optional[float] = None
     regime: Optional[str] = None
+    emitted_at: Optional[str] = None  # date d'ÉMISSION (voir _instant_emission)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -918,6 +919,39 @@ def _valider_signal(sig: "SignalIn") -> str:
     return direction
 
 
+def _instant_emission(brut: Optional[str]) -> str:
+    """Date à écrire dans `created_at` : celle de l'ÉMISSION, pas de la réception.
+
+    [03/08] Le copieur refuse les signaux de plus de 5 minutes, et il mesure cet
+    âge sur `created_at`. Tant que ce champ valait l'heure de RÉCEPTION, la
+    protection ne protégeait de rien : un signal retardé arrivait estampillé
+    « à l'instant ». Le défaut était latent tant que le relais abandonnait en 9
+    secondes ; l'outbox, ajoutée le matin même, a porté ce délai à plusieurs
+    minutes et l'a rendu réel. Relevé par l'audit externe du 03/08.
+
+    On ne fait pas aveuglément confiance à l'émetteur pour autant : son horloge
+    peut dériver. Une date future, illisible ou vieille de plus de 24 h est
+    écartée au profit de l'heure serveur — mieux vaut un âge légèrement
+    sous-estimé qu'un âge négatif, que le copieur traiterait comme illisible.
+    """
+    maintenant = datetime.now(timezone.utc)
+    if not brut:
+        return now_iso()
+    try:
+        d = datetime.fromisoformat(str(brut).replace("Z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+    except Exception:                                # noqa: BLE001
+        print(f"EMISSION_ILLISIBLE | {brut!r} — heure serveur utilisée", flush=True)
+        return now_iso()
+    ecart = (maintenant - d).total_seconds()
+    if ecart < -60 or ecart > 86400:
+        print(f"EMISSION_ABERRANTE | {brut!r} (écart {ecart:.0f} s) — "
+              f"heure serveur utilisée", flush=True)
+        return now_iso()
+    return d.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 @app.post("/api/signal")
 def publish_signal(sig: SignalIn, x_master_token: Optional[str] = Header(None)):
     require_master(x_master_token)
@@ -941,7 +975,8 @@ def publish_signal(sig: SignalIn, x_master_token: Optional[str] = Header(None)):
             # deplace le probleme que d'un cran.
             (sig.action, (sig.ref_id or "").strip(), (sig.symbol or "").strip(),
              direction or None, sig.volume_ref,
-             sig.price, sig.sl, sig.tp, sig.regime, now_iso()),
+             sig.price, sig.sl, sig.tp, sig.regime,
+             _instant_emission(sig.emitted_at)),
         )
         signal_id = cur.lastrowid
     return {"ok": True, "signal_id": signal_id}

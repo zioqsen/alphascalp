@@ -32,7 +32,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlphaScalp"
 #property link      "https://alphascalp.onrender.com"
-#property version   "1.11"
+#property version   "1.12"
 #property strict
 // [02/08] La version était écrite en dur À DEUX ENDROITS (ici et dans le corps
 // du rapport d'état). Résultat : la copie installée sur le PC de test datait du
