@@ -2106,24 +2106,90 @@ def admin_general(action: str = Query("restaurer"),
     return {"action": action, "etapes": etapes}
 
 
+_WEBHOOK_URL = "https://alphascalp.onrender.com/api/telegram/webhook"
+
+
+def _tg_webhook_secret() -> str:
+    """Secret partagé avec Telegram, qui nous le renvoie dans un en-tête.
+
+    [03/08] Le webhook n'était pas authentifié. Sa docstring affirmait que la
+    protection tenait à ce que « l'adresse contient le jeton du bot » — elle ne
+    le contient pas, elle est en clair juste au-dessus. Et « Telegram ne peut
+    pas en fournir » était faux : `setWebhook` accepte `secret_token` et le
+    renvoie dans `X-Telegram-Bot-Api-Secret-Token`. Relevé par le re-audit
+    externe du 02/08. Sans ça, n'importe qui pouvait faire envoyer un message
+    par le bot vers un salon de son choix.
+
+    DÉRIVÉ du jeton du bot, et non rangé dans une variable dédiée. Une variable
+    de plus est une variable de plus à oublier — et sur un Blueprint Render,
+    une variable absente de render.yaml est SUPPRIMÉE à la synchro suivante :
+    c'est exactement ce qui nous a coûté la journée du 30/07. Un secret dérivé
+    ne peut pas manquer, ne peut pas diverger entre l'enregistrement et la
+    vérification, et n'apparaît nulle part en clair.
+
+    Alphabet imposé par Telegram : A-Z, a-z, 0-9, _ et - uniquement. L'hexa
+    convient. Le suffixe « v1 » permettra d'en changer sans toucher au jeton.
+    """
+    if not TG_TOKEN:
+        return ""
+    return hmac.new(TG_TOKEN.encode("utf-8"), b"webhook-v1",
+                    hashlib.sha256).hexdigest()
+
+
+def _poser_webhook() -> dict:
+    """Enregistre l'adresse ET le secret aupres de Telegram."""
+    return _tg_appel("setWebhook", {
+        "url": _WEBHOOK_URL,
+        "allowed_updates": '["message"]',
+        "secret_token": _tg_webhook_secret(),
+    })
+
+
+def _enregistrer_webhook_au_demarrage() -> None:
+    """Réenregistre le webhook à chaque démarrage, en écoute publique.
+
+    Pourquoi automatiquement, alors qu'un bouton existe déjà dans /admin :
+
+    1. Le jour où la vérification du secret est mise en service, le webhook
+       DÉJÀ enregistré chez Telegram n'en a pas. Ses appels partiraient donc
+       en 403 jusqu'au prochain clic — le bot support deviendrait muet sans
+       que personne ne s'en aperçoive. L'enregistrement au démarrage supprime
+       cette fenêtre au lieu de compter sur un geste au bon moment.
+    2. Un webhook peut être désenregistré par Telegram après trop d'échecs.
+       Le rétablir au démarrage rend la panne auto-réparable.
+
+    Best-effort et silencieux en cas d'échec : ce n'est pas une raison de
+    refuser de démarrer. Le diagnostic /api/admin/telegram dira la vérité.
+    """
+    if not TG_TOKEN:
+        return
+    if os.environ.get("HOST", "127.0.0.1") in ("127.0.0.1", "localhost"):
+        return                      # en local, on ne touche pas au vrai bot
+    try:
+        r = _poser_webhook()
+        print("WEBHOOK | " + ("enregistré avec secret" if r.get("ok")
+                              else "échec : " + str(r.get("description", "?"))),
+              flush=True)
+    except Exception as e:                              # noqa: BLE001
+        print(f"WEBHOOK | exception : {e}", flush=True)
+
+
 @app.post("/api/admin/webhook")
 def admin_webhook(token: Optional[str] = Query(None),
                   x_admin_token: Optional[str] = Header(None)):
     """Declare l'adresse du webhook aupres de Telegram.
 
-    A lancer UNE FOIS. Telegram poussera alors les messages du bot vers le
-    serveur, au lieu qu'on aille les chercher -- ce qui evite tout conflit
-    getUpdates avec un autre consommateur du meme jeton.
+    Fait aussi automatiquement a chaque demarrage. Ce bouton reste utile pour
+    le refaire a la demande, apres un changement de jeton par exemple.
     """
     require_admin(token, x_admin_token)
     if not TG_TOKEN:
         raise HTTPException(status_code=400, detail="Jeton Telegram absent.")
-    url = "https://alphascalp.onrender.com/api/telegram/webhook"
-    r = _tg_appel("setWebhook", {"url": url, "allowed_updates": '["message"]'})
+    r = _poser_webhook()
     if not r.get("ok"):
         raise HTTPException(status_code=502,
                             detail=f"Telegram : {r.get('description', '?')}")
-    return {"ok": True, "webhook": url}
+    return {"ok": True, "webhook": _WEBHOOK_URL}
 
 
 @app.post("/api/admin/invitation")
@@ -2520,8 +2586,19 @@ def diag_telegram(token: Optional[str] = Query(None),
                     "réglage ne s'applique pas aux groupes où il est DÉJÀ "
                     "présent : retire-le du groupe et remets-le.")
     if hook.get("last_error_message"):
-        diag.append("Dernière erreur signalée par Telegram : "
-                    + str(hook.get("last_error_message")))
+        msg = str(hook.get("last_error_message"))
+        diag.append("Dernière erreur signalée par Telegram : " + msg)
+        # [03/08] getWebhookInfo ne dit PAS si un secret est enregistré — c'est
+        # justement ce qu'on aurait voulu lire. Le 403 est donc notre seul
+        # indice, et sans cette traduction il resterait illisible : « Wrong
+        # response from the webhook: 403 Forbidden » ne dit à personne qu'il
+        # s'agit d'un secret désynchronisé.
+        if "403" in msg:
+            diag.append("Ce 403 vient de NOUS : le secret envoyé par Telegram "
+                        "ne correspond pas à celui attendu. Le webhook a "
+                        "probablement été enregistré avant la mise en service "
+                        "du secret. Clique « Enregistrer le webhook » — c'est "
+                        "aussi refait à chaque démarrage du serveur.")
     if hook.get("pending_update_count"):
         diag.append("%s message(s) en attente de livraison."
                     % hook.get("pending_update_count"))
@@ -2733,13 +2810,32 @@ def _veille_copieurs() -> None:
 
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
-    """Recoit les messages du bot. Sert UNIQUEMENT a associer un testeur.
+    """Recoit les messages du bot : liaison d'un testeur, /moi, /aide, support.
 
-    Aucune authentification par jeton ici : Telegram ne peut pas en fournir.
-    La protection tient au fait que l'adresse contient le jeton du bot, connu
-    de nous seuls, et qu'on n'agit que sur une commande /start suivie d'un
-    code valide. Un appel non sollicite ne produit rien.
+    [03/08] AUTHENTIFIE. La version precedente ne verifiait rien et se
+    justifiait ainsi : « l'adresse contient le jeton du bot, connu de nous
+    seuls ». C'etait faux — l'adresse est en clair dans le code, sans aucun
+    secret. Et « Telegram ne peut pas en fournir » l'etait aussi.
+
+    Concretement, n'importe qui pouvait forger un chat.id et un texte pour
+    faire ENVOYER un message par le bot vers un salon de son choix, declencher
+    le repondeur a volonte, ou tenter une liaison /start. Relevé par le
+    re-audit externe du 02/08.
+
+    La verification se fait AVANT de lire le corps : on ne parse pas ce qu'on
+    n'a pas authentifie. Et par compare_digest, pas par == : une comparaison
+    naive s'arrete au premier caractere different, ce qui laisse mesurer le
+    secret un caractere a la fois.
     """
+    attendu = _tg_webhook_secret()
+    if attendu:
+        recu = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if not hmac.compare_digest(recu, attendu):
+            # Volontairement muet sur la raison : un appelant illegitime n'a
+            # pas a apprendre ce qui lui manque. La trace, elle, est cote
+            # serveur — sans le secret recu, qu'on ne journalise pas.
+            print("WEBHOOK_REFUSE | secret absent ou invalide", flush=True)
+            raise HTTPException(status_code=403, detail="Interdit")
     try:
         maj = await request.json()
     except Exception:
@@ -3002,6 +3098,12 @@ init_db()
 restaurer_clients()
 threading.Thread(target=_boucle_sauvegarde, daemon=True).start()
 threading.Thread(target=_veille_copieurs, daemon=True).start()
+
+# [03/08] Le webhook est (re)declare a chaque demarrage, avec son secret. Voir
+# _enregistrer_webhook_au_demarrage : sans ca, la mise en service de la
+# verification aurait rendu le bot muet jusqu'au prochain clic dans /admin.
+# Dans un thread : un appel reseau au demarrage ne doit pas retarder l'ecoute.
+threading.Thread(target=_enregistrer_webhook_au_demarrage, daemon=True).start()
 
 # Doit venir APRÈS init_db : les tables doivent exister pour être comptées.
 _alerte_base_vide()
