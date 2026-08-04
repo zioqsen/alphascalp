@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 04/08/2026 à 20:13 par Codex.
+Dernière mise à jour : 04/08/2026 à 20:54 par Codex.
 
 ## Documents de référence
 
@@ -83,7 +83,10 @@ valider le chevauchement par le propriétaire du projet.
   manuelle.
 - Les tutoriels et principaux messages du serveur ont été adaptés localement
   au parcours hébergé.
-- Aucun déploiement, commit ou push n'a été effectué pour ces changements.
+- Les corrections du site et du serveur sont publiées sur la branche
+  `codex/corrige-formulaire-rejoindre` et proposées dans la pull request
+  brouillon GitHub `zioqsen/alphascalp#1`. Elles ne sont pas encore fusionnées
+  ni vérifiées sur Render.
 - `landing page/performance.html` contenait des changements générés antérieurs
   qu'il faut préserver.
 - Seul le bot scalping alimente actuellement automatiquement le relais.
@@ -100,6 +103,30 @@ valider le chevauchement par le propriétaire du projet.
 6. Valider le parcours complet avec un compte de test avant tout déploiement.
 
 ## Journal partagé
+
+### 2026-08-04 20:54 — Codex — publication du correctif d'inscription
+
+- Demande : publier les corrections validées depuis le téléphone.
+- Fichiers consultés : état Git, différences indexées et contrôles de syntaxe
+  dans `C:\PROJET AlphaScalp` et `C:\bot`.
+- Fichiers modifiés : le présent suivi uniquement pour cette entrée ; le
+  correctif publié correspond aux six fichiers du commit `06eb28b`.
+- Décisions et hypothèses : branche dédiée et pull request brouillon pour
+  permettre une relecture avant fusion ; les statistiques générées localement
+  dans `landing page/performance.html` et la sauvegarde `.bak` de l'EA restent
+  hors commit.
+- Vérifications exécutées et résultats : `git diff --cached --check` valide ;
+  analyse syntaxique Python de `server.py` et de
+  `C:\bot\alphascalp_showcase.py` valide ; branche distante créée.
+- Points non vérifiés : fusion de la pull request, redéploiement Render et
+  parcours public après déploiement.
+- Prochaines actions : relire puis fusionner la pull request, attendre le
+  déploiement Render et effectuer une inscription de test autorisée.
+- Git/déploiement : commit `06eb28b` poussé sur
+  `codex/corrige-formulaire-rejoindre` ; pull request brouillon
+  `https://github.com/zioqsen/alphascalp/pull/1`. Aucun déploiement ni fusion.
+  Le dépôt `C:\bot` n'a pas de remote configuré : la modification locale de son
+  générateur ne peut pas être poussée depuis ce dépôt.
 
 ### 2026-08-04 20:13 — Codex — suppression de la date de naissance
 
