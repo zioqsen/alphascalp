@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 04/08/2026 à 21:04 par Codex.
+Dernière mise à jour : 04/08/2026 à 21:20 par Claude.
 
 ## Documents de référence
 
@@ -83,10 +83,16 @@ valider le chevauchement par le propriétaire du projet.
   manuelle.
 - Les tutoriels et principaux messages du serveur ont été adaptés localement
   au parcours hébergé.
-- Les corrections du site et du serveur sont publiées sur la branche
-  `codex/corrige-formulaire-rejoindre` et proposées dans la pull request
-  brouillon GitHub `zioqsen/alphascalp#1`. Elles ne sont pas encore fusionnées
-  ni vérifiées sur Render.
+- Les corrections du site et du serveur sont **fusionnées dans `main`** et
+  **déployées** (`98c52e4`). La pull request `zioqsen/alphascalp#1` est donc
+  close par la fusion. Vérifié sur Render : le script de `/rejoindre` se
+  charge, le bouton est `type="button"` et appelle `inscrire()`, l'API refuse
+  une inscription sans consentement (400, sans créer de ligne).
+- `C:\bot` : la correction du générateur est reportée sur `master` (`64b52ce`).
+  Elle vivait sur une branche locale d'un dépôt sans distant — un retour sur
+  `master` aurait silencieusement réintroduit l'ancien texte.
+- `*.bak` est désormais ignoré par Git. La copie compilée de l'EA 1.12 a été
+  retirée du dépôt public tout en restant sur le disque.
 - `landing page/performance.html` contenait des changements générés antérieurs
   qu'il faut préserver.
 - Seul le bot scalping alimente actuellement automatiquement le relais.
@@ -103,6 +109,51 @@ valider le chevauchement par le propriétaire du projet.
 6. Valider le parcours complet avec un compte de test avant tout déploiement.
 
 ## Journal partagé
+
+### 2026-08-04 21:20 — Claude — fusion, nettoyage et vérification en ligne
+
+- Demande : relire le présent suivi pour y repérer d'éventuelles erreurs, puis
+  publier le correctif d'inscription.
+- Fichiers consultés : `server.py` sur `main` et sur la branche, page déployée
+  `/rejoindre`, historiques et branches des deux dépôts, `SUIVI_PROJET.md`.
+- Fichiers modifiés : `.gitignore` (règle `*.bak`), présent suivi. Aucune
+  modification de code : la branche a été fusionnée telle quelle.
+- **Correction du journal du 19:55** — la cause y est attribuée à `l\'etat`,
+  chaîne qui n'existe dans aucune version de `server.py`. Les chaînes réelles
+  sont `Suivre l\'activation`, `Tu n\'as rien a installer` et
+  `dans l\'application officielle MT5`, dans le bloc `submit()` de la page
+  `/rejoindre`. Le mécanisme décrit était exact, les mots ne l'étaient pas ;
+  ce fichier sert de mémoire au prochain agent, donc la nuance compte.
+- Responsabilité : ces lignes n'ont pas été écrites par Claude, mais elles ont
+  été **commitées et déployées** par lui dans `2ffc60c`. `server.py` était
+  modifié dans l'arbre de travail par un chantier antérieur ; seuls le nombre
+  de lignes et l'absence de secrets ont été contrôlés, pas le contenu non
+  écrit par l'auteur du commit. Leçon : `git add <fichier>` engage tout le
+  fichier, pas seulement ses propres modifications.
+- Décisions : fusion en avance directe (aucun conflit possible) ; `*.bak`
+  ignoré plutôt que le seul fichier supprimé, pour fermer la classe et non le
+  cas ; report de la correction du générateur sur `master` dans `C:\bot`.
+- Vérifications exécutées et résultats : équilibrage des délimiteurs du
+  JavaScript **rendu** (pas du source) avant/après — cassé sur `2ffc60c`,
+  correct sur la branche puis en ligne ; sur le site déployé, présence de
+  `id="consentement"`, absence de `id="ddn"`, `function inscrire` définie,
+  bouton `type="button"` ; `POST /api/signup` sans consentement refusé en 400
+  sans création de ligne ; copieur 1.13 intact sur la branche (`OrderCalcMargin`,
+  `#define COPIEUR_VERSION "1.13"`), `.mq5` et `.ex5` inchangés par la fusion.
+- Points non vérifiés : inscription complète réelle de bout en bout (elle
+  créerait une ligne dans la base publique) ; réponse manuelle du support par
+  email ; rendu visuel de la case sur mobile.
+- Prochaines actions : compte démo à fort levier pour mesurer la marge réelle
+  et valider la plage 200–1 000 EUR ; `RisqueParTrade` à 2.5 sur les terminaux ;
+  installer le copieur 1.13 sur `beta_02` et le terminal swing, restés en 1.12 ;
+  décider si les adresses email doivent continuer d'être écrites en clair dans
+  les journaux Render (`SIGNUP`, `RECOVER_REQUEST`) ; combler l'absence des
+  quatre champs d'inscription dans le guide, et retirer du contrôle de
+  cohérence la règle « adresse à autoriser », devenue caduque avec le parcours
+  hébergé.
+- Git/déploiement : `main` fusionnée puis complétée par `98c52e4`, poussée et
+  **déployée sur Render** (41 s), vérifiée en ligne. `C:\bot` : `master` avancé
+  à `64b52ce`, non poussable (aucun distant).
 
 ### 2026-08-04 21:04 — Codex — sauvegarde de tous les changements restants
 
