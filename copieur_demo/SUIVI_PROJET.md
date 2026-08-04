@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 04/08/2026 à 20:54 par Codex.
+Dernière mise à jour : 04/08/2026 à 21:04 par Codex.
 
 ## Documents de référence
 
@@ -103,6 +103,29 @@ valider le chevauchement par le propriétaire du projet.
 6. Valider le parcours complet avec un compte de test avant tout déploiement.
 
 ## Journal partagé
+
+### 2026-08-04 21:04 — Codex — sauvegarde de tous les changements restants
+
+- Demande : commiter et pousser tous les changements locaux restants.
+- Fichiers consultés : états et différences Git de `C:\PROJET AlphaScalp` et
+  `C:\bot`, page de performance générée et générateur correspondant.
+- Fichiers modifiés : aucun contenu métier supplémentaire ; indexation de
+  `landing page/performance.html`, de
+  `client/AlphaScalpCopier.ex5.1.12.bak` et de
+  `C:\bot\alphascalp_showcase.py`, puis mise à jour du présent suivi.
+- Décisions et hypothèses : la demande explicite « tout » inclut la copie
+  compilée `.bak` de 69 398 octets et les statistiques démo générées à 21:01.
+- Vérifications exécutées et résultats : `git diff --check` valide dans les
+  deux dépôts ; syntaxe Python du générateur valide ; contenus indexés relus
+  avant commit.
+- Points non vérifiés : déploiement Render, fusion de la pull request et
+  exécution du binaire `.bak` ; aucun terminal MT5 n'a été redémarré.
+- Prochaines actions : relire et fusionner la pull request ; configurer un
+  remote pour `C:\bot` si son historique doit aussi être hébergé sur GitHub.
+- Git/déploiement : commit AlphaScalp `6e8faa9` poussé sur
+  `codex/corrige-formulaire-rejoindre` et ajouté à la pull request #1 ; commit
+  local `C:\bot` `64b52ce` sur `codex/maj-generateur-inscription-beta`, non
+  poussable car aucun remote n'est configuré. Aucun déploiement ni fusion.
 
 ### 2026-08-04 20:54 — Codex — publication du correctif d'inscription
 
