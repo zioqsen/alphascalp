@@ -841,6 +841,21 @@ def get_client(api_key: Optional[str]) -> sqlite3.Row:
 # ─────────────────────────────────────────────────────────────
 _SYMBOLE_OK = _re.compile(r"^[A-Za-z0-9._#+-]{1,32}$")
 
+# [04/08] ÂGE MAXIMAL D'UNE OUVERTURE — une seule valeur contractuelle.
+#
+# Trois constantes disaient trois choses différentes, écrites le même jour par
+# la même main sans jamais être comparées : serveur 3600 s, outbox du relais
+# 300 s, copieur 300 s. Une ouverture de six minutes était donc ACCEPTÉE ici
+# (HTTP 200), marquée « livrée » par l'outbox — et refusée par tous les
+# copieurs. Le maître voyait un succès qu'aucun testeur ne pouvait copier.
+#
+# C'est un « succès vers la mauvaise cible » : rien n'échoue, rien ne trace.
+# Relevé par l'audit externe du 04/08 (P1-3).
+#
+# Cette valeur DOIT rester <= AgeMaxSignalSec du copieur. Le lien est vérifié
+# automatiquement par coherence_site.py (section 12).
+AGE_MAX_OUVERTURE_S = 300
+
 
 def _nombre_sain(v, strictement_positif=True):
     """Un float utilisable comme prix : ni None, ni NaN, ni infini, ni négatif.
@@ -912,10 +927,11 @@ def _valider_signal(sig: "SignalIn") -> str:
         raise HTTPException(status_code=400,
                             detail=f"emitted_at dans le futur ({-_age:.0f} s) : "
                                    f"horloge de l'émetteur à vérifier")
-    if _age > 3600:
+    if _age > AGE_MAX_OUVERTURE_S:
         raise HTTPException(status_code=400,
-                            detail=f"ouverture émise il y a {_age/60:.0f} min : "
-                                   f"périmée, le copieur la refuserait de toute façon")
+                            detail=f"ouverture émise il y a {_age:.0f} s : périmée "
+                                   f"(limite {AGE_MAX_OUVERTURE_S} s, la même que "
+                                   f"celle du copieur)")
 
     if not _nombre_sain(sig.price):
         raise HTTPException(status_code=400, detail=f"prix invalide : {sig.price!r}")
