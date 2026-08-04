@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 04/08/2026 à 21:20 par Claude.
+Dernière mise à jour : 04/08/2026 à 21:23 par Codex.
 
 ## Documents de référence
 
@@ -88,9 +88,9 @@ valider le chevauchement par le propriétaire du projet.
   close par la fusion. Vérifié sur Render : le script de `/rejoindre` se
   charge, le bouton est `type="button"` et appelle `inscrire()`, l'API refuse
   une inscription sans consentement (400, sans créer de ligne).
-- `C:\bot` : la correction du générateur est reportée sur `master` (`64b52ce`).
-  Elle vivait sur une branche locale d'un dépôt sans distant — un retour sur
-  `master` aurait silencieusement réintroduit l'ancien texte.
+- `C:\bot` : la correction du générateur est reportée sur `master` (`64b52ce`)
+  et le dépôt est désormais sauvegardé sur le remote GitHub privé
+  `zioqsen/alphascalp-bot`.
 - `*.bak` est désormais ignoré par Git. La copie compilée de l'EA 1.12 a été
   retirée du dépôt public tout en restant sur le disque.
 - `landing page/performance.html` contenait des changements générés antérieurs
@@ -109,6 +109,30 @@ valider le chevauchement par le propriétaire du projet.
 6. Valider le parcours complet avec un compte de test avant tout déploiement.
 
 ## Journal partagé
+
+### 2026-08-04 21:23 — Codex — création du remote privé de `C:\bot`
+
+- Demande : créer le remote de `C:\bot`, après lecture obligatoire du suivi.
+- Fichiers consultés : présent suivi, document détaillé de mise en place,
+  `.gitignore`, état et historique Git de `C:\bot`.
+- Fichiers modifiés : le présent suivi uniquement ; aucun fichier métier de
+  `C:\bot` n'a été modifié.
+- Décisions et hypothèses : dépôt GitHub privé nommé
+  `zioqsen/alphascalp-bot` ; `master` reste la branche principale ; aucune pull
+  request initiale car le nouveau dépôt ne possédait pas encore de branche de
+  base distincte.
+- Vérifications exécutées et résultats : 42 fichiers suivis ; aucun nom de
+  fichier sensible suivi dans l'état actuel ou l'historique ; aucun motif fort
+  de secret ou d'identifiant générique détecté dans l'état actuel ou les
+  différences historiques ; `.gitignore` confirmé en liste blanche stricte ;
+  `master` poussée au commit `64b52ce`.
+- Points non vérifiés : protection de branche GitHub et éventuelles règles de
+  validation continue ; aucun bot ni terminal MT5 n'a été redémarré.
+- Prochaines actions : conserver le dépôt privé et publier les futurs
+  changements par branche et pull request.
+- Git/déploiement : remote `origin` ajouté vers le dépôt privé
+  `https://github.com/zioqsen/alphascalp-bot` ; `master` suit désormais
+  `origin/master`. Aucun déploiement applicatif.
 
 ### 2026-08-04 21:20 — Claude — fusion, nettoyage et vérification en ligne
 
