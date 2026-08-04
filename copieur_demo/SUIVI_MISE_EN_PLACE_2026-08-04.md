@@ -1,5 +1,8 @@
 # Transmission à Claude — copie automatique hébergée (04/08/2026)
 
+> Pour les interventions postérieures à ce document, lire d'abord le journal
+> central `C:\PROJET AlphaScalp\copieur_demo\SUIVI_PROJET.md`.
+
 ## Objet
 
 Ce document transmet l'état exact du chantier « bêta-testeurs sur terminaux

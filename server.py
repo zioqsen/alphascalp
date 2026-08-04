@@ -138,8 +138,7 @@ def _echappe(s: str) -> str:
 
 
 def _notify_signup(email: str, rang: Optional[int] = None,
-                   prenom: str = "", nom: str = "",
-                   age: Optional[int] = None) -> None:
+                   prenom: str = "", nom: str = "") -> None:
     """Prévient d'une inscription par Telegram. Non bloquant et silencieux en
     cas d'échec : une notification perdue ne doit JAMAIS faire échouer une
     inscription — c'est du confort, la base et le log restent la source.
@@ -165,11 +164,8 @@ def _notify_signup(email: str, rang: Optional[int] = None,
                 "\U0001F680 <b>Nouvelle inscription bêta</b>",
                 "<i>AlphaScalp</i>",
                 "",
-                # [02/08] L'âge ne part plus. Le serveur refuse les
-                # mineurs par un 403 avant de créer la ligne : si
-                # l'inscrit existe, il est majeur. L'envoyer était
-                # donc une donnée personnelle de plus dans un fil qui
-                # la conserve indéfiniment, pour zéro information.
+                # [04/08] Aucune date ni aucun âge ne sont collectés. La
+                # majorité est confirmée par une case obligatoire.
                 f"\U0001F464 <b>{identite}</b>",
                 f"\U0001F4E7 <code>{_echappe(email)}</code>",
                 f"\U0001F553 {_heure_paris()}",
@@ -260,15 +256,15 @@ def _notify_telegram(texte: str, vers_groupe: bool = False) -> None:
     threading.Thread(target=_post, daemon=True).start()
 
 
-def _notify_restauration(email: str) -> None:
+def _notify_recuperation(email: str, ligne_absente: bool) -> None:
     _notify_telegram(
-        "\U0001F511 <b>Clé restaurée</b>\n<i>AlphaScalp</i>\n\n"
+        "\U0001F511 <b>Demande de récupération de clé</b>\n<i>AlphaScalp</i>\n\n"
         f"\U0001F4E7 <code>{_echappe(email)}</code>\n"
         f"\U0001F553 {_heure_paris()}\n\n"
-        "Cette adresse a demandé sa clé et sa ligne n'existait plus — base "
-        "réinitialisée, ou adresse jamais inscrite.\n"
-        "⏳ Clé recréée <b>inactive</b> : vérifie dans ton historique que tu "
-        "connais bien cette personne avant d'activer.\n"
+        + ("Aucune ligne ne correspond : vérifie l'historique avant toute "
+           "création manuelle.\n" if ligne_absente else "La ligne existe.\n")
+        + "Ne communique la clé qu'après avoir reçu un message depuis cette "
+        "même adresse email. La saisie publique ne révèle jamais la clé.\n"
         "➡️ <a href=\"https://alphascalp.onrender.com/admin\">Ouvrir l'admin</a>")
 
 
@@ -308,8 +304,8 @@ def _alerte_base_vide() -> None:
             "rien n'est cassé de votre côté.\n\n"
             "Je réactive les accès dans la foulée, ils repartiront seuls : "
             "<b>rien à relancer</b>.\n\n"
-            "Clé perdue au passage ? Vous la retrouvez avec votre email et "
-            "votre date de naissance sur "
+            "Clé perdue au passage ? Demandez sa récupération avec votre "
+            "adresse email sur "
             "https://alphascalp.onrender.com/rejoindre",
             vers_groupe=True)
 
@@ -349,29 +345,6 @@ _LIMITES = {
     "/api/signup": (3600, 15),      # création en masse
     "/telecharger/": (3600, 40),
 }
-
-
-_ECHECS: dict = {}
-
-
-def _echecs_recuperation(email: str) -> int:
-    """Echecs de recuperation pour cette adresse sur la derniere heure."""
-    maintenant = datetime.now(timezone.utc).timestamp()
-    with _VERROU_DEBIT:
-        essais = [x for x in _ECHECS.get(email, []) if maintenant - x < 3600]
-        _ECHECS[email] = essais
-        return len(essais)
-
-
-def _noter_echec(email: str) -> None:
-    maintenant = datetime.now(timezone.utc).timestamp()
-    with _VERROU_DEBIT:
-        _ECHECS.setdefault(email, []).append(maintenant)
-        if len(_ECHECS) > 2000:                      # purge opportuniste
-            for k in [k for k, v in _ECHECS.items()
-                      if not v or maintenant - v[-1] > 3600]:
-                _ECHECS.pop(k, None)
-    print(f"RECOVER_FAIL | {email}", flush=True)
 
 
 def _ip_de(request: Request) -> str:
@@ -517,12 +490,9 @@ def _creer_tables(conn):
         conn.execute("ALTER TABLE clients ADD COLUMN email TEXT")
     except sqlite3.OperationalError:
         pass  # colonne déjà présente
-    # [30/07] Identité + date de naissance : un produit financier ne peut
-    # pas être proposé à un mineur. La déclaration sur l'honneur reste
-    # faible — elle n'empêche personne de mentir — mais c'est la première
-    # barrière, celle que tout le monde applique à l'inscription. La
-    # vérification sérieuse (pièce d'identité) est de toute façon faite par
-    # le BROKER à l'ouverture du compte : c'est lui qui détient les fonds.
+    # [04/08] La date de naissance n'est plus collectée. La majorité est une
+    # déclaration sur l'honneur via une case obligatoire ; le projet reste en
+    # comptes de démonstration et n'a pas besoin d'une date civile complète.
     # [31/07] Etat rapporte par le copieur. DIAGNOSTIC UNIQUEMENT : version,
     # courtier, type de compte, symboles introuvables, refus. JAMAIS de
     # solde, de positions ni de resultats -- ce n'est pas necessaire pour
@@ -541,6 +511,8 @@ def _creer_tables(conn):
             conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
         except sqlite3.OperationalError:
             pass
+    # `date_naissance` reste uniquement comme colonne de migration afin de
+    # pouvoir restaurer un ancien instantané puis l'effacer proprement.
     for _colonne in ("prenom TEXT", "nom TEXT", "date_naissance TEXT"):
         try:
             conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
@@ -735,6 +707,29 @@ def restaurer_clients() -> None:
           f"sur {len(lignes)} dans l'instantané", flush=True)
 
 
+def purger_dates_naissance() -> int:
+    """Efface les anciennes dates après restauration d'un instantané.
+
+    La colonne reste dans le schéma pour accepter les anciens fichiers Drive,
+    mais aucune date civile ne doit subsister dans la base active ni dans la
+    prochaine sauvegarde.
+    """
+    with db() as conn:
+        colonnes = {d[1] for d in conn.execute("PRAGMA table_info(clients)")}
+        if "date_naissance" not in colonnes:
+            return 0
+        n = conn.execute(
+            "SELECT COUNT(*) AS n FROM clients "
+            "WHERE date_naissance IS NOT NULL AND TRIM(date_naissance) <> ''"
+        ).fetchone()["n"]
+        if n:
+            conn.execute("UPDATE clients SET date_naissance = NULL")
+    if n:
+        print(f"PRIVACY | {n} date(s) de naissance supprimée(s)", flush=True)
+        planifier_sauvegarde()
+    return n
+
+
 def planifier_sauvegarde() -> None:
     """Demande une sauvegarde. Ne bloque JAMAIS l'appelant : une inscription
     ne doit pas attendre Google. Les demandes rapprochées sont fusionnées —
@@ -784,7 +779,7 @@ def require_master(x_master_token: Optional[str]):
         raise HTTPException(status_code=401, detail="Jeton maître invalide")
 
 
-def cle_pour(email: str, date_naissance: str) -> str:
+def cle_pour(email: str) -> str:
     """Clé DÉRIVÉE de l'email, et non tirée au hasard.
 
     [31/07] Motif : la base est éphémère. Avec des clés aléatoires, un
@@ -793,21 +788,16 @@ def cle_pour(email: str, date_naissance: str) -> str:
     clé n'a rien à faire dans un fil de discussion), PERSONNE ne pouvait la
     restituer, ni le testeur ni nous.
 
-    En la dérivant de l'email, la même adresse redonne toujours la même clé :
-    le testeur la retrouve seul, et le fil Telegram — qui contient les emails
-    — devient une sauvegarde complète.
-
-    ⚠️ LA DATE DE NAISSANCE FAIT PARTIE DE LA GRAINE, et ce n'est pas un
-    détail. Avec l'email seul, quiconque connaît l'adresse d'un testeur
-    pourrait redemander sa clé et récupérer son flux de signaux — la
-    récupération deviendrait une porte d'entrée. Il faut donc les DEUX
-    éléments, dont un que seul l'intéressé connaît.
+    En la dérivant de l'email, la même adresse redonne toujours la même clé.
+    L'adresse seule ne permet toutefois JAMAIS de lire cette clé depuis
+    l'API publique : une demande de récupération est transmise à l'admin, qui
+    répond ensuite à cette même adresse après vérification.
 
     Le secret est le jeton maître, qui vit dans les variables d'environnement
     et survit donc aux redémarrages.
     ⚠️ Le régénérer invaliderait toutes les clés existantes.
     """
-    graine = f"{email.strip().lower()}|{(date_naissance or '').strip()}"
+    graine = email.strip().lower()
     empreinte = hmac.new(MASTER_TOKEN.encode("utf-8"),
                          graine.encode("utf-8"),
                          hashlib.sha256).digest()
@@ -1704,26 +1694,9 @@ class SignupIn(BaseModel):
     email: str
     prenom: Optional[str] = None
     nom: Optional[str] = None
-    date_naissance: Optional[str] = None      # AAAA-MM-JJ (champ HTML type=date)
+    consentement: bool = False
 
 _EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-AGE_MINIMUM = 18
-
-
-def _age_le(date_naissance: str) -> Optional[int]:
-    """Âge révolu, ou None si la date est illisible/incohérente.
-
-    Le calcul retranche 1 an tant que l'anniversaire n'est pas passé : sans ça
-    quelqu'un né le 31/12/2008 serait majeur dès janvier 2026.
-    """
-    try:
-        d = datetime.strptime(date_naissance.strip(), "%Y-%m-%d").date()
-    except Exception:
-        return None
-    auj = datetime.now(timezone.utc).date()
-    if d > auj or d.year < 1900:
-        return None                            # date future ou aberrante
-    return auj.year - d.year - ((auj.month, auj.day) < (d.month, d.day))
 
 
 @app.post("/api/signup")
@@ -1732,55 +1705,39 @@ def public_signup(body: SignupIn):
     if not _EMAIL_RE.match(email):
         raise HTTPException(status_code=400, detail="Email invalide.")
 
-    # [30/07] Identité + majorité. Validé CÔTÉ SERVEUR : les contrôles du
-    # formulaire (required, min/max sur le champ date) ne protègent de rien,
-    # n'importe qui peut appeler /api/signup directement.
+    # Identité + déclaration de majorité. Validé CÔTÉ SERVEUR : la case du
+    # formulaire ne protège de rien si un appel direct peut la contourner.
     prenom = (body.prenom or "").strip()
     nom = (body.nom or "").strip()
     if len(prenom) < 2 or len(nom) < 2:
         raise HTTPException(status_code=400, detail="Prénom et nom requis.")
     if len(prenom) > 60 or len(nom) > 60:
         raise HTTPException(status_code=400, detail="Prénom ou nom trop long.")
-
-    age = _age_le(body.date_naissance or "")
-    if age is None:
-        raise HTTPException(status_code=400, detail="Date de naissance invalide.")
-    if age < AGE_MINIMUM:
-        # 403 et non 400 : la demande est bien formée, elle est REFUSÉE.
+    if body.consentement is not True:
+        # La case existe aussi côté navigateur, mais l'API doit refuser un
+        # appel direct qui la contourne.
         raise HTTPException(
-            status_code=403,
-            detail=f"Inscription réservée aux personnes majeures ({AGE_MINIMUM} ans et plus).")
+            status_code=400,
+            detail="Tu dois confirmer ta majorité et accepter les conditions de la bêta.")
 
     with db() as conn:
         existing = conn.execute("SELECT api_key, active FROM clients WHERE email = ?", (email,)).fetchone()
         if existing:
             # [02/08] FAILLE CORRIGÉE. Cette branche renvoyait la clé
-            # existante SANS vérifier la date de naissance. Quiconque
-            # connaissait l'adresse email d'un testeur pouvait donc appeler
-            # /api/signup avec cette adresse et une date inventée, et
-            # récupérer sa clé — donc son flux de signaux.
-            #
-            # Le garde-fou avait bien été posé le 31/07... mais uniquement sur
-            # /api/retrouver. Cette route-ci, plus permissive encore (15
-            # appels/heure contre 10), était restée ouverte. Corriger une
-            # porte sans regarder s'il y en a une seconde n'est pas corriger.
-            #
-            # On ne renvoie plus RIEN d'exploitable : la récupération passe
-            # désormais obligatoirement par /api/retrouver, qui vérifie la
-            # date ET verrouille après 5 échecs par adresse et par heure.
+            # On ne renvoie RIEN d'exploitable : connaître une adresse email
+            # ne doit jamais suffire à obtenir la clé associée.
             print(f"SIGNUP_DEJA | {email}", flush=True)
             return {"ok": True, "already": True, "api_key": None,
                     "active": None,
                     "message": "Cette adresse est déjà inscrite. Pour "
-                               "retrouver ta clé, utilise « clé perdue » : "
-                               "il te faudra ton email ET ta date de "
-                               "naissance."}
-        key = cle_pour(email, body.date_naissance)   # dérivée, donc retrouvable
+                               "retrouver ta clé, demande sa récupération "
+                               "depuis l'adresse email d'inscription."}
+        key = cle_pour(email)   # stable après redémarrage, jamais exposée par email seul
         conn.execute(
             "INSERT INTO clients (api_key, name, email, plan, active, created_at, "
-            "prenom, nom, date_naissance) VALUES (?,?,?,?,0,?,?,?,?)",
+            "prenom, nom) VALUES (?,?,?,?,0,?,?,?)",
             (key, f"{prenom} {nom}".strip(), email, "beta", now_iso(),
-             prenom, nom, body.date_naissance.strip()),
+             prenom, nom),
         )
         # Rang de l'inscrit, calculé ICI tant que la connexion est ouverte :
         # la notification part dans un thread, après la fermeture du bloc.
@@ -1794,7 +1751,7 @@ def public_signup(body: SignupIn):
     try:
         # [31/07] La CLÉ n'est plus journalisée. C'était un filet quand elle
         # était aléatoire et introuvable autrement ; depuis qu'elle se dérive
-        # de l'email + la date de naissance, la consigner ne sert plus à rien
+        # de l'email, la consigner ne sert plus à rien
         # et l'expose dans les journaux de l'hébergeur.
         print(f"SIGNUP | {now_iso()} | {email}", flush=True)
     except Exception:
@@ -1806,7 +1763,7 @@ def public_signup(body: SignupIn):
     # notification Telegram est instantanée, et le fil de discussion devient
     # l'archive : même si la base SQLite disparaît au prochain réveil de
     # l'instance, aucun béta-testeur n'est perdu.
-    _notify_signup(email, rang=rang, prenom=prenom, nom=nom, age=age)
+    _notify_signup(email, rang=rang, prenom=prenom, nom=nom)
     return {"ok": True, "already": False, "api_key": key, "active": False}
 
 
@@ -1826,6 +1783,7 @@ label{font-size:13px;color:#6b7a99;display:block;margin-bottom:6px}
 input{width:100%;background:#0e1420;border:1px solid rgba(255,255,255,.1);border-radius:10px;
  padding:13px 14px;color:#f0f4ff;font-size:15px}
 input:focus{outline:none;border-color:#3b82f6}
+input[type=checkbox]{width:18px;height:18px;min-width:18px;margin-top:2px;accent-color:#3b82f6}
 button{width:100%;background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;
  font-size:15px;font-weight:600;cursor:pointer;margin-top:16px}
 button:disabled{opacity:.5;cursor:not-allowed}
@@ -1834,8 +1792,8 @@ label:not(:first-child){margin-top:14px}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:380px){.duo{grid-template-columns:1fr}}
 .hint{color:#6b7a99;font-size:12px;margin-top:6px}
-/* le champ date natif s'affiche en clair sur fond sombre sans ca */
-input[type=date]{color-scheme:dark;min-height:46px}
+.consent{display:flex;align-items:flex-start;gap:10px;margin-top:16px!important;
+ color:#c7d2e8;font-size:13px;line-height:1.45;cursor:pointer}
 .msg{margin-top:18px;font-size:14px;line-height:1.6}
 .key{background:#0e1420;border:1px solid rgba(59,130,246,.4);border-radius:10px;padding:12px;
  font-family:ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all;margin:10px 0}
@@ -1861,14 +1819,16 @@ a{color:#3b82f6}
     </div>
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="toi@exemple.com" autocomplete="email" inputmode="email">
-    <label for="ddn">Date de naissance</label>
-    <input id="ddn" type="date" autocomplete="bday" max="2999-12-31">
-    <div class="hint">Le trading est réservé aux personnes majeures.</div>
-    <button id="btn" onclick="submit()">Rejoindre la bêta</button>
+    <label class="consent" for="consentement">
+      <input id="consentement" type="checkbox">
+      <span>Je confirme avoir au moins 18 ans et j'accepte les conditions de la
+      bêta sur compte de démonstration.</span>
+    </label>
+    <button id="btn" type="button" onclick="inscrire()">Rejoindre la bêta</button>
     <div id="msg" class="msg"></div>
     <div class="hint" style="margin-top:16px;text-align:center">
       Déjà inscrit et clé perdue ?
-      <a href="#" onclick="retrouver();return false">La retrouver avec mon email</a>
+      <a href="#" onclick="retrouver();return false">Demander sa récupération avec mon email</a>
     </div>
   </div>
   <div class="note">
@@ -1885,20 +1845,8 @@ a{color:#3b82f6}
   </div>
 </div>
 <script>
-// Borne le champ date a [aujourd'hui - 100 ans ; aujourd'hui - 18 ans] : le
-// selecteur mobile n'affiche alors QUE des dates valides, ce qui evite un
-// refus apres coup. Le serveur revalide de toute facon -- ces bornes sont un
-// confort, pas une securite.
-(function(){
-  const d=new Date(), p=n=>String(n).padStart(2,'0');
-  const iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());
-  const ddn=document.getElementById('ddn');
-  ddn.max=iso(new Date(d.getFullYear()-18,d.getMonth(),d.getDate()));
-  ddn.min=iso(new Date(d.getFullYear()-100,d.getMonth(),d.getDate()));
-})();
-// [31/07] Recuperation en libre-service. La cle etant derivee de l'email,
-// la retrouver est un calcul : plus besoin de passer par Flo, et ca marche
-// meme apres une reinitialisation de la base.
+// Une adresse email seule ne prouve pas l'identite. La demande publique ne
+// renvoie donc jamais la cle : l'admin repond a cette meme adresse.
 // Le lien du groupe est LU depuis /api/health plutot qu'ecrit en dur : s'il
 // change (revocation, nouveau groupe), les pages suivent sans redeploiement.
 async function afficherGroupe(){
@@ -1918,58 +1866,44 @@ async function afficherGroupe(){
 async function retrouver(){
   const email = (document.getElementById('email').value || '').trim();
   const msg = document.getElementById('msg');
-  const ddn = document.getElementById('ddn').value;
   if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){
     msg.innerHTML = '<span class=err>Renseigne ton email ci-dessus.</span>'; return; }
-  if(!ddn){
-    msg.innerHTML = '<span class=err>Saisis aussi ta date de naissance — '
-      + 'la meme qu&#39;a l&#39;inscription. Sans elle, n&#39;importe qui '
-      + 'connaissant ton email pourrait recuperer ta cle.</span>'; return; }
-  msg.textContent = 'Recherche…';
+  msg.textContent = 'Transmission de la demande…';
   try{
     const r = await fetch('/api/retrouver', {method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, date_naissance: ddn})});
+      body: JSON.stringify({email})});
     const j = await r.json();
     if(!r.ok) throw new Error(j.detail || 'Erreur');
-    msg.innerHTML = '<span class="ok">Voici ta cle :</span>'
-      + '<div class="key">' + j.api_key + '</div>'
-      + '<p style="color:#6b7a99;font-size:12.5px;margin:-4px 0 12px">'
-      + (j.active ? 'Elle est <b style="color:#22c55e">active</b>.'
-                  : 'Elle est <b>en attente de validation</b>.')
-      + ' Tu peux toujours la retrouver ici.</p>'
-      + '<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
-      + 'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
-      + 'font-weight:600;margin:0 0 6px;min-height:46px">Voir l\'etat de ma place &rarr;</a>'
-      + '<p style="color:#6b7a99;font-size:12.5px;margin:0 0 10px">'
-      + 'Cette cle identifie ta place beta. Aucun programme n\'est a installer '
-      + 'sur ton telephone ou ton ordinateur.</p>'
-      + '<div id="zoneGroupe"></div>';
-    afficherGroupe();
+    msg.innerHTML = '<span class="ok">Demande transmise.</span>'
+      + '<p style="color:#6b7a99;font-size:12.5px;margin:10px 0">'
+      + 'La cle n&#39;est jamais affichee sur la simple saisie d&#39;un email. '
+      + 'Ecris depuis ton adresse d&#39;inscription pour confirmer qu&#39;elle '
+      + 't&#39;appartient.</p>'
+      + '<a href="mailto:zioqsen@gmail.com?subject=Recuperation%20cle%20beta" '
+      + 'style="display:block;background:#3b82f6;color:#fff;text-decoration:none;'
+      + 'border-radius:10px;padding:14px;text-align:center;font-weight:600;'
+      + 'min-height:46px">Ecrire au support &rarr;</a>';
   }catch(e){ msg.innerHTML = '<span class=err>' + e.message + '</span>'; }
 }
-async function submit(){
+async function inscrire(){
   const email=document.getElementById('email').value.trim();
   const prenom=document.getElementById('prenom').value.trim();
   const nom=document.getElementById('nom').value.trim();
-  const ddn=document.getElementById('ddn').value;
   const btn=document.getElementById('btn'), msg=document.getElementById('msg');
   if(prenom.length<2||nom.length<2){ msg.innerHTML='<span class=err>Indique ton prénom et ton nom.</span>'; return; }
   if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)){ msg.innerHTML='<span class=err>Email invalide.</span>'; return; }
-  if(!ddn){ msg.innerHTML='<span class=err>Indique ta date de naissance.</span>'; return; }
-  const n=new Date(ddn), t=new Date();
-  let age=t.getFullYear()-n.getFullYear();
-  if(t.getMonth()<n.getMonth()||(t.getMonth()===n.getMonth()&&t.getDate()<n.getDate())) age--;
-  if(age<18){ msg.innerHTML='<span class=err>Inscription réservée aux personnes majeures.</span>'; return; }
+  if(!document.getElementById('consentement').checked){
+    msg.innerHTML='<span class=err>Confirme ta majorité et accepte les conditions de la bêta.</span>'; return; }
   btn.disabled=true; btn.textContent='…';
   try{
     const r=await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email,prenom,nom,date_naissance:ddn})});
+      body:JSON.stringify({email,prenom,nom,consentement:true})});
     const j=await r.json();
     if(!r.ok){ throw new Error(j.detail||'Erreur'); }
     // [02/08] Cas « deja inscrit » separe. Avant, la page affichait la cle
     // renvoyee par le serveur — et le serveur la renvoyait sans verifier la
-    // date de naissance, ce qui suffisait a la voler en connaissant l adresse.
+    // preuve, ce qui suffisait a la voler en connaissant l adresse.
     // Le serveur ne la renvoie plus ; sans ce bloc, la page ecrirait
     // litteralement « null » dans l encadre de la cle.
     if(j.already){
@@ -1978,12 +1912,12 @@ async function submit(){
         +'<p style="margin-top:10px;color:#6b7a99">Par securite, ta cle ne '
         +'peut pas etre reaffichee ici : il suffirait de connaitre ton adresse '
         +'pour l obtenir.</p>'
-        +'<p style="color:#6b7a99">Pour la retrouver, utilise <b>cle perdue</b> '
-        +'ci-dessous. Il te faudra ton email <b>et</b> ta date de naissance.</p>'
-        +'<a href="/telecharger" style="display:block;background:#3b82f6;'
+        +'<p style="color:#6b7a99">Pour la recuperer, ecris depuis ton adresse '
+        +'email d&#39;inscription.</p>'
+        +'<a href="mailto:zioqsen@gmail.com?subject=Recuperation%20cle%20beta" style="display:block;background:#3b82f6;'
         +'color:#fff;text-decoration:none;border-radius:10px;padding:14px;'
         +'text-align:center;font-weight:600;margin:14px 0 6px;min-height:46px">'
-        +'Retrouver ma cle &rarr;</a></div>';
+        +'Ecrire au support &rarr;</a></div>';
       return;
     }
     document.getElementById('form').innerHTML =
@@ -1991,24 +1925,24 @@ async function submit(){
       +'<p style="margin-top:10px;color:#6b7a99">Voici ta clé bêta (garde-la) :</p>'
       +'<div class="key">'+j.api_key+'</div>'
       +'<p style="color:#6b7a99;font-size:12.5px;margin:-4px 0 14px">'
-      +'Note-la, mais tu peux toujours la retrouver ici avec ton email et ta '
-      +'date de naissance.</p>'
+      +'Note-la. Si tu la perds, demande sa recuperation depuis ton adresse '
+      +'email d&#39;inscription.</p>'
       +'<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
       +'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
-      +'font-weight:600;margin:0 0 6px;min-height:46px">Suivre l\'activation &rarr;</a>'
+      +'font-weight:600;margin:0 0 6px;min-height:46px">Suivre l&#39;activation &rarr;</a>'
       +'<p style="color:#6b7a99;font-size:12.5px;margin:0 0 10px">'
-      +'Tu n\'as rien a installer. AlphaScalp prepare un terminal et un compte '
+      +'Tu n&#39;as rien a installer. AlphaScalp prepare un terminal et un compte '
       +'de demonstration dedies, puis te previent quand le suivi mobile est pret.</p>'
       +'<div id="zoneGroupe"></div>'
       +'<ol class="steps">'
       +'<li>Ta cle est <b>en attente de validation</b>.</li>'
       +'<li>AlphaScalp cree un compte demo et configure le copieur sur son PC.</li>'
       +'<li>Tu recois ensuite un acces de consultation pour suivre les trades '
-      +'dans l\'application officielle MT5, sans PC ni VPS a laisser allume.</li></ol>';
+      +'dans l&#39;application officielle MT5, sans PC ni VPS a laisser allume.</li></ol>';
       afficherGroupe();
   }catch(e){ msg.innerHTML='<span class=err>'+e.message+'</span>'; btn.disabled=false; btn.textContent='Rejoindre la bêta'; }
 }
-document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')inscrire();});
 </script></body></html>"""
 
 
@@ -2172,74 +2106,31 @@ _FICHIERS_CLIENT = {
 
 class RetrouverIn(BaseModel):
     email: str
-    date_naissance: Optional[str] = None
 
 
 @app.post("/api/retrouver")
 def retrouver_cle(body: RetrouverIn):
-    """Retrouve sa clé à partir de son email — en libre-service.
+    """Enregistre une demande de récupération sans révéler la clé.
 
-    [31/07] Avant, une clé perdue était perdue : elle ne s'affichait qu'une
-    fois à l'inscription, ne figurait plus dans la notification Telegram, et
-    la base qui la contenait est effacée à chaque redémarrage de l'hébergeur.
-    Ni le testeur ni nous ne pouvions la restituer.
-
-    Maintenant qu'elle est DÉRIVÉE de l'email, la retrouver est un calcul, pas
-    une lecture. Si la ligne a disparu avec la base, on la recrée — INACTIVE,
-    parce qu'une réactivation automatique laisserait n'importe qui réactiver
-    l'accès de quelqu'un d'autre en connaissant son adresse.
+    La date de naissance n'est plus collectée. L'adresse email sert à retrouver
+    la fiche, mais sa simple saisie ne prouve pas qu'elle appartient au
+    demandeur : la clé n'est donc jamais renvoyée par cette route. L'admin est
+    prévenu et répond manuellement à la même adresse.
     """
     email = (body.email or "").strip().lower()
     if not _EMAIL_RE.match(email):
         raise HTTPException(status_code=400, detail="Email invalide.")
-    # La date de naissance est EXIGÉE : sans elle, connaître l'adresse d'un
-    # testeur suffirait à récupérer sa clé, donc son flux de signaux. La
-    # récupération deviendrait une porte d'entrée au lieu d'un dépannage.
-    if _age_le(body.date_naissance or "") is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Date de naissance requise — la même qu'à l'inscription.")
-    # [31/07] Verrou par ADRESSE, en plus de la limite par IP.
-    # Une date de naissance, ce sont ~18 000 combinaisons sur 50 ans. A 10
-    # essais / 5 min par IP, on la trouve en six jours — et en changeant d'IP,
-    # bien plus vite. La limite par IP ne protege donc PAS une adresse ciblee.
-    # On compte les echecs par email : au-dela de 5, on refuse pendant une
-    # heure, quelle que soit l'origine de la requete.
-    if _echecs_recuperation(email) >= 5:
-        raise HTTPException(
-            status_code=429,
-            detail="Trop de tentatives pour cette adresse. Réessaie dans une heure.")
-    key = cle_pour(email, body.date_naissance)
     with db() as conn:
         row = conn.execute(
-            "SELECT api_key, active, date_naissance FROM clients WHERE email = ?",
+            "SELECT 1 FROM clients WHERE email = ?",
             (email,)).fetchone()
-        if row:
-            # ⚠️ La date DOIT être vérifiée ici aussi. Sans ce contrôle, le
-            # garde-fou ne servait à rien : on renvoyait la clé de la ligne
-            # trouvée par email, sans regarder la date fournie. Il ne
-            # protégeait que le cas — rare — où la ligne a disparu.
-            attendue = (row["date_naissance"] or "").strip()
-            fournie = (body.date_naissance or "").strip()
-            if attendue and fournie != attendue:
-                _noter_echec(email)
-                raise HTTPException(
-                    status_code=403,
-                    detail="Date de naissance incorrecte.")
-            return {"ok": True, "api_key": row["api_key"],
-                    "active": bool(row["active"]), "restauree": False}
-        # Ligne absente : soit la base a été réinitialisée, soit l'adresse
-        # n'a jamais été inscrite. On ne peut pas distinguer les deux, et on
-        # n'a pas à le faire : dans les deux cas la clé est inactive et c'est
-        # Flo qui décide, avec son historique Telegram sous les yeux.
-        conn.execute(
-            "INSERT INTO clients (api_key, name, email, plan, active, created_at) "
-            "VALUES (?,?,?,?,0,?)",
-            (key, email.split("@")[0], email, "beta", now_iso()))
-    planifier_sauvegarde()   # ligne recreee apres une perte de base
-    print(f"RECOVER | {now_iso()} | {email}", flush=True)
-    _notify_restauration(email)
-    return {"ok": True, "api_key": key, "active": False, "restauree": True}
+    print(f"RECOVER_REQUEST | {now_iso()} | {email}", flush=True)
+    _notify_recuperation(email, ligne_absente=(row is None))
+    # Réponse volontairement identique pour une adresse connue ou inconnue :
+    # elle ne permet ni l'énumération des inscrits, ni la lecture d'une clé.
+    return {"ok": True,
+            "message": "Demande transmise. Écris au support depuis l'adresse "
+                       "email d'inscription pour recevoir ta clé."}
 
 
 ACCUEIL_GROUPE = """👋 <b>Bienvenue dans la bêta AlphaScalp</b>
@@ -2255,7 +2146,7 @@ Argent fictif, aucune coordonnée bancaire, aucun euro engagé.
 <b>Deux choses à savoir</b>
 • AlphaScalp héberge le terminal et le compte de démonstration dédiés. Tu n'as aucun PC ni VPS à laisser allumé.
 • L'application MT5 mobile sert à consulter les positions. Aucun EA n'est installé sur le téléphone.
-• Clé perdue ? Tu la retrouves seul avec ton email et ta date de naissance, sur la page d'inscription.
+• Clé perdue ? Demande sa récupération avec ton email sur la page d'inscription, puis écris au support depuis cette même adresse.
 
 <b>Si ça coince</b>
 Décris simplement ce que tu vois dans MT5 mobile, sans publier d'identifiant ni de mot de passe.
@@ -2632,9 +2523,10 @@ _REPONSES = [
      "🔑 Deux causes possibles, et une seule solution dans les deux cas.\n\n"
      "Soit la clé comporte une faute — elle commence par <code>as_</code> — "
      "soit le serveur a été réinitialisé et a oublié les inscriptions.\n\n"
-     "Récupère la même clé sur " + _SITE + "/rejoindre (rubrique clé perdue) "
-     "avec ton <b>email et ta date de naissance</b>, puis demande la "
-     "réactivation ici. <b>Rien à réinstaller</b> : le terminal est géré par AlphaScalp."),
+     "Demande la récupération sur " + _SITE + "/rejoindre (rubrique clé "
+     "perdue), puis écris au support depuis ton <b>email d'inscription</b>. "
+     "La clé n'est jamais révélée sur la simple saisie d'une adresse. "
+     "<b>Rien à réinstaller</b> : le terminal est géré par AlphaScalp."),
 
     ("rien_ne_se_passe",
      ["rien ne se passe", "aucun trade", "pas de trade", "il fait rien",
@@ -3325,9 +3217,11 @@ def mentions_page():
 
 @app.get("/confidentialite", response_class=HTMLResponse)
 def confidentialite_page():
-    """Politique de confidentialité. [30/07] Ajoutée parce que le formulaire
-    collecte désormais nom, prénom et date de naissance — des données
-    personnelles au sens du RGPD, ce que l'email seul était déjà d'ailleurs."""
+    """Politique de confidentialité du parcours bêta.
+
+    Le formulaire collecte nom, prénom et email ; la date de naissance a été
+    retirée au profit d'une confirmation de majorité non datée.
+    """
     return _serve_file(_CONFID, "<p>Page indisponible.</p>")
 
 
@@ -3339,6 +3233,7 @@ init_db()
 # L'ordre compte — init_db crée les tables, restaurer_clients les remplit,
 # puis seulement on juge de leur contenu.
 restaurer_clients()
+purger_dates_naissance()
 threading.Thread(target=_boucle_sauvegarde, daemon=True).start()
 threading.Thread(target=_veille_copieurs, daemon=True).start()
 

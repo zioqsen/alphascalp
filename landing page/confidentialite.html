@@ -102,26 +102,10 @@ te contentes de consulter le site.</p>
       <td>T'identifier et te contacter nommément quand ton accès est ouvert.</td></tr>
   <tr><td>Adresse email</td>
       <td>Seul moyen de te joindre : activation de ton accès, informations sur la bêta.</td></tr>
-  <!-- [31/07] CORRECTION FACTUELLE. Cette ligne affirmait « Seul l'âge en
-       découle ; la date n'est utilisée à rien d'autre ». C'était FAUX : la
-       date de naissance est un ingrédient de la clé d'accès (elle passe dans
-       un HMAC avec l'email), elle est conservée, et elle sert à vérifier
-       l'identité lors d'une récupération de clé.
-       Décrire incorrectement l'usage d'une donnée personnelle dans une
-       politique de confidentialité est un manquement au RGPD, et surtout
-       c'est exactement la faute qu'on reproche au secteur : un engagement
-       écrit que le système ne tient pas. On décrit ce qu'on fait vraiment. -->
-  <tr><td>Date de naissance</td>
-      <td><b>Trois usages, et aucun autre.</b>
-          <br>1. Vérifier que tu es majeur — le trading n'est pas proposé aux mineurs.
-          <br>2. <b>Fabriquer ta clé d'accès.</b> Elle est calculée à partir de ton
-          email et de ta date de naissance ; elle n'est stockée en clair nulle part
-          ailleurs, et c'est ce qui permet de la retrouver à l'identique si tu la perds.
-          <br>3. <b>Vérifier que c'est bien toi</b> quand tu demandes à récupérer ta clé.
-          Sans ce contrôle, connaître ton adresse email suffirait à obtenir ton accès.
-          <br><span class="muted">La date est donc conservée tant que ton compte
-          existe. Elle n'est ni partagée, ni utilisée à des fins publicitaires,
-          ni exploitée pour autre chose que les trois points ci-dessus.</span></td></tr>
+  <tr><td>Confirmation de majorité</td>
+      <td>Une case obligatoire permet de déclarer avoir au moins 18 ans. Nous
+          conservons le fait que la demande a été soumise, <b>sans collecter
+          ta date de naissance ni ton âge</b>.</td></tr>
 </table>
 
 <h2>Ce que le terminal hébergé transmet</h2>
@@ -154,7 +138,7 @@ compte démo du pilote. Il ne doit pas être publié ou transmis à un tiers.</p
 inscription. Elle est créée <b>inactive</b> et ne donne accès à rien tant
 qu'elle n'a pas été activée manuellement.</p>
 
-<p><b>Base légale :</b> ton consentement, donné en soumettant le formulaire,
+<p><b>Base légale :</b> ton consentement, donné en cochant la confirmation puis en soumettant le formulaire,
 et l'exécution des démarches préalables à la fourniture du service que tu
 demandes.</p>
 
@@ -168,23 +152,18 @@ aucune publicité. Trois prestataires interviennent techniquement :</p>
   <tr><td><b>Render</b></td>
       <td>Hébergement du site et de la base</td>
       <td>Toutes les données d'inscription, ainsi que les journaux techniques du serveur</td></tr>
-  <!-- [02/08] L'âge ne part plus vers Telegram. Le serveur refuse les mineurs
-       avant même de créer la ligne : si l'inscription existe, la personne est
-       majeure. L'envoyer était une donnée personnelle de plus, conservée
-       indéfiniment dans un fil, pour zéro information. -->
   <tr><td><b>Telegram</b></td>
       <td>Alerte à chaque nouvelle inscription</td>
-      <td>Prénom, nom et email — envoyés dans une conversation privée.
-      <b>Ni ta date de naissance, ni ton âge.</b></td></tr>
+      <td>Prénom, nom et email — envoyés dans une conversation privée.</td></tr>
   <!-- [02/08] Google Drive manquait à cette liste alors qu'il est devenu, le
        matin même, le stockage durable des inscriptions. Le RGPD impose de
        déclarer les destinataires : en omettre un rend la liste inexacte, même
        si l'oubli est de bonne foi et le service anodin. -->
   <tr><td><b>Google Drive</b></td>
       <td>Sauvegarde durable des inscriptions</td>
-      <td>Prénom, nom, email et date de naissance — dans un fichier privé du
-      Drive de l'éditeur, auquel lui seul a accès. C'est ce qui permet à ta
-      clé de survivre à un redémarrage du serveur.</td></tr>
+      <td>Prénom, nom, email, clé technique, état de la place bêta et accès de
+      consultation du compte démo dédié — dans un fichier privé du Drive de
+      l'éditeur, auquel lui seul a accès.</td></tr>
   <tr><td><b>GitHub</b></td>
       <td>Hébergement du code source</td>
       <td>Aucune donnée personnelle : le code seul y est stocké</td></tr>
@@ -239,18 +218,18 @@ européenne, notamment aux États-Unis.</p>
 <ul>
   <li>Aucun cookie, aucun traceur, aucune mesure d'audience.</li>
   <li>Aucune donnée bancaire n'est demandée, ni reçue, ni stockée.</li>
-  <li>Aucun accès à un compte de courtage n'est demandé.</li>
-  <li>Aucun mot de passe n'est collecté.</li>
+  <li>Aucun accès à un compte de courtage personnel ou réel n'est demandé.</li>
+  <li>Aucun mot de passe d'un compte personnel ou réel n'est collecté. Seul
+      l'accès de consultation du compte démo créé pour le pilote est conservé.</li>
 </ul>
 
 <div class="card">
   <h3 style="color:var(--blue)">Le courtier, c'est séparé</h3>
-  <p class="muted" style="margin:0">Quand la copie automatique sera lancée, tu
-  ouvriras un compte directement chez un courtier régulé. C'est <b>lui</b> qui
-  vérifiera ton identité (pièce justificative) et qui détiendra tes fonds.
-  AlphaScalp n'a accès ni à ton argent, ni aux documents que tu lui
-  transmets. La vérification d'âge faite ici est une déclaration sur
-  l'honneur ; celle du courtier est la vérification réelle.</p>
+  <p class="muted" style="margin:0">La bêta utilise un compte de démonstration
+  dédié, créé et administré par AlphaScalp. Il ne contient aucun argent réel.
+  Le testeur reçoit seulement un accès de consultation et ne transmet aucun
+  identifiant de compte personnel. La confirmation de majorité du formulaire
+  est une déclaration sur l'honneur, sans collecte de date de naissance.</p>
 </div>
 
 <h2>Tes droits</h2>
