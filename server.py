@@ -42,7 +42,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -546,6 +546,26 @@ def _creer_tables(conn):
             conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
         except sqlite3.OperationalError:
             pass  # colonne déjà présente
+    # [04/08] PARCOURS HÉBERGÉ. Le testeur n'installe plus rien : AlphaScalp
+    # crée un compte démo dédié et le lui remet ICI, sur le site, authentifié
+    # par sa clé bêta. Trois informations suffisent à MT5 mobile — le numéro
+    # de compte, le serveur du courtier, un mot de passe.
+    #
+    # Avant, la page promettait « tu recevras ton compte » sans qu'aucun
+    # mécanisme n'existe : une promesse que rien dans le code ne tenait.
+    #
+    # Le mot de passe stocké ici est celui d'INVESTISSEUR (lecture seule), et
+    # jamais un autre. Il ne permet pas de passer d'ordre : ni de vider le
+    # compte, ni de polluer la mesure avec des trades manuels indiscernables
+    # de ceux du copieur. C'est ce qui rend acceptable de le conserver — un
+    # compte de démonstration consultable n'a aucune valeur pour un tiers.
+    # Le mot de passe MAÎTRE ne doit jamais entrer dans cette table.
+    for _colonne in ("mt5_login TEXT", "mt5_serveur TEXT",
+                     "mt5_mdp_lecture TEXT", "mt5_pret_a TEXT"):
+        try:
+            conn.execute(f"ALTER TABLE clients ADD COLUMN {_colonne}")
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente
 
 
 def init_db():
@@ -825,14 +845,25 @@ def require_admin(token: Optional[str], entete: Optional[str] = None):
         raise HTTPException(status_code=401, detail="Jeton admin invalide")
 
 
-def get_client(api_key: Optional[str]) -> sqlite3.Row:
+def get_client(api_key: Optional[str], *, marquer_vu: bool = True) -> sqlite3.Row:
+    """Retrouve un inscrit par sa clé.
+
+    [04/08] `marquer_vu=False` pour les appels qui viennent du NAVIGATEUR du
+    testeur. `last_seen` sert à afficher « ton terminal hébergé fonctionne » :
+    si une simple consultation de page le rafraîchit, alors un copieur mort
+    affiche un feu vert dès que le testeur s'inquiète et vient vérifier.
+    Le champ doit répondre à « le copieur a-t-il parlé », pas à « quelqu'un
+    a-t-il utilisé cette clé ».
+    """
     if not api_key:
         raise HTTPException(status_code=401, detail="Clé API manquante")
     with db() as conn:
         row = conn.execute("SELECT * FROM clients WHERE api_key = ?", (api_key,)).fetchone()
         if row is None:
             raise HTTPException(status_code=401, detail="Clé API inconnue")
-        conn.execute("UPDATE clients SET last_seen = ? WHERE api_key = ?", (now_iso(), api_key))
+        if marquer_vu:
+            conn.execute("UPDATE clients SET last_seen = ? WHERE api_key = ?",
+                         (now_iso(), api_key))
     return row
 
 
@@ -1123,7 +1154,20 @@ def admin_list(token: Optional[str] = Query(None),
     require_admin(token, x_admin_token)
     with db() as conn:
         rows = conn.execute("SELECT * FROM clients ORDER BY created_at DESC").fetchall()
-    return {"clients": [dict(r) for r in rows]}
+
+    # [04/08] Le mot de passe du compte démo ne sort PAS d'ici. `dict(r)`
+    # renvoyait toutes les colonnes sans distinction : le jour où l'une
+    # d'elles contient un secret, il part dans la page admin, dans le cache du
+    # navigateur et dans le journal de n'importe quel intermédiaire. L'admin a
+    # besoin de savoir SI le compte est remis, pas de pouvoir le relire.
+    def _sans_secret(row) -> dict:
+        d = dict(row)
+        d["compte_remis"] = bool(d.get("mt5_login") and d.get("mt5_serveur")
+                                 and d.get("mt5_mdp_lecture"))
+        d.pop("mt5_mdp_lecture", None)
+        return d
+
+    return {"clients": [_sans_secret(r) for r in rows]}
 
 
 @app.post("/api/admin/clients")
@@ -1142,19 +1186,18 @@ def admin_create(name: str = Query(...), plan: str = Query("beta"),
 
 
 MODE_EMPLOI = (
-    "\U0001F389 <b>Ton acces AlphaScalp est ACTIVE</b>\n\n"
-    "Voici la marche a suivre, une seule fois :\n\n"
-    "<b>1.</b> Il te faut un <b>PC allume</b> avec MetaTrader 5 et un compte de "
-    "<b>demonstration</b>. Le telephone ne peut pas executer le copieur.\n"
-    "<b>2.</b> Telecharge le copieur et suis les 5 etapes :\n"
+    "\U0001F389 <b>Ta place AlphaScalp est active</b>\n\n"
+    "Voici la suite :\n\n"
+    "<b>1.</b> AlphaScalp prepare un terminal MT5 et un compte de "
+    "<b>demonstration</b> dedies.\n"
+    "<b>2.</b> Suis l&#39;activation avec ta cle sur :\n"
     "https://alphascalp.onrender.com/telecharger\n"
-    "<b>3.</b> N&#39;oublie pas l&#39;autorisation dans "
-    "<i>Outils &gt; Options &gt; Expert Advisors</i> — c&#39;est l&#39;etape que "
-    "tout le monde saute, et sans elle rien ne fonctionne.\n\n"
-    "Ensuite tu ne touches plus a rien : les trades apparaissent sur ton compte, "
-    "ajustes a <b>ton</b> capital.\n\n"
-    "Un souci ? Ecris dans le groupe, avec une capture du "
-    "<i>Journal des experts</i> en bas de MetaTrader."
+    "<b>3.</b> Quand le terminal est pret, tu recois les informations de "
+    "consultation a saisir dans l&#39;application officielle MT5 sur mobile.\n\n"
+    "Tu n&#39;as aucun EA a installer, aucun PC ou VPS a laisser allume et tu "
+    "ne dois jamais envoyer les identifiants d&#39;un compte que tu possedes deja.\n\n"
+    "Cette beta utilise uniquement de l&#39;argent fictif. Un souci ? Ecris "
+    "dans le groupe."
 )
 
 
@@ -1162,8 +1205,8 @@ def _prevenir_activation(api_key: str) -> None:
     """Previent le testeur, sur SON Telegram, que son acces est ouvert.
 
     [31/07] Avant, l'activation ne lui parvenait par AUCUN canal : il devait
-    deviner, ou revenir verifier sur le site. C'est le moment ou il est le
-    plus dispose a installer -- le rater, c'est le perdre.
+    deviner, ou revenir verifier sur le site. C'est le moment ou il attend la
+    preparation de son terminal heberge -- le rater, c'est le perdre.
     Silencieux s'il n'a pas lie son compte : c'est facultatif.
     """
     with db() as conn:
@@ -1171,6 +1214,38 @@ def _prevenir_activation(api_key: str) -> None:
                          (api_key,)).fetchone()
     if r and r["tg_chat"]:
         _notify_telegram_a(r["tg_chat"], MODE_EMPLOI)
+
+
+COMPTE_PRET = (
+    "\U0001F4F1 <b>Ton compte de demonstration est pret</b>\n\n"
+    "Recupere-le avec ta cle sur :\n"
+    "https://alphascalp.onrender.com/telecharger\n\n"
+    "Tu y trouveras le numero de compte, le serveur du courtier et le mot de "
+    "passe a saisir dans l&#39;application MetaTrader 5 de ton telephone.\n\n"
+    "Les identifiants ne sont volontairement PAS envoyes par message : ils "
+    "restent derriere ta cle, sur le site.\n\n"
+    "Acces en consultation seule, argent fictif uniquement. Tu n&#39;as rien a "
+    "installer d&#39;autre que l&#39;application officielle MT5."
+)
+
+
+def _prevenir_compte_pret(api_key: str) -> None:
+    """Previent le testeur que son compte demo est disponible sur le site.
+
+    [04/08] Le message ne contient AUCUN identifiant. Telegram n'est pas un
+    coffre : une conversation se relit, se transfere, se retrouve sur un
+    telephone perdu. Il dit seulement ou aller chercher, et la clef reste le
+    seul moyen d'y acceder.
+
+    Sans ce message, la remise ne prevenait personne : le compte serait pret
+    et le testeur l'apprendrait en repassant par hasard sur la page.
+    Silencieux s'il n'a pas lie son Telegram -- c'est facultatif.
+    """
+    with db() as conn:
+        r = conn.execute("SELECT tg_chat FROM clients WHERE api_key = ?",
+                         (api_key,)).fetchone()
+    if r and r["tg_chat"]:
+        _notify_telegram_a(r["tg_chat"], COMPTE_PRET)
 
 
 def _notify_telegram_a(destination: str, texte: str) -> None:
@@ -1216,6 +1291,64 @@ def admin_delete(api_key: str, token: Optional[str] = Query(None),
         conn.execute("DELETE FROM clients WHERE api_key = ?", (api_key,))
     planifier_sauvegarde()   # suppression d un inscrit
     return {"ok": True, "deleted": api_key}
+
+
+@app.post("/api/admin/clients/{api_key}/compte")
+def admin_compte(api_key: str,
+                 charge: dict = Body(...),
+                 token: Optional[str] = Query(None),
+                 x_admin_token: Optional[str] = Header(None)):
+    """Renseigne le compte démo remis au testeur pour son suivi mobile.
+
+    Le corps passe en JSON et NON en paramètre d'URL. Un mot de passe dans une
+    query string se retrouve dans les journaux du serveur, dans l'historique
+    du navigateur et dans l'en-tête Referer des pages suivantes. Les autres
+    routes admin utilisent Query parce qu'elles ne transportent rien de tel.
+
+    Un corps vide efface le compte : le testeur revoit « en préparation »
+    plutôt que des informations périmées.
+    """
+    require_admin(token, x_admin_token)
+
+    login = str(charge.get("login") or "").strip()
+    serveur = str(charge.get("serveur") or "").strip()
+    mdp = str(charge.get("mdp_lecture") or "").strip()
+
+    with db() as conn:
+        if conn.execute("SELECT 1 FROM clients WHERE api_key = ?",
+                        (api_key,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Clé inconnue")
+
+        if not (login or serveur or mdp):
+            conn.execute("UPDATE clients SET mt5_login = NULL, mt5_serveur = NULL,"
+                         " mt5_mdp_lecture = NULL, mt5_pret_a = NULL"
+                         " WHERE api_key = ?", (api_key,))
+            planifier_sauvegarde()
+            return {"ok": True, "api_key": api_key, "compte": None}
+
+        # On exige les TROIS. Deux sur trois donnent une fiche inutilisable et
+        # le testeur passe son temps à demander ce qui manque -- exactement le
+        # genre de moitié de travail qui ressemble à du travail fait.
+        manquants = [nom for nom, val in (("login", login), ("serveur", serveur),
+                                          ("mdp_lecture", mdp)) if not val]
+        if manquants:
+            raise HTTPException(status_code=400,
+                                detail="Champs manquants : " + ", ".join(manquants))
+        if not login.isdigit():
+            raise HTTPException(status_code=400,
+                                detail="Le numéro de compte MT5 est un nombre.")
+
+        conn.execute("UPDATE clients SET mt5_login = ?, mt5_serveur = ?,"
+                     " mt5_mdp_lecture = ?, mt5_pret_a = ? WHERE api_key = ?",
+                     (login, serveur, mdp, now_iso(), api_key))
+
+    planifier_sauvegarde()   # le compte remis fait partie de la fiche inscrit
+    _prevenir_compte_pret(api_key)   # sinon il l'apprendrait par hasard
+    # On ne renvoie JAMAIS le mot de passe, même à l'admin : l'écrire dans une
+    # réponse, c'est l'écrire dans un journal quelque part.
+    return {"ok": True, "api_key": api_key,
+            "compte": {"login": login, "serveur": serveur,
+                       "mdp_lecture": "(enregistré)"}}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1398,9 +1531,42 @@ async function load(){
       <td class="muted">${c.last_seen?esc(c.last_seen.replace('T',' ').replace('Z','')):'jamais'}</td>
       <td><div class="acts">
         <button class="ghost" onclick="toggle('${c.api_key}')">${c.active?'Désactiver':'Activer'}</button>
+        <button class="ghost" onclick="compte('${c.api_key}')">${c.compte_remis?'Compte ✓':'Compte…'}</button>
         <button class="danger" onclick="del('${c.api_key}')">Suppr.</button>
       </div></td></tr>`).join('');
   }catch(e){ document.getElementById('rows').innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(''+e.message)+'</td></tr>'; }
+}
+// [04/08] Remise du compte demo. Le corps part en JSON, jamais en query :
+// un mot de passe dans une URL se retrouve dans l historique du navigateur,
+// dans les journaux du serveur et dans l en-tete Referer de la page suivante.
+// Champs vides = on efface la remise (le testeur revoit "en preparation").
+async function compte(cle){
+  const login = prompt('Numero du compte demo MT5 (vide = effacer la remise) :', '');
+  if(login === null) return;
+  let serveur = '', mdp = '';
+  if(login.trim()){
+    serveur = prompt('Serveur du courtier (ex : ICMarketsEU-Demo) :', '') || '';
+    if(!serveur.trim()) { alert('Serveur obligatoire — rien n a ete enregistre.'); return; }
+    mdp = prompt('Mot de passe INVESTISSEUR (lecture seule).\\n\\n'
+               + 'Jamais le mot de passe maitre : il permettrait au testeur de\\n'
+               + 'trader sur le compte, et ses trades deviendraient\\n'
+               + 'indiscernables de ceux du copieur.', '') || '';
+    if(!mdp.trim()) { alert('Mot de passe obligatoire — rien n a ete enregistre.'); return; }
+  }
+  try{
+    const r = await fetch('/api/admin/clients/' + encodeURIComponent(cle) + '/compte', {
+      method: 'POST',
+      headers: {'X-Admin-Token': token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({login: login.trim(), serveur: serveur.trim(), mdp_lecture: mdp.trim()})
+    });
+    const j = await r.json().catch(function(){ return {}; });
+    if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+    alert(j.compte
+      ? 'Compte remis. Le testeur est prevenu sur Telegram s il a lie son compte ;\\n'
+        + 'les identifiants restent sur le site, derriere sa cle.'
+      : 'Remise effacee. Le testeur revoit "terminal en preparation".');
+    load();
+  }catch(e){ alert('Echec : ' + e.message); }
 }
 // [31/07] Recherche du groupe Telegram depuis l'admin : le serveur detient
 // deja le jeton du bot, inutile de le faire transiter vers un terminal.
@@ -1774,10 +1940,10 @@ async function retrouver(){
       + ' Tu peux toujours la retrouver ici.</p>'
       + '<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
       + 'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
-      + 'font-weight:600;margin:0 0 6px;min-height:46px">Installer le copieur &rarr;</a>'
+      + 'font-weight:600;margin:0 0 6px;min-height:46px">Voir l\'etat de ma place &rarr;</a>'
       + '<p style="color:#6b7a99;font-size:12.5px;margin:0 0 10px">'
-      + 'Deja installe ? Il te suffit de coller cette cle dans les reglages du '
-      + 'copieur, dans MetaTrader.</p>'
+      + 'Cette cle identifie ta place beta. Aucun programme n\'est a installer '
+      + 'sur ton telephone ou ton ordinateur.</p>'
       + '<div id="zoneGroupe"></div>';
     afficherGroupe();
   }catch(e){ msg.innerHTML = '<span class=err>' + e.message + '</span>'; }
@@ -1829,19 +1995,16 @@ async function submit(){
       +'date de naissance.</p>'
       +'<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
       +'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
-      +'font-weight:600;margin:0 0 6px;min-height:46px">Installer le copieur &rarr;</a>'
+      +'font-weight:600;margin:0 0 6px;min-height:46px">Suivre l\'activation &rarr;</a>'
       +'<p style="color:#6b7a99;font-size:12.5px;margin:0 0 10px">'
-      +'Environ 15 min, une seule fois. Tu peux le faire <b>maintenant</b> : le '
-      +'copieur attend tout seul que ton acces soit ouvert, et se met en route '
-      +'sans que tu aies rien a relancer.</p>'
+      +'Tu n\'as rien a installer. AlphaScalp prepare un terminal et un compte '
+      +'de demonstration dedies, puis te previent quand le suivi mobile est pret.</p>'
       +'<div id="zoneGroupe"></div>'
       +'<ol class="steps">'
-      +'<li>Il te faut un <b>PC allume</b> avec MetaTrader 5 et un compte de '
-      +'<b>demonstration</b>. Tout est explique sur la page d&#39;installation.</li>'
-      +'<li>Ta cle est <b>en attente de validation</b>. Une fenetre s&#39;ouvrira '
-      +'dans MetaTrader des que ton acces sera actif.</li>'
-      +'<li>Ensuite tu ne touches plus a rien : les trades apparaissent sur ton '
-      +'compte, ajustes a <b>ton</b> capital.</li></ol>';
+      +'<li>Ta cle est <b>en attente de validation</b>.</li>'
+      +'<li>AlphaScalp cree un compte demo et configure le copieur sur son PC.</li>'
+      +'<li>Tu recois ensuite un acces de consultation pour suivre les trades '
+      +'dans l\'application officielle MT5, sans PC ni VPS a laisser allume.</li></ol>';
       afficherGroupe();
   }catch(e){ msg.innerHTML='<span class=err>'+e.message+'</span>'; btn.disabled=false; btn.textContent='Rejoindre la bêta'; }
 }
@@ -1981,11 +2144,12 @@ _CONFID = os.path.join(_HERE, "landing page", "confidentialite.html")
 
 
 # ─────────────────────────────────────────────────────────────
-# TÉLÉCHARGEMENT DU CLIENT DE COPIE  [31/07]
+# CLIENT DE COPIE ET PAGE DE SUIVI  [31/07, parcours révisé le 04/08]
 # ─────────────────────────────────────────────────────────────
-# Un bêta-testeur ne va pas chercher un fichier sur GitHub. On sert l'EA
-# depuis le site, avec les étapes d'installation SUR LA MÊME PAGE : ouvrir un
-# second document pendant qu'on manipule MetaTrader fait perdre tout le monde.
+# La route historique /telecharger est conservée pour ne casser aucun lien,
+# mais sa page décrit désormais le suivi mobile du terminal hébergé. Les
+# fichiers restent servis par les routes techniques pour l'administration et
+# la transparence du source ; ils ne sont plus proposés dans le parcours public.
 #
 # Pas de protection par clé : l'EA ne fait rien sans une clé ACTIVE, et le
 # code source est de toute façon public. Verrouiller le téléchargement
@@ -1995,9 +2159,7 @@ _TELECHARGER = os.path.join(_HERE, "landing page", "telecharger.html")
 
 @app.get("/telecharger", response_class=HTMLResponse)
 def telecharger_page():
-    """Page d'installation du copieur : téléchargements + étapes sur la MÊME
-    page. Un testeur qui manipule MetaTrader ne doit pas avoir à jongler avec
-    un second document ouvert ailleurs."""
+    """Page historique devenue page d'activation et de suivi mobile."""
     return _serve_file(_TELECHARGER, "<p>Page indisponible.</p>")
 
 
@@ -2088,14 +2250,15 @@ Argent fictif, aucune coordonnée bancaire, aucun euro engagé.
 <b>Pour démarrer</b>
 1️⃣ S'inscrire → https://alphascalp.onrender.com/rejoindre
 2️⃣ J'active ta clé et je te préviens
-3️⃣ Télécharger et installer → https://alphascalp.onrender.com/telecharger
+3️⃣ Suivre la préparation → https://alphascalp.onrender.com/telecharger
 
 <b>Deux choses à savoir</b>
-• Il te faut un <b>PC allumé</b> avec MetaTrader 5, ou un VPS. MetaTrader sur téléphone n'exécute pas ce type de programme — c'est une limite de MetaQuotes, pas un choix.
+• AlphaScalp héberge le terminal et le compte de démonstration dédiés. Tu n'as aucun PC ni VPS à laisser allumé.
+• L'application MT5 mobile sert à consulter les positions. Aucun EA n'est installé sur le téléphone.
 • Clé perdue ? Tu la retrouves seul avec ton email et ta date de naissance, sur la page d'inscription.
 
 <b>Si ça coince</b>
-Envoie une capture de l'onglet « Journal des experts » en bas de MetaTrader : tout y est écrit en clair.
+Décris simplement ce que tu vois dans MT5 mobile, sans publier d'identifiant ni de mot de passe.
 
 <i>Le trading comporte un risque de perte. Rien n'est garanti, et on est ici pour mesurer, pas pour gagner.</i>"""
 
@@ -2111,7 +2274,7 @@ Envoie une capture de l'onglet « Journal des experts » en bas de MetaTrader : 
 
 SUJETS_GROUPE = [
     ("📢 Annonces",        "Mises à jour du service. Lecture seule."),
-    ("🆘 Support",         "Un souci d'installation ou d'exécution ? C'est ici."),
+    ("🆘 Support",         "Un souci d'activation ou de suivi mobile ? C'est ici."),
     ("📊 Retours",         "Ce que vous observez : trades copiés, écarts, ressenti."),
     ("💬 Discussion",      "Tout le reste."),
 ]
@@ -2467,12 +2630,11 @@ _REPONSES = [
      ["cle refusee", "clé refusée", "cle refuse", "401", "key refused",
       "cle invalide", "clé invalide", "cle inconnue", "clé inconnue"],
      "🔑 Deux causes possibles, et une seule solution dans les deux cas.\n\n"
-     "Soit <b>CleApi</b> comporte une faute — elle commence par <code>as_</code> "
-     "et se colle dans l'onglet « Données d'entrée ».\n"
-     "Soit le serveur a été réinitialisé et a oublié les inscriptions.\n\n"
+     "Soit la clé comporte une faute — elle commence par <code>as_</code> — "
+     "soit le serveur a été réinitialisé et a oublié les inscriptions.\n\n"
      "Récupère la même clé sur " + _SITE + "/rejoindre (rubrique clé perdue) "
      "avec ton <b>email et ta date de naissance</b>, puis demande la "
-     "réactivation ici. <b>Rien à réinstaller</b> : le copieur reprend seul."),
+     "réactivation ici. <b>Rien à réinstaller</b> : le terminal est géré par AlphaScalp."),
 
     ("rien_ne_se_passe",
      ["rien ne se passe", "aucun trade", "pas de trade", "il fait rien",
@@ -2486,80 +2648,69 @@ _REPONSES = [
      "Ajoute que les marchés sont <b>fermés du vendredi soir au dimanche "
      "soir</b>.\n\n"
      "Pour savoir si ça marche, <b>ne regarde pas les trades</b> : recolle ta "
-     "clé sur " + _SITE + "/telecharger — elle t'affiche « Ton copieur "
-     "tourne, vu il y a X min ». C'est ça, la bonne réponse."),
+     "clé sur " + _SITE + "/telecharger — elle t'affiche l'état du terminal "
+     "démo hébergé. C'est ça, la bonne réponse."),
 
     ("webrequest",
      ["webrequest", "adresse non autorisee", "adresse non autorisée",
       "url non autorisee", "non autorisée dans metatrader", "4014", "5203"],
-     "🌐 C'est l'étape que tout le monde saute.\n\n"
-     "<b>Outils → Options → onglet « Expert Consultants »</b> :\n"
-     "• coche « Autoriser WebRequest pour les URL listées »\n"
-     "• ajoute exactement <code>" + _SITE + "</code>\n"
-     "• valide avec OK\n\n"
-     "Sans ça le copieur démarre mais ne reçoit jamais rien.\n"
-     "Captures d'écran : " + _SITE + "/telecharger"),
+     "🌐 L'autorisation WebRequest est configurée par AlphaScalp sur le "
+     "terminal hébergé. Tu n'as rien à modifier dans l'application mobile.\n\n"
+     "Si ta page d'état signale un problème, indique-le ici sans publier "
+     "d'identifiant : l'équipe vérifiera le terminal."),
 
     ("symbole",
      ["symbole introuvable", "symbol introuvable", "xauusd introuvable",
       "suffixe", "symbole pas trouve", "symbole pas trouvé"],
-     "🔤 Beaucoup de courtiers renomment les symboles : "
-     "<code>XAUUSD.r</code>, <code>XAUUSDm</code>, <code>XAUUSD#</code>…\n\n"
-     "Regarde dans « Observation du marché » comment il s'appelle chez toi, "
-     "et renseigne la partie qui s'ajoute dans <b>SuffixeSymbole</b> "
-     "(ex. <code>.r</code>) ou <b>PrefixeSymbole</b>."),
+     "🔤 Le symbole est configuré sur le terminal hébergé par AlphaScalp. "
+     "Tu n'as rien à modifier dans MT5 mobile.\n\n"
+     "Signale simplement le symbole concerné dans le groupe, sans publier "
+     "d'identifiant de compte."),
 
     ("volume_min",
      ["volume minimum", "lot min", "perte serait de", "risque cible"],
      "⚖️ <b>Ce n'est pas une erreur.</b> Le copieur refuse d'ouvrir parce que "
      "le plus petit volume que ton courtier accepte ferait risquer plus que "
      "voulu. Ça arrive sur les indices avec un petit capital.\n\n"
-     "Soit tu acceptes que ce symbole ne soit pas copié, soit tu montes "
-     "<b>RisqueParTrade</b>. <b>Ne monte pas le risque juste pour faire "
-     "passer un trade</b> — c'est exactement ce que le garde-fou empêche."),
+     "Ce réglage est géré par AlphaScalp sur le terminal hébergé. "
+     "<b>Le risque ne sera pas augmenté pour forcer un trade.</b>"),
 
     ("algo_trading",
      ["algo trading", "trading algo", "bouton rouge", "bouton vert",
       "trading automatique desactive", "trading automatique désactivé"],
-     "▶️ Le bouton <b>« Trading Algo »</b> dans la barre d'outils de "
-     "MetaTrader doit être <b>vert</b>. S'il est rouge ou gris, clique "
-     "dessus.\n\n"
-     "Vérifie aussi, dans les réglages du copieur, onglet <b>Général</b> : "
-     "« Autoriser le trading automatique » doit être coché."),
+     "▶️ Trading Algo est géré sur le terminal Windows hébergé. Tu n'as "
+     "aucun bouton à activer dans MT5 mobile.\n\n"
+     "Si la page d'état indique une coupure, signale-la dans le groupe."),
 
     ("onglet_experts",
      ["onglet experts", "ou voir les logs", "où voir les logs", "journal",
       "ou sont les messages", "où sont les messages"],
-     "📋 Onglet <b>« Experts »</b> en bas de MetaTrader — <b>pas</b> l'onglet "
-     "« Journal » juste à côté, qui ne contient aucun message du copieur.\n\n"
-     "Toutes ses lignes commencent par <code>[AlphaScalp]</code>."),
+     "📋 Les journaux Experts sont sur le terminal hébergé et vérifiés par "
+     "AlphaScalp. Sur mobile, décris seulement ce que tu observes : position, "
+     "heure et symbole, sans identifiant de compte."),
 
     ("compte_reel",
      ["compte non demo", "compte non démo", "compte reel", "compte réel",
       "demarrage refuse", "démarrage refusé"],
      "🛑 Le copieur <b>refuse de démarrer sur un compte réel</b>, et c'est "
-     "volontaire : la bêta se fait exclusivement sur compte de "
-     "<b>démonstration</b>.\n\n"
-     "Ouvre un compte démo chez ton courtier et connecte MetaTrader dessus."),
+     "volontaire : la bêta se fait exclusivement sur un compte de "
+     "<b>démonstration dédié</b>.\n\n"
+     "N'essaie pas de connecter un compte réel : AlphaScalp prépare le compte "
+     "démo du pilote."),
 
     ("pc_eteint",
      ["pc eteint", "pc éteint", "ordinateur eteint", "ordinateur éteint",
       "je ferme metatrader", "terminal ferme", "terminal fermé", "veille"],
-     "💻 <b>Terminal fermé = aucun trade reçu.</b> Le copieur tourne chez toi : "
-     "s'il ne tourne pas, personne ne relève les signaux à ta place.\n\n"
-     "Au redémarrage, il <b>refuse</b> les signaux trop anciens au lieu de les "
-     "rejouer — le prix a bougé, le stop ne vaut plus rien.\n\n"
-     "Tes positions déjà ouvertes, elles, <b>gardent leur stop chez le "
-     "courtier</b> et restent protégées même PC éteint."),
+     "💻 Ton téléphone peut être éteint : il sert uniquement à consulter. "
+     "Le copieur tourne sur un terminal hébergé par AlphaScalp.\n\n"
+     "Si la page d'état indique que ce terminal ne répond plus, signale-le "
+     "dans le groupe sans publier d'identifiant."),
 
     ("mac",
      ["sur mac", "macbook", "macos", "imac"],
-     "🍏 Honnêtement : <b>je ne sais pas</b>. MetaTrader existe sur Mac via "
-     "une couche de compatibilité, et une machine virtuelle ou un VPS Windows "
-     "fonctionnent aussi — mais <b>personne ne l'a encore vérifié pour "
-     "AlphaScalp</b>.\n\n"
-     "Si tu essaies, dis-nous ce que ça donne : on l'ajoutera au guide avec "
-     "ta version exacte. En attendant, on préfère ne rien affirmer."),
+     "🍏 Aucun MetaTrader de bureau n'est nécessaire côté testeur dans le "
+     "parcours hébergé. Utilise l'application MT5 mobile pour consulter le "
+     "compte démo ; le terminal automatique reste chez AlphaScalp."),
 
     ("prix",
      # [02/08] « combien » et « prix » NUS retirés : ils attrapaient
@@ -2578,11 +2729,10 @@ _REPONSES = [
     ("mobile",
      ["sur telephone", "sur téléphone", "sur mobile", "appli mt5",
       "android", "iphone"],
-     "📱 MetaTrader sur téléphone <b>n'exécute pas</b> ce type de programme — "
-     "c'est une limite de MetaQuotes, ni AlphaScalp ni personne ne peut la "
-     "contourner.\n\n"
-     "Il te faut un <b>PC Windows allumé</b> ou un VPS. Ton téléphone reste "
-     "parfait pour <i>suivre</i> tes résultats dans l'appli MT5."),
+     "📱 Oui : dans le parcours hébergé, ton téléphone sert à <b>consulter</b> "
+     "le compte démo dans l'application officielle MT5.\n\n"
+     "Le programme automatique ne tourne pas sur le téléphone : il reste sur "
+     "le terminal Windows géré par AlphaScalp. Tu n'as aucun PC ni VPS à laisser allumé."),
 ]
 
 # Questions qu'on REFUSE de traiter automatiquement.
@@ -2782,15 +2932,15 @@ def _etat_personnel(chat) -> str:
     lignes = ["👤 <b>" + esc_html(r["name"] or "toi") + "</b>"]
     vu = _minutes_depuis(r["last_seen"])
     if vu is None:
-        lignes.append("⚪ <b>Ton copieur ne s'est jamais manifesté.</b>\n"
-                      "C'est normal tant que tu ne l'as pas installé. "
-                      "La notice : " + _SITE + "/telecharger")
+        lignes.append("⚪ <b>Ton terminal hébergé n'est pas encore en ligne.</b>\n"
+                      "Sa préparation peut être en cours. Tu n'as rien à "
+                      "installer : suis l'activation sur " + _SITE + "/telecharger")
     elif vu < 5:
         lignes.append("✅ <b>Ton copieur tourne</b> — vu il y a %d min." % max(1, int(vu)))
     else:
-        lignes.append("⚠️ <b>Ton copieur ne répond plus</b> — dernier signe il y a "
-                      "%d min.\nVérifie que MetaTrader est ouvert et que le bouton "
-                      "« Trading Algo » est vert." % int(vu))
+        lignes.append("⚠️ <b>Ton terminal hébergé ne répond plus</b> — dernier "
+                      "signe il y a %d min.\nTu n'as rien à redémarrer de ton "
+                      "côté : signale-le dans le groupe AlphaScalp." % int(vu))
 
     # Si le copieur ne s'est jamais manifesté, il n'a pas pu envoyer sa
     # version ni son courtier : les afficher serait contradictoire avec la
@@ -2879,12 +3029,12 @@ def _veille_copieurs() -> None:
                     continue
                 _veille_prevenus[r["api_key"]] = aujourdhui
                 _notify_telegram_a(r["tg_chat"],
-                    "⚠️ <b>Ton copieur s'est tu.</b>\n\n"
+                    "⚠️ <b>Ton terminal AlphaScalp s'est tu.</b>\n\n"
                     "Dernier signe de vie il y a %d minutes, alors que les "
                     "marchés sont ouverts.\n\n"
-                    "À vérifier : MetaTrader est-il ouvert ? Le bouton "
-                    "« Trading Algo » est-il vert ? Le visage en haut à droite "
-                    "du graphique sourit-il ?\n\n"
+                    "Le terminal est hébergé par AlphaScalp : tu n'as rien à "
+                    "redémarrer sur ton téléphone ou ton ordinateur. Signale "
+                    "simplement cette alerte dans le groupe.\n\n"
                     "Tes positions déjà ouvertes gardent leur stop chez le "
                     "courtier — elles ne sont pas en danger.\n\n"
                     "<i>Une seule alerte par jour. Écris /moi quand tu veux "
@@ -2999,9 +3149,9 @@ async def telegram_webhook(request: Request):
         _tg_appel("sendMessage", {
             "chat_id": chat, "parse_mode": "HTML",
             "text": "\u2705 <b>C&#39;est noté !</b>\n\nJe te préviendrai ici dès "
-                    "que ton accès sera activé, avec la marche à suivre.\n\n"
-                    "Tu peux déjà installer le copieur : il attend tout seul et "
-                    "se met en route sans que tu aies rien à relancer.\n"
+                    "que ton accès sera activé et que le terminal démo dédié "
+                    "sera prêt.\n\nTu n'as rien à installer sur ordinateur : "
+                    "tu suivras le compte depuis MT5 mobile.\n"
                     "https://alphascalp.onrender.com/telecharger"})
         print(f"TG_LIE | {cible['name']}", flush=True)
     else:
@@ -3097,21 +3247,16 @@ def rapporter_etat(body: EtatIn, x_api_key: Optional[str] = Header(None)):
 
 @app.get("/api/client/verifier")
 def verifier_cle(x_api_key: Optional[str] = Header(None)):
-    """Vérifie qu'une clé existe, pour déverrouiller la page de
-    téléchargement. Renvoie 401 si elle est inconnue.
+    """Vérifie qu'une clé existe pour afficher l'état de la place bêta.
+    Renvoie 401 si elle est inconnue.
 
-    On n'exige PAS que la clé soit active : le copieur est conçu pour attendre
-    l'activation en veille, et l'installation prend une dizaine de minutes.
-    Autant laisser le testeur préparer son poste pendant ce temps plutôt que
-    de lui imposer un aller-retour.
+    On n'exige PAS que la clé soit active : le testeur doit pouvoir revenir
+    suivre la préparation du terminal hébergé sans installer quoi que ce soit.
     """
-    c = get_client(x_api_key)
+    c = get_client(x_api_key, marquer_vu=False)   # consultation, pas un signe de vie
     # [31/07] On renvoie aussi l'etat du copieur. Sans ca, un testeur n'a AUCUN
-    # moyen de savoir si son installation fonctionne : il voit un graphique et
-    # un visage souriant, et attend. Le doute pousse a desinstaller et
-    # reinstaller, ce qui ne repare rien et fait perdre du temps a tout le
-    # monde. La donnee existait deja (last_seen, etat_*), personne ne
-    # l'affichait.
+    # moyen de savoir si son terminal heberge fonctionne. La donnee existait
+    # deja (last_seen, etat_*), personne ne l'affichait.
     def _age(iso):
         try:
             d = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
@@ -3119,11 +3264,22 @@ def verifier_cle(x_api_key: Optional[str] = Header(None)):
         except Exception:
             return None
 
+    # [04/08] Le compte démo, s'il a été préparé. C'est la remise elle-même :
+    # elle n'existe que derrière la clé bêta, jamais dans une URL, et le
+    # serveur ne le donne que si AlphaScalp l'a explicitement renseigné.
+    # Mot de passe INVESTISSEUR uniquement — consultation, aucun ordre.
+    compte = None
+    if c["mt5_login"] and c["mt5_serveur"] and c["mt5_mdp_lecture"]:
+        compte = {"login": c["mt5_login"], "serveur": c["mt5_serveur"],
+                  "mot_de_passe": c["mt5_mdp_lecture"], "lecture_seule": True,
+                  "pret_a": c["mt5_pret_a"] or ""}
+
     return {"ok": True, "nom": c["name"], "active": bool(c["active"]),
             "lien_tg": code_liaison(c["api_key"]),
             "vu_min": _age(c["last_seen"]) if c["last_seen"] else None,
             "courtier": c["etat_courtier"] or "",
-            "probleme": c["etat_probleme"] or ""}
+            "probleme": c["etat_probleme"] or "",
+            "compte": compte}
 
 
 @app.get("/telecharger/{nom}")
@@ -3145,7 +3301,8 @@ def telecharger_client(nom: str, x_api_key: Optional[str] = Header(None)):
     fichier : on ne nettoie pas le chemin, on n'accepte QUE des noms connus.
     Une liste blanche ne se contourne pas par une astuce d'encodage.
     """
-    get_client(x_api_key)                    # 401 si clé absente ou inconnue
+    # marquer_vu=False : un téléchargement vient du navigateur, pas du copieur.
+    get_client(x_api_key, marquer_vu=False)  # 401 si clé absente ou inconnue
     if nom not in _FICHIERS_CLIENT:
         raise HTTPException(status_code=404, detail="Fichier inconnu")
     chemin = os.path.join(_CLIENT_DIR, nom)

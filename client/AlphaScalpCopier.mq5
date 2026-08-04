@@ -32,7 +32,7 @@
 //+------------------------------------------------------------------+
 #property copyright "AlphaScalp"
 #property link      "https://alphascalp.onrender.com"
-#property version   "1.12"
+#property version   "1.13"
 #property strict
 // [02/08] La version était écrite en dur À DEUX ENDROITS (ici et dans le corps
 // du rapport d'état). Résultat : la copie installée sur le PC de test datait du
@@ -50,7 +50,7 @@
 //   1.12 (03/08) — délais réseau réduits et bornés par la période du timer.
 //                  L'EA pouvait bloquer plus longtemps que son propre cycle :
 //                  MetaTrader paraissait figé.
-#define COPIEUR_VERSION "1.12"
+#define COPIEUR_VERSION "1.13"
 
 // [03/08] DÉLAIS RÉSEAU — à ne pas augmenter sans lire ceci.
 //
@@ -335,11 +335,32 @@ string SymboleLocal(string symboleMaitre)
 //| On NE copie PAS le volume du maître : son capital est différent.   |
 //| Renvoie 0 si le calcul est impossible ou dépasse les bornes.       |
 //+------------------------------------------------------------------+
-double CalculerVolume(string symbole, double prix, double sl)
+double CalculerVolume(string symbole, double prix, double sl, bool achat)
   {
-   if(sl <= 0.0 || prix <= 0.0) return 0.0;
+   // [04/08] Ces quatre refus étaient MUETS, alors que le point d'appel écrit
+   // « message déjà émis ». Un testeur dont le compte refusait tout n'aurait
+   // rien eu à lire : ni dans le journal, ni à l'écran. Un refus qui ne se
+   // raconte pas est indiscernable d'une panne.
+   if(prix <= 0.0)
+     {
+      Alerte("Pas de cotation exploitable sur " + symbole +
+             " : aucun volume calculable, ordre refusé.");
+      return 0.0;
+     }
+   if(sl <= 0.0)
+     {
+      Alerte("Signal sur " + symbole + " sans stop de protection : refusé. "
+             "Le volume se calcule à partir du stop ; sans lui, le risque "
+             "n'est pas mesurable.");
+      return 0.0;
+     }
    double distance = MathAbs(prix - sl);
-   if(distance <= 0.0) return 0.0;
+   if(distance <= 0.0)
+     {
+      Alerte("Stop confondu avec le prix d'entrée sur " + symbole +
+             " : refusé (distance nulle).");
+      return 0.0;
+     }
 
    double capital = AccountInfoDouble(ACCOUNT_EQUITY);
    double montantRisque = capital * RisqueParTrade / 100.0;
@@ -349,16 +370,29 @@ double CalculerVolume(string symbole, double prix, double sl)
    // métaux ont des valeurs de tick très différentes).
    double perteUnLot = 0.0;
    if(!OrderCalcProfit(ORDER_TYPE_BUY, symbole, 1.0, prix, prix - distance, perteUnLot))
+     {
+      Alerte("Le terminal ne sait pas calculer la perte sur " + symbole +
+             " (erreur " + IntegerToString(GetLastError()) + ") : ordre refusé "
+             "plutôt qu'envoyé à l'aveugle.");
       return 0.0;
+     }
    perteUnLot = MathAbs(perteUnLot);
-   if(perteUnLot <= 0.0) return 0.0;
+   if(perteUnLot <= 0.0)
+     {
+      Alerte("Perte par lot nulle sur " + symbole +
+             " : le calcul de volume est impossible, ordre refusé.");
+      return 0.0;
+     }
 
    double volume = montantRisque / perteUnLot;
 
    double vmin = SymbolInfoDouble(symbole, SYMBOL_VOLUME_MIN);
    double vmax = SymbolInfoDouble(symbole, SYMBOL_VOLUME_MAX);
    double pas  = SymbolInfoDouble(symbole, SYMBOL_VOLUME_STEP);
-   if(pas > 0.0) volume = MathFloor(volume / pas) * pas;
+   // Un pas nul rendait l'arrondi silencieusement inopérant ; on se rabat sur
+   // le lot minimum, qui est le pas réel dans tous les cas observés.
+   if(pas <= 0.0) pas = (vmin > 0.0 ? vmin : 0.01);
+   volume = MathFloor(volume / pas) * pas;
    if(volume < vmin) volume = vmin;
    if(volume > vmax) volume = vmax;
    if(volume > LotMaximum) volume = LotMaximum;
@@ -375,7 +409,51 @@ double CalculerVolume(string symbole, double prix, double sl)
                           symbole, volume, perteReelle, montantRisque));
       return 0.0;
      }
-   return volume;
+
+   // [04/08] GARDE-FOU MARGE — l'angle mort qui manquait.
+   //
+   // Le risque dit combien on accepte de PERDRE. La marge dit combien le
+   // courtier exige d'IMMOBILISER. Les deux n'ont aucun rapport, et rien ne
+   // les reliait ici : l'EA calculait un volume correct au regard du risque,
+   // l'envoyait, et se faisait rejeter par « not enough money ». Un échec
+   // côté courtier, que le testeur ne peut ni comprendre ni corriger.
+   //
+   // Mesuré le 04/08 sur un démo IC Markets EU de 1000 EUR : 0.01 lot XAUUSD
+   // exige 532 EUR de marge (15 % du notionnel, levier effectif 1:6,7). Le
+   // risque autorisait 0.03 lot ; le compte n'en supportait aucun au-delà
+   // de 0.01.
+   //
+   // On réduit donc jusqu'à ce que ça rentre, au lieu de se faire refuser.
+   // C'est aussi ce qui rend un réglage UNIQUE valable sur tous les capitaux
+   // et toutes les stratégies : plafonner le lot à la main faisait porter au
+   // swing un risque dix fois supérieur à celui du scalp, à taille égale.
+   ENUM_ORDER_TYPE type = (achat ? ORDER_TYPE_BUY : ORDER_TYPE_SELL);
+   double margeLibre = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   // On ne consomme jamais toute la marge libre : la position suivante et les
+   // variations de celle-ci doivent tenir aussi.
+   double plafond = margeLibre * 0.80;
+   double marge = 0.0;
+
+   while(volume >= vmin - pas / 2.0)
+     {
+      if(!OrderCalcMargin(type, symbole, volume, prix, marge))
+        {
+         Alerte("Le terminal ne sait pas calculer la marge sur " + symbole +
+                " (erreur " + IntegerToString(GetLastError()) + ") : ordre "
+                "refusé plutôt qu'envoyé à l'aveugle.");
+         return 0.0;
+        }
+      if(marge <= plafond)
+         return volume;
+      volume = NormalizeDouble(volume - pas, 8);
+     }
+
+   Alerte(StringFormat("%s ignoré : même au volume minimum %.2f le courtier "
+                       "exige %.2f de marge et il n'y a que %.2f de libre. "
+                       "Ce compte est trop petit pour ce symbole — ce n'est "
+                       "pas une panne du copieur.",
+                       symbole, vmin, marge, margeLibre));
+   return 0.0;
   }
 
 //+------------------------------------------------------------------+
@@ -619,8 +697,8 @@ void TraiterSignal(string obj)
       tpLocal = achat ? prixCourant + distance : prixCourant - distance;
      }
 
-   double volume = CalculerVolume(symbole, prixCourant, slLocal);
-   if(volume <= 0.0) return;           // message déjà émis
+   double volume = CalculerVolume(symbole, prixCourant, slLocal, achat);
+   if(volume <= 0.0) return;           // message déjà émis — vrai depuis 1.13
 
    int digits = (int)SymbolInfoInteger(symbole, SYMBOL_DIGITS);
    slLocal = NormalizeDouble(slLocal, digits);

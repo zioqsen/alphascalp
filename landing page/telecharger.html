@@ -1,496 +1,218 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Installer le copieur — AlphaScalp</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activer le suivi mobile — AlphaScalp</title>
 <link rel="canonical" href="https://alphascalp.onrender.com/telecharger">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="AlphaScalp">
-<meta property="og:locale" content="fr_FR">
+<meta name="description" content="Bêta AlphaScalp hébergée : compte MetaTrader 5 de démonstration dédié, copie automatique et suivi depuis le téléphone. Aucun logiciel à installer.">
+<meta property="og:title" content="Activer le suivi mobile AlphaScalp">
+<meta property="og:description" content="AlphaScalp héberge le terminal de démonstration. Tu suis les trades depuis MT5 mobile, sans PC ni VPS.">
 <meta property="og:url" content="https://alphascalp.onrender.com/telecharger">
-<meta property="og:title" content="Installer le copieur AlphaScalp">
-<meta property="og:description" content="Notice pas à pas : poser les fichiers, autoriser le serveur, lancer le copieur. Compte de démonstration, environ 10 minutes.">
+<meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Installer le copieur AlphaScalp">
-<meta name="twitter:description" content="Notice pas à pas : poser les fichiers, autoriser le serveur, lancer le copieur. Compte de démonstration, environ 10 minutes.">
-<meta name="theme-color" content="#080b10">
-
-<meta name="description" content="Notice pas à pas : poser les fichiers, autoriser le serveur, lancer le copieur. Compte de démonstration, environ 10 minutes.">
+<meta name="twitter:title" content="Activer le suivi mobile AlphaScalp">
+<meta name="twitter:description" content="Compte démo dédié, terminal hébergé et suivi depuis MT5 mobile.">
 <style>
-  :root{color-scheme:dark;
-    --bg:#080b10; --bg2:#0e1420; --border:rgba(255,255,255,.07);
-    --blue:#3b82f6; --green:#22c55e; --amber:#fab219; --red:#ef4444;
-    --text:#f0f4ff; --muted:#6b7a99;}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);
-    font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 20px 70px}
-  .wrap{max-width:760px;margin:0 auto}
-  nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px 4px;
-    padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:30px}
-  nav .brand{font-weight:800;letter-spacing:-.4px;margin-right:auto}
-  nav .brand span{color:var(--blue)}
-  nav a{color:var(--muted);text-decoration:none;font-size:14px;margin-left:16px;white-space:nowrap}
-  nav a:hover{color:var(--text)}
-  h1{font-size:29px;letter-spacing:-.6px;line-height:1.2;margin-bottom:8px}
-  .sous{color:var(--muted);margin-bottom:26px}
-  h2{font-size:19px;margin:32px 0 10px;letter-spacing:-.3px}
-  p{margin-bottom:12px}
-  ul,ol{margin:0 0 12px 22px}
-  li{margin-bottom:8px}
-  a{color:var(--blue)}
-  code{background:var(--bg2);border:1px solid var(--border);border-radius:5px;
-    padding:2px 7px;font-size:13.5px;word-break:break-all}
-  .dl{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0 8px}
-  .btn{flex:1 1 260px;display:flex;align-items:center;gap:12px;
-    background:var(--blue);color:#fff;text-decoration:none;border-radius:12px;
-    padding:16px 18px;font-weight:600;min-height:56px}
-  .btn.sec{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-weight:500}
-  .btn small{display:block;font-weight:400;font-size:12.5px;opacity:.8;margin-top:2px}
-  .etape{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-    padding:18px 20px;margin:14px 0}
-  .etape h3{font-size:15.5px;margin-bottom:8px;display:flex;align-items:center;gap:9px}
-  .n{display:inline-flex;width:25px;height:25px;flex:0 0 25px;border-radius:50%;
-    background:var(--blue);color:#fff;align-items:center;justify-content:center;
-    font-size:13px;font-weight:700}
-  .cle{border-color:rgba(250,178,25,.4)}
-  .cle h3{color:var(--amber)}
-  .muted{color:var(--muted)}
-  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px}
-  th{text-align:left;color:var(--muted);font-size:12px;text-transform:uppercase;
-    letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border)}
-  td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
-  details{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-    padding:14px 18px;margin:10px 0}
-  summary{cursor:pointer;font-weight:600;font-size:15px}
-  details p{margin:10px 0 0}
-  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--border);
-    color:var(--muted);font-size:13px}
-  html,body{max-width:100%;overflow-x:hidden}
-  @media(max-width:640px){
-    body{font-size:15.5px}
-    h1{font-size:24px}
-    h2{font-size:18px}
-    nav a{margin-left:0;margin-right:14px}
-    table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-    th,td{padding:8px;font-size:13.5px}
-  }
-
-  /* [01/08] Captures d ecran. Le site n avait aucune image : c etait un choix
-     de legerete. Il cede ici devant un fait mesure — un debutant cherche le
-     libelle exact qu on lui donne, et un mot d ecart l arrete net. */
-  figure{margin:14px 0 0}
-  figure img{width:100%;height:auto;display:block;border-radius:10px;
-    border:1px solid rgba(255,255,255,.14);background:#0d0d0d}
-  figcaption{color:var(--muted);font-size:12.5px;margin-top:6px;line-height:1.5}
+:root{--bg:#080b10;--card:#0e1420;--text:#f0f4ff;--muted:#8d9ab3;--line:rgba(255,255,255,.1);--blue:#3b82f6;--green:#22c55e;--amber:#fab219;--red:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}.wrap{max-width:900px;margin:auto;padding:0 22px 70px}nav{display:flex;gap:18px;align-items:center;padding:24px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}nav .brand{font-size:21px;font-weight:800;margin-right:auto}.brand span,a{color:var(--blue)}nav a{font-size:14px;text-decoration:none}h1{font-size:clamp(34px,7vw,62px);line-height:1.04;margin:64px 0 16px;letter-spacing:-.04em}h2{font-size:27px;margin:48px 0 18px}h3{margin:0 0 9px;font-size:18px}.lead{font-size:20px;color:#c9d3e8;max-width:760px}.pill{display:inline-flex;gap:8px;align-items:center;color:#b8f7cb;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);padding:7px 12px;border-radius:999px;font-size:13px;font-weight:700}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card,.status,.warn{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}.card .n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:rgba(59,130,246,.16);color:#8bb8ff;font-weight:800;margin-bottom:12px}.muted{color:var(--muted)}.warn{border-color:rgba(250,178,25,.35);background:rgba(250,178,25,.06)}.ok{color:var(--green)}.attention{color:var(--amber)}code{background:#080b10;border:1px solid var(--line);padding:2px 6px;border-radius:5px;color:#b6d2ff}input,button{width:100%;min-height:48px;border-radius:10px;font:inherit}input{background:#080b10;border:1px solid var(--line);padding:12px 14px;color:var(--text);font-family:ui-monospace,Consolas,monospace}button{margin-top:10px;border:0;background:var(--blue);color:white;font-weight:750;cursor:pointer}.resultat{margin-top:14px;padding:14px;border-radius:10px;background:#080b10;border:1px solid var(--line)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}.btn{display:inline-block;padding:12px 18px;border-radius:10px;background:var(--blue);color:white;text-decoration:none;font-weight:700}.btn.secondary{background:transparent;border:1px solid rgba(59,130,246,.45)}details{border:1px solid var(--line);border-radius:12px;padding:15px 17px;margin:10px 0;background:var(--card)}summary{cursor:pointer;font-weight:700}footer{margin-top:58px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}.compte{margin-top:18px;border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.06)}.champ{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 0;border-top:1px solid var(--line)}.champ:first-of-type{border-top:0}.champ .lab{flex:0 0 165px;color:var(--muted);font-size:14px}.champ .val{flex:1 1 150px;font-family:ui-monospace,Consolas,monospace;font-size:16px;word-break:break-all;color:#eaf2ff}.champ button{width:auto;min-height:38px;padding:0 14px;margin:0;font-size:13px;background:transparent;border:1px solid rgba(59,130,246,.45);color:#8bb8ff}.etapes{margin:16px 0 0;padding-left:20px;color:var(--muted);font-size:15px}.etapes li{margin:6px 0}@media(max-width:650px){.grid{grid-template-columns:1fr}nav{gap:12px}h1{margin-top:42px}.wrap{padding-inline:16px}.champ .lab{flex:1 1 100%}}
 </style>
 </head>
-<body>
-<div class="wrap">
+<body><div class="wrap">
+<nav><div class="brand">Alpha<span>Scalp</span></div><a href="/">Accueil</a><a href="/performance">Performance</a><a href="/guide">Guide</a><a href="/rejoindre">Rejoindre</a></nav>
 
-<nav>
-  <div class="brand">Alpha<span>Scalp</span></div>
-  <a href="/">Accueil</a>
-  <a href="/performance">Performance</a>
-  <a href="/guide">Guide</a>
-  <a href="/rejoindre">Rejoindre</a>
-</nav>
+<h1>Ton compte démo,<br>suivi depuis le téléphone.</h1>
+<p class="lead">Pendant la phase pilote, AlphaScalp prépare et héberge le terminal MetaTrader 5. Tu n'installes aucun programme, tu ne loues aucun VPS et tu n'as aucun ordinateur à laisser allumé.</p>
+<p><span class="pill">● Bêta hébergée · argent fictif uniquement</span></p>
 
-<h1>Installer le copieur</h1>
-<!-- [02/08] « environ 10 minutes » ici, « 30 minutes » sur l'accueil : deux
-     périmètres différents que rien ne distinguait, donc lus comme une
-     contradiction. On dit ce que chaque durée couvre. -->
-<div class="sous">Compte de démonstration · <b>~10 minutes</b> pour le copieur,
-~30 en tout si tu n'as pas encore MetaTrader</div>
-
-<div class="etape cle">
-  <h3>⚠️ Avant de commencer</h3>
-  <p class="muted" style="margin:0">Il te faut un <b>PC qui reste allumé</b>
-  avec MetaTrader ouvert, ou un VPS. MetaTrader sur téléphone n'exécute pas ce
-  type de programme — c'est une limite de MetaQuotes. Ton téléphone reste
-  parfait pour suivre tes résultats.</p>
-  <p class="muted" style="margin:10px 0 0"><b style="color:#f0f4ff">Terminal
-  fermé = aucun trade reçu.</b> Le copieur tourne chez toi : s'il ne tourne
-  pas, personne ne relève les signaux à ta place. Et au redémarrage il
-  <b>refuse</b> les signaux trop anciens au lieu de les rejouer — le prix a
-  bougé, le stop ne vaut plus rien. Tes positions déjà ouvertes, elles,
-  gardent leur stop chez le courtier et restent protégées.</p>
+<div class="warn">
+  <h3>Ce parcours ne concerne jamais un compte réel</h3>
+  <p style="margin:0">AlphaScalp crée un compte de démonstration dédié à la bêta. Ne dépose rien et ne communique jamais les identifiants d'un compte que tu possèdes déjà. Aucun rendement n'est garanti ; cette phase sert à observer et mesurer.</p>
 </div>
 
-<div class="etape" id="porte">
-  <h3>🔑 Ta clé bêta</h3>
-  <p class="muted" style="margin-bottom:12px">Le téléchargement est réservé aux
-  inscrits. Colle ta clé — celle qui commence par <code>as_</code>.
-  Pas encore inscrit ? <a href="/rejoindre">C'est par ici</a>.</p>
-  <input id="cle" type="text" spellcheck="false" autocomplete="off"
-         placeholder="as_…"
-         style="width:100%;background:#080b10;border:1px solid rgba(255,255,255,.12);
-                border-radius:10px;padding:13px 14px;color:#f0f4ff;font-size:15px;
-                min-height:48px;font-family:ui-monospace,Consolas,monospace">
-  <button id="btnCle" onclick="verifier()"
-          style="width:100%;background:#3b82f6;color:#fff;border:0;border-radius:10px;
-                 padding:14px;font-size:15px;font-weight:600;cursor:pointer;
-                 margin-top:12px;min-height:48px">Débloquer le téléchargement</button>
-  <div id="msgCle" style="font-size:13.5px;margin-top:12px;min-height:20px"></div>
+<h2>Les quatre étapes</h2>
+<div class="grid">
+  <div class="card"><div class="n">1</div><h3>Tu t'inscris</h3><p class="muted">La page d'inscription génère ta clé bêta. Aucun paiement, aucune pièce d'identité et aucun compte de courtage existant ne sont demandés.</p></div>
+  <div class="card"><div class="n">2</div><h3>Nous préparons le terminal</h3><p class="muted">Une installation MT5 portable et un compte démo distinct sont configurés sur la machine AlphaScalp. L'activation est manuelle et limitée aux places disponibles.</p></div>
+  <div class="card"><div class="n">3</div><h3>Tu ajoutes le compte sur mobile</h3><p class="muted">Quand il est prêt, tu reçois le numéro du compte démo, le serveur du courtier et un accès de consultation. Tu les saisis uniquement dans l'application officielle MT5.</p></div>
+  <div class="card"><div class="n">4</div><h3>Tu observes les résultats</h3><p class="muted">Le copieur hébergé reçoit les signaux et gère le compte démo. Le téléphone sert à voir les positions, l'historique et le solde fictif.</p></div>
 </div>
 
-<div id="zoneGroupeDl"></div>
-
-<div id="zoneDl" style="display:none">
-  <div class="dl">
-    <a class="btn" href="#" onclick="recuperer('AlphaScalpCopier.ex5');return false">
-      ⬇️ <span>Télécharger le copieur<small>AlphaScalpCopier.ex5 — le programme</small></span>
-    </a>
-    <a class="btn sec" href="#" onclick="recuperer('AlphaScalpCopier.mq5');return false">
-      📄 <span>Code source<small>AlphaScalpCopier.mq5 — pour le lire</small></span>
-    </a>
-  </div>
-  <p class="muted" style="font-size:13.5px">Le code source est fourni parce que
-  ce programme va passer des ordres sur ton compte : tu as le droit de voir ce
-  qu'il fait. Tu peux le recompiler toi-même si tu préfères
-  (<code>F4</code> puis <code>F7</code> dans MetaTrader).</p>
+<h2>Vérifier l'état de ta place</h2>
+<div class="status" id="porte">
+  <p class="muted">Colle ta clé bêta pour savoir si ta place est activée et si le terminal hébergé s'est récemment manifesté. La clé est envoyée dans un en-tête sécurisé, jamais dans l'adresse de la page.</p>
+  <input id="cle" type="password" spellcheck="false" autocomplete="off" placeholder="as_…" aria-label="Clé bêta">
+  <button id="btnCle" type="button">Vérifier ma place</button>
+  <div id="resultat" class="resultat" hidden aria-live="polite"></div>
 </div>
+<div id="zoneCompte"></div>
+<div id="zoneGroupe"></div>
 
-<h2>Les étapes</h2>
+<h2>À savoir avant de commencer</h2>
+<details><summary>Est-ce vraiment gratuit ?</summary><p class="muted">Oui pendant cette phase pilote. Le compte utilise uniquement de l'argent fictif. Aucun moyen de paiement n'est demandé.</p></details>
+<details><summary>Dois-je laisser mon téléphone allumé ?</summary><p class="muted">Non. Le téléphone sert seulement à consulter. Le terminal automatique reste sur la machine AlphaScalp.</p></details>
+<details><summary>Puis-je placer mes propres trades ?</summary><p class="muted">L'accès remis au testeur est destiné à la consultation. Le but est de mesurer fidèlement la copie, sans intervention manuelle.</p></details>
+<details><summary>Le service fonctionne-t-il 24 h/24 ?</summary><p class="muted">Le terminal vise un fonctionnement continu, mais cette bêta est hébergée sur un PC et ne bénéficie pas encore d'un engagement de disponibilité de type VPS commercial. Les marchés sont de toute façon fermés le week-end.</p></details>
+<details><summary>Que dois-je installer ?</summary><p class="muted">Uniquement l'application officielle MetaTrader 5 sur ton téléphone pour consulter le compte. Le copieur et son terminal sont installés par AlphaScalp.</p></details>
 
-<div class="etape">
-  <h3><span class="n">0</span> Avoir MetaTrader 5 et un compte de démonstration</h3>
-  <p style="margin:0">Si tu n&rsquo;as jamais tradé, c&rsquo;est l&rsquo;étape la
-  plus longue — compte 10 minutes, une seule fois.</p>
-  <p style="margin:10px 0 0">Choisis un courtier régulé, ouvre un
-  <b>compte DÉMO</b> (jamais un compte réel pour la bêta) et installe
-  <b>MetaTrader 5</b> sur ton PC. Le courtier t&rsquo;envoie alors trois
-  informations : un <b>numéro de compte</b>, un <b>mot de passe</b> et un
-  <b>nom de serveur</b>. Tu les saisis dans MetaTrader
-  (<b>Fichier &rarr; Se connecter à un compte de trading</b>).</p>
-  <p class="muted" style="margin:10px 0 0">Un compte démo, c&rsquo;est de
-  l&rsquo;argent fictif : aucune carte bancaire, aucun versement, aucun
-  engagement. Tu peux en ouvrir autant que tu veux, et le fermer quand tu
-  veux.<br><br>
-  <b>Ne saisis jamais ces identifiants ailleurs que dans MetaTrader.</b>
-  AlphaScalp ne te les demandera jamais — ni ici, ni dans le groupe, ni par
-  message. Le copieur travaille depuis <i>ton</i> terminal, il n&rsquo;a
-  besoin d&rsquo;aucun accès à ton compte.</p>
+<div class="actions"><a class="btn" href="/rejoindre">Rejoindre la bêta</a><a class="btn secondary" href="/guide">Lire le guide complet</a></div>
+
+<footer>⚠️ Le trading comporte un risque de perte en capital. La bêta présentée ici fonctionne exclusivement avec de l'argent fictif. AlphaScalp ne fournit pas de conseil en investissement et ne garantit aucun résultat. · <a href="/confidentialite">Confidentialité</a> · <a href="/mentions-legales">Mentions légales</a></footer>
 </div>
-
-<div class="etape">
-  <h3><span class="n">1</span> Poser les fichiers</h3>
-  <p style="margin:0">Dans MetaTrader 5 :
-  <b>Fichier → Ouvert Dossier des Données</b>. Va dans <code>MQL5</code>
-  puis <code>Experts</code>, et copie les deux fichiers téléchargés dedans.<br><br>
-  Reviens dans MetaTrader, clic droit sur <b>Expert Consultants</b> dans la
-  fenêtre « Navigateur » (à gauche) → <b>Actualiser</b>.
-  <code>AlphaScalpCopier</code> apparaît.</p>
-  <p class="muted" style="margin:14px 0 0">
-  <b>Copie-colle les fichiers, plutôt que de les glisser-déposer.</b>
-  Le glisser-déposer peut figer MetaTrader quelques instants — il se débloque
-  tout seul, et si besoin ferme puis rouvre le logiciel : <b>les fichiers sont
-  déjà en place</b>, tu n'as pas à recommencer. Ça n'a rien à voir avec le
-  copieur, qui n'a même pas encore démarré à ce stade.</p>
-  <figure><img src="/captures/1.png" loading="lazy" alt="Le menu Fichier : « Ouvert Dossier des Données ». C est ce nom-là qu affiche MetaTrader en français.">
-  <figcaption>Le menu Fichier : « Ouvert Dossier des Données ». C est ce nom-là qu affiche MetaTrader en français.</figcaption></figure>
-  <figure><img src="/captures/2.png" loading="lazy" alt="Le dossier d arrivée : MQL5 puis Experts. Le .ex5 suffit à faire tourner le copieur ; le .mq5 est le code source, facultatif.">
-  <figcaption>Le dossier d arrivée : MQL5 puis Experts. Le .ex5 suffit à faire tourner le copieur ; le .mq5 est le code source, facultatif.</figcaption></figure>
-</div>
-
-<div class="etape">
-  <h3><span class="n">2</span> Autoriser l'accès au serveur</h3>
-  <p style="margin:0"><b>C'est l'étape que tout le monde oublie, et sans elle
-  rien ne fonctionne.</b><br><br>
-  <b>Outils → Options → onglet Expert Consultants</b> :<br>
-  • coche <b>« Autoriser WebRequest pour les URL listées »</b><br>
-  • ajoute exactement :
-  <code>https://alphascalp.onrender.com</code><br>
-  • valide avec <b>OK</b><br><br>
-  <span class="muted">Sans autorisation, le copieur démarre mais ne reçoit
-  jamais rien. Il te le dira dans son journal, en toutes lettres.</span></p>
-  <figure><img src="/captures/3.1.png" loading="lazy" alt="D abord : menu Outils, puis Options.">
-  <figcaption>D abord : menu Outils, puis Options.</figcaption></figure>
-  <figure><img src="/captures/3.2.png" loading="lazy" alt="Puis l onglet « Expert Consultants » : coche « Autoriser WebRequest » et ajoute l adresse. C est l étape que tout le monde saute.">
-  <figcaption>Puis l onglet « Expert Consultants » : coche « Autoriser WebRequest » et ajoute l adresse. C est l étape que tout le monde saute.</figcaption></figure>
-</div>
-
-<div class="etape">
-  <h3><span class="n">3</span> Activer le trading automatique</h3>
-  <p style="margin:0">Dans la barre d'outils, le bouton
-  <b>« Trading Algo »</b> doit être <b>vert</b>. S'il est rouge ou gris,
-  clique dessus.</p>
-  <figure><img src="/captures/4.png" loading="lazy" alt="Le bouton « Trading Algo » dans la barre d outils. Il doit ressembler à ça.">
-  <figcaption>Le bouton « Trading Algo » dans la barre d outils. Il doit ressembler à ça.</figcaption></figure>
-</div>
-
-<div class="etape">
-  <h3><span class="n">4</span> Lancer le copieur</h3>
-  <p style="margin:0">Ouvre <b>n'importe quel graphique</b> — le symbole n'a
-  aucune importance, le copieur travaille sur tous les symboles reçus.
-  Fais glisser <code>AlphaScalpCopier</code> dessus.<br><br>
-  Onglet <b>Données d'entrée</b> :</p>
-  <table>
-    <tr><th>Réglage</th><th>À mettre</th></tr>
-    <tr><td><code>CleApi</code></td><td><b>ta clé bêta</b> (<code>as_…</code>)</td></tr>
-    <tr><td><code>RisqueParTrade</code></td><td><code>1.0</code> — soit 1 % du capital par trade</td></tr>
-    <tr><td><code>SuffixeSymbole</code></td><td>vide (voir plus bas si erreur)</td></tr>
-    <tr><td><code>PositionsMaximum</code></td><td><code>3</code></td></tr>
-  </table>
-  <p style="margin:0">Onglet <b>Général</b> : coche
-  <b>« Autoriser le trading automatique »</b>, puis <b>OK</b>.<br>
-  Un visage souriant apparaît en haut à droite du graphique.</p>
-  <figure><img src="/captures/5.png" loading="lazy" alt="La fenêtre de réglages, onglet « Données d entrée ». Sans clé dans ce champ, le copieur refuse de démarrer et te le dit dans une fenêtre.">
-  <figcaption>La fenêtre de réglages, onglet « Données d entrée ». Sans clé dans ce champ, le copieur refuse de démarrer et te le dit dans une fenêtre.</figcaption></figure>
-</div>
-
-<div class="etape">
-  <h3><span class="n">5</span> Vérifier</h3>
-  <p style="margin:0">Onglet <b>« Experts »</b>, en bas — <b>pas</b> l'onglet
-  « Journal », qui est juste à côté et ne contient aucun message du copieur.
-  Toutes ses lignes commencent par <code>[AlphaScalp]</code>. Tu dois
-  lire quelque chose comme :</p>
-  <p class="muted" style="font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
-     background:#080b10;border:1px solid var(--border);border-radius:8px;padding:12px;
-     margin-top:10px;white-space:pre-wrap;overflow-x:auto">[AlphaScalp] === AlphaScalp Copier v1.12 ===
-[AlphaScalp] Premier lancement — départ au signal n°42
-[AlphaScalp] Compte 12345678 | capital 10000.00 EUR | risque 1.0%
-[AlphaScalp] Rappel : ce terminal doit rester ALLUMÉ</p>
-  <figure><img src="/captures/6.png" loading="lazy" alt="L onglet « Experts » en bas — pas « Journal », juste à côté. Les lignes du copieur commencent toutes par [AlphaScalp].">
-  <figcaption>L onglet « Experts » en bas — pas « Journal », juste à côté. Les lignes du copieur commencent toutes par [AlphaScalp].</figcaption></figure>
-  <p style="margin:10px 0 0">À partir de là, il n'y a plus rien à faire.
-  Laisse tourner.</p>
-</div>
-
-<!-- [31/07] Le manque le plus couteux du parcours : personne ne disait au
-     testeur a quoi ressemble la NORMALE une fois installe. Sur les releves
-     reels, la strategie sort environ un trade par jour, avec des trous de
-     deux a trois jours. Un debutant qui installe le vendredi soir ne verra
-     rien avant mardi, en conclura que c est casse, et desinstallera --- ou
-     ecrira dans le groupe. C est la question qui allait revenir le plus. -->
-<div class="etape" style="border-color:rgba(250,178,25,.35);
-     background:rgba(250,178,25,.05)">
-  <h3>⏳ Et maintenant ? Il ne va rien se passer tout de suite</h3>
-  <p style="margin:0"><b>C'est normal, et c'est le point le plus important de
-  cette page.</b></p>
-  <p style="margin:10px 0 0">La stratégie sort en moyenne
-  <b>environ un trade par jour</b>, et il arrive régulièrement qu'il n'y en ait
-  <b>aucun pendant deux ou trois jours</b>. Le bot ne trade que quand ses
-  conditions sont réunies — rester à l'écart fait partie de la stratégie, ce
-  n'est pas une panne.</p>
-  <p style="margin:10px 0 0">Ajoute à ça que <b>les marchés sont fermés du
-  vendredi soir au dimanche soir</b> : si tu installes le vendredi, tu peux
-  très bien ne rien voir avant mardi.</p>
-  <p style="margin:10px 0 0"><b>Ne désinstalle rien, ne relance rien.</b>
-  Pour savoir si ça marche, ne regarde pas les trades — regarde si ton copieur
-  est vivant : <a href="#porte">recolle ta clé en haut de cette page</a>, elle
-  te dira <span style="color:#22c55e">« Ton copieur tourne — vu il y a 1 min »</span>.
-  C'est ça, la bonne réponse à « est-ce que ça fonctionne ? ».</p>
-</div>
-
-<h2>Si ça ne marche pas</h2>
-
-<details>
-  <summary>« Adresse NON AUTORISÉE dans MetaTrader »</summary>
-  <p class="muted">L'étape 2 n'a pas été faite, ou l'adresse comporte une
-  faute. Elle doit être exactement <code>https://alphascalp.onrender.com</code>,
-  sans barre oblique finale.</p>
-</details>
-
-<details>
-  <summary>« Clé encore INACTIVE côté AlphaScalp »</summary>
-  <p class="muted">Normal juste après l'inscription : ta clé doit être activée
-  à la main. Laisse le copieur tourner, il se réveillera tout seul le moment
-  venu. Rien à relancer.</p>
-</details>
-
-<details>
-  <summary>« Symbole XAUUSD introuvable chez ton broker »</summary>
-  <p class="muted">Beaucoup de brokers renomment les symboles :
-  <code>XAUUSD.r</code>, <code>XAUUSDm</code>, <code>XAUUSD#</code>… Regarde
-  dans ta fenêtre « Observation du marché » comment le tien s'appelle, et
-  renseigne la partie qui s'ajoute dans <code>SuffixeSymbole</code>
-  (par exemple <code>.r</code>) ou <code>PrefixeSymbole</code>.</p>
-</details>
-
-<details>
-  <summary>« au volume minimum, la perte serait de X alors que le risque cible est Y »</summary>
-  <p class="muted">Ce n'est pas une erreur. Le copieur refuse d'ouvrir parce
-  que le plus petit volume que ton broker accepte ferait risquer plus que
-  prévu. Ça arrive sur les indices avec un petit capital.
-  <b>Ne monte pas le risque juste pour faire passer un trade</b> — accepte que
-  ce symbole-là ne soit pas copié.</p>
-</details>
-
-<details>
-  <summary>« COMPTE NON DÉMO détecté — démarrage REFUSÉ »</summary>
-  <p class="muted">Le copieur est attaché à un compte réel. La bêta se fait
-  sur compte de démonstration, et ce refus est volontaire.</p>
-</details>
-
-<details>
-  <summary>Rien ne se passe, aucun message</summary>
-  <p class="muted">Vérifie le bouton « Trading Algo » (vert) et le visage
-  souriant en haut à droite du graphique. Un visage triste = trading
-  automatique désactivé pour cet EA, dans l'onglet Général de ses réglages.</p>
-</details>
-
-<h2>Ce que le copieur fait, et ne fait pas</h2>
-<p><b>Il fait :</b> relever les signaux, ouvrir et fermer <i>ses</i>
-positions, calculer la taille de position depuis <b>ton</b> capital.</p>
-<p><b>Il ne fait pas :</b> toucher aux positions que tu ouvres à la main,
-envoyer la moindre donnée personnelle (seule ta clé circule), modifier tes
-réglages.</p>
-<p>La taille des positions <b>n'est pas copiée telle quelle</b> : elle est
-recalculée depuis ton capital et le pourcentage de risque que tu as choisi.
-Si AlphaScalp risque 1 % du sien, tu risques 1 % du tien.</p>
-<p>Si tu arrêtes le copieur, les positions déjà ouvertes ne sont plus suivies
-mais <b>gardent leur stop et leur objectif</b>. Elles ne restent pas sans
-filet.</p>
-
-<footer>
-  ⚠️ Le trading comporte un risque de perte en capital. AlphaScalp ne fournit
-  pas de conseil en investissement et ne garantit aucun résultat. ·
-  <a href="/guide">Guide</a> ·
-  <a href="/confidentialite">Confidentialité</a> ·
-  <a href="/mentions-legales">Mentions légales</a>
-</footer>
-
-</div>
-
 <script>
-// La clé voyage dans un EN-TÊTE, jamais dans l'adresse : une URL finit dans
-// l'historique, les favoris et les journaux du serveur. Le fichier est donc
-// récupéré par requête authentifiée puis enregistré depuis le navigateur,
-// plutôt que par un simple lien.
-let cleValide = sessionStorage.getItem('as_cle') || '';
-let lienTg = '';
-let infosServeur = {};
-let derniereVerif = {};
+const champ = document.getElementById('cle');
+const bouton = document.getElementById('btnCle');
+const resultat = document.getElementById('resultat');
 
-function msg(texte, couleur) {
-  const e = document.getElementById('msgCle');
-  e.textContent = texte;
-  e.style.color = couleur || '#6b7a99';
-}
-
-function etatCopieur(j) {
-  // Le testeur n'avait aucun moyen de savoir si son installation fonctionne.
-  // Il voyait un graphique, un visage souriant, et attendait. Le doute pousse
-  // a desinstaller-reinstaller, ce qui ne repare rien.
-  if (j.vu_min === null || j.vu_min === undefined)
-    return '<div style="color:#6b7a99;font-size:13px;margin-top:10px">'
-      + 'Ton copieur ne s&#39;est pas encore manifeste. C&#39;est normal tant '
-      + 'que tu ne l&#39;as pas installe.</div>';
-  const m = Math.round(j.vu_min);
-  const vivant = m < 5;
-  let h = '<div style="font-size:13px;margin-top:10px;color:'
-    + (vivant ? '#22c55e' : '#fab219') + '">'
-    + (vivant ? '&#10003; Ton copieur tourne' : '&#9888; Ton copieur ne repond plus')
-    + ' <span style="color:#6b7a99">&mdash; vu il y a '
-    + (m < 1 ? 'moins d&#39;une minute' : m + ' min') + '</span>';
-  if (j.courtier) h += '<span style="color:#6b7a99"> &middot; ' + j.courtier + '</span>';
-  h += '</div>';
-  if (!vivant)
-    h += '<div style="color:#6b7a99;font-size:12.5px;margin-top:4px">'
-       + 'Verifie que MetaTrader est ouvert et que le bouton Trading Algo est vert.</div>';
-  if (j.probleme)
-    h += '<div style="color:#ef4444;font-size:12.5px;margin-top:4px">'
-       + 'Dernier probleme signale : ' + j.probleme + '</div>';
-  return h;
-}
-
-function deverrouiller(nom, active) {
-  document.getElementById('zoneDl').style.display = '';
-  const p = document.getElementById('porte');
-  p.querySelector('h3').innerHTML = '✅ Clé reconnue';
-  p.querySelector('p').innerHTML = active
-    ? 'Bienvenue <b>' + nom + '</b>. Ta clé est <b>active</b> : tout est prêt.'
-    : 'Bienvenue <b>' + nom + '</b>. Ta clé n&#39;est <b>pas encore activée</b> — '
-      + 'installe quand même le copieur, il attendra tout seul et se réveillera '
-      + 'à l&#39;activation. Rien à relancer.';
-  const zEtat = document.createElement('div');
-  zEtat.innerHTML = etatCopieur(derniereVerif);
-  p.parentNode.insertBefore(zEtat, p.nextSibling);
-  document.getElementById('cle').style.display = 'none';
-  // Lien profond : le testeur clique, le bot apprend qui il est, et pourra le
-  // prevenir a l activation. Sans ca, on n a AUCUN moyen de le joindre.
-  if (infosServeur.bot && lienTg) {
-    const d = document.createElement('div');
-    d.style.cssText = 'margin-top:14px';
-    d.innerHTML = '<a href="https://t.me/' + infosServeur.bot + '?start=' + lienTg
-      + '" target="_blank" style="display:block;background:#0e1420;'
-      + 'border:1px solid rgba(59,130,246,.45);color:#f0f4ff;text-decoration:none;'
-      + 'border-radius:10px;padding:13px;text-align:center;font-weight:600;'
-      + 'min-height:46px">Etre prevenu sur Telegram quand mon acces s ouvre</a>'
-      + '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Facultatif. '
-      + 'Tu recevras un message avec la marche a suivre, rien d autre.</p>';
-    document.getElementById('porte').appendChild(d);
-  }
-  document.getElementById('btnCle').style.display = 'none';
-  msg('');
+function afficher(texte, classe) {
+  resultat.hidden = false;
+  resultat.className = 'resultat ' + (classe || '');
+  resultat.textContent = texte;
 }
 
 async function verifier() {
-  const k = document.getElementById('cle').value.trim();
-  if (!k) { msg('Colle ta clé bêta.', '#ef4444'); return; }
-  msg('Vérification…');
+  const cle = champ.value.trim();
+  if (!cle) { afficher('Colle d’abord ta clé bêta.', 'attention'); return; }
+  afficher('Vérification…', 'muted');
+  bouton.disabled = true;
   try {
-    const r = await fetch('/api/client/verifier', {headers: {'X-API-Key': k}});
-    if (r.status === 401) { msg('Clé inconnue. Vérifie que tu as bien tout copié.', '#ef4444'); return; }
-    if (!r.ok) { msg('Erreur ' + r.status, '#ef4444'); return; }
-    const j = await r.json();
-    lienTg = j.lien_tg || '';
-    derniereVerif = j;
-    cleValide = k;
-    sessionStorage.setItem('as_cle', k);
-    deverrouiller(j.nom || 'testeur', j.active);
-  } catch (e) { msg('Serveur injoignable.', '#ef4444'); }
+    const reponse = await fetch('/api/client/verifier', {headers: {'X-API-Key': cle}});
+    if (reponse.status === 401) { afficher('Clé inconnue. Vérifie la copie ou récupère ta clé depuis la page d’inscription.', 'attention'); return; }
+    if (!reponse.ok) { afficher('Vérification momentanément indisponible (HTTP ' + reponse.status + ').', 'attention'); return; }
+    const etat = await reponse.json();
+    // Le compte s'affiche dès qu'AlphaScalp l'a préparé, avant même les
+    // messages d'état : c'est la seule chose que le testeur vient chercher.
+    afficherCompte(etat.compte);
+    if (!etat.active) { afficher('Ta place est enregistrée mais pas encore activée. Aucun téléchargement n’est nécessaire.', 'attention'); return; }
+    if (etat.vu_min === null || etat.vu_min === undefined) { afficher('Ta place est activée. Le terminal dédié est encore en préparation.', 'attention'); return; }
+    const minutes = Math.max(0, Math.round(etat.vu_min));
+    if (minutes < 5) afficher('Ton terminal démo hébergé fonctionne — vu il y a ' + (minutes < 1 ? 'moins d’une minute.' : minutes + ' min.'), 'ok');
+    else afficher('Ta place est active, mais le terminal ne s’est pas manifesté récemment. Demande une vérification dans le groupe des testeurs.', 'attention');
+  } catch (_) {
+    afficher('Serveur momentanément injoignable.', 'attention');
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
-async function recuperer(nom) {
-  if (!cleValide) { msg('Renseigne d&#39;abord ta clé.', '#ef4444'); return; }
-  msg('Téléchargement de ' + nom + '…');
-  try {
-    const r = await fetch('/telecharger/' + nom, {headers: {'X-API-Key': cleValide}});
-    if (r.status === 401) {
-      sessionStorage.removeItem('as_cle'); cleValide = '';
-      msg('Clé refusée. Recharge la page et ressaie.', '#ef4444'); return;
+function ligneChamp(libelle, valeur, secret) {
+  const ligne = document.createElement('div');
+  ligne.className = 'champ';
+  const lab = document.createElement('span');
+  lab.className = 'lab';
+  lab.textContent = libelle;
+  const val = document.createElement('span');
+  val.className = 'val';
+  val.textContent = secret ? '••••••••••' : valeur;
+  const actions = document.createElement('span');
+
+  if (secret) {
+    const voir = document.createElement('button');
+    voir.type = 'button';
+    voir.textContent = 'Afficher';
+    voir.addEventListener('click', () => {
+      const masque = val.textContent !== valeur;
+      val.textContent = masque ? valeur : '••••••••••';
+      voir.textContent = masque ? 'Masquer' : 'Afficher';
+    });
+    actions.appendChild(voir);
+  }
+
+  const copier = document.createElement('button');
+  copier.type = 'button';
+  copier.textContent = 'Copier';
+  copier.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(valeur);
+      copier.textContent = 'Copié';
+      setTimeout(() => { copier.textContent = 'Copier'; }, 1600);
+    } catch (_) {
+      // Le presse-papier est refusé hors HTTPS ou sans geste utilisateur :
+      // on le dit plutôt que de laisser croire que la copie a eu lieu.
+      copier.textContent = 'Copie refusée';
     }
-    if (!r.ok) { msg('Erreur ' + r.status, '#ef4444'); return; }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = nom;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    msg('✅ ' + nom + ' téléchargé.', '#22c55e');
-  } catch (e) { msg('Téléchargement impossible.', '#ef4444'); }
+  });
+  actions.appendChild(copier);
+
+  ligne.append(lab, val, actions);
+  return ligne;
 }
 
-// Lien du groupe, lu depuis le serveur : rien en dur dans la page.
-(async function(){
-  try{
-    const j = await (await fetch('/api/health')).json();
-    infosServeur = j;
-    if(!j.invitation) return;
-    document.getElementById('zoneGroupeDl').innerHTML =
-      '<div class="etape" style="border-color:rgba(59,130,246,.35)">'
-      + '<h3>\uD83D\uDCAC Le groupe des testeurs</h3>'
-      + '<p class="muted" style="margin:0 0 12px">Une question pendant '
-      + 'l&#39;installation ? On est la.</p>'
-      + '<a href="' + j.invitation + '" target="_blank" '
-      + 'style="display:inline-block;background:#3b82f6;color:#fff;'
-      + 'text-decoration:none;border-radius:10px;padding:12px 18px;'
-      + 'font-weight:600;min-height:44px">Rejoindre sur Telegram</a></div>';
-  }catch(e){}
-})();
-document.getElementById('cle').addEventListener('keydown', ev => {
-  if (ev.key === 'Enter') verifier();
-});
-// Clé déjà saisie dans cet onglet : on ne la redemande pas.
-if (cleValide) {
-  fetch('/api/client/verifier', {headers: {'X-API-Key': cleValide}})
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(j => { lienTg = j.lien_tg || ''; derniereVerif = j; deverrouiller(j.nom || 'testeur', j.active); })
-    .catch(() => { sessionStorage.removeItem('as_cle'); cleValide = ''; });
+function afficherCompte(compte) {
+  const zone = document.getElementById('zoneCompte');
+  zone.textContent = '';
+  if (!compte) return;
+
+  const bloc = document.createElement('div');
+  bloc.className = 'card compte';
+
+  const titre = document.createElement('h3');
+  titre.textContent = 'Ton compte de démonstration est prêt';
+  const intro = document.createElement('p');
+  intro.className = 'muted';
+  intro.style.marginTop = '0';
+  intro.textContent = 'Saisis ces trois informations dans l’application MetaTrader 5 de ton '
+    + 'téléphone. L’accès est en consultation seule : tu vois tout, tu ne peux pas passer '
+    + 'd’ordre — c’est voulu, pour que la mesure reste celle du copieur.';
+  bloc.append(titre, intro);
+
+  bloc.appendChild(ligneChamp('Numéro de compte', compte.login, false));
+  bloc.appendChild(ligneChamp('Serveur', compte.serveur, false));
+  bloc.appendChild(ligneChamp('Mot de passe', compte.mot_de_passe, true));
+
+  const sousTitre = document.createElement('h3');
+  sousTitre.style.margin = '20px 0 0';
+  sousTitre.textContent = 'Sur ton téléphone';
+  const etapes = document.createElement('ol');
+  etapes.className = 'etapes';
+  [
+    'Installe MetaTrader 5 depuis l’App Store ou Google Play — l’application officielle MetaQuotes.',
+    'Ouvre-la, puis va dans le menu → Gérer les comptes → +.',
+    'Choisis « Se connecter à un compte existant » et cherche le serveur indiqué ci-dessus.',
+    'Saisis le numéro de compte et le mot de passe.',
+    'C’est tout : les positions, l’historique et le solde fictif apparaissent.'
+  ].forEach(texte => {
+    const li = document.createElement('li');
+    li.textContent = texte;
+    etapes.appendChild(li);
+  });
+  bloc.append(sousTitre, etapes);
+
+  const note = document.createElement('p');
+  note.className = 'muted';
+  note.style.marginBottom = '0';
+  note.textContent = 'Argent fictif uniquement. Ne dépose jamais de fonds sur ce compte et ne '
+    + 'réutilise ce mot de passe nulle part ailleurs.';
+  bloc.appendChild(note);
+
+  zone.appendChild(bloc);
 }
+
+bouton.addEventListener('click', verifier);
+champ.addEventListener('keydown', event => { if (event.key === 'Enter') verifier(); });
+
+(async function chargerGroupe(){
+  try {
+    const reponse = await fetch('/api/health');
+    const etat = await reponse.json();
+    if (!etat.invitation) return;
+    const bloc = document.createElement('div');
+    bloc.className = 'card';
+    bloc.style.marginTop = '16px';
+    const titre = document.createElement('h3');
+    titre.textContent = 'Besoin d’aide ?';
+    const texte = document.createElement('p');
+    texte.className = 'muted';
+    texte.textContent = 'Le groupe des testeurs sert au suivi de l’activation et aux questions sur le compte démo.';
+    const lien = document.createElement('a');
+    lien.className = 'btn secondary';
+    lien.href = etat.invitation;
+    lien.target = '_blank';
+    lien.rel = 'noopener noreferrer';
+    lien.textContent = 'Ouvrir le groupe des testeurs';
+    bloc.append(titre, texte, lien);
+    document.getElementById('zoneGroupe').appendChild(bloc);
+  } catch (_) {}
+})();
 </script>
-</body>
-</html>
+</body></html>

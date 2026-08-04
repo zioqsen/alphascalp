@@ -1,0 +1,8 @@
+# Les terminaux portables contiennent leurs données locales et peuvent mémoriser
+# des informations de connexion. Ils ne doivent jamais entrer dans Git.
+runtime/
+*.log
+*.session
+.env
+.env.*
+token.txt

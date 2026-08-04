@@ -124,27 +124,31 @@ te contentes de consulter le site.</p>
           ni exploitée pour autre chose que les trois points ci-dessus.</span></td></tr>
 </table>
 
-<h2>Ce que le copieur transmet</h2>
+<h2>Ce que le terminal hébergé transmet</h2>
 
-<p>Si tu installes le copieur sur ton MetaTrader, il signale périodiquement
-son état au serveur, <b>uniquement à des fins de dépannage</b> :</p>
+<p>Pendant la phase pilote, le copieur est installé sur un terminal et un
+compte de démonstration gérés par AlphaScalp. Il signale périodiquement son
+état au serveur, <b>uniquement à des fins de dépannage</b> :</p>
 <ul>
   <li>sa <b>version</b>, pour savoir si tu utilises une version à jour ;</li>
-  <li>le <b>nom de ton courtier</b>, parce que les symboles et les tailles
-      minimales varient de l'un à l'autre ;</li>
-  <li>le <b>type de compte</b> (démonstration ou réel) ;</li>
+  <li>le <b>nom du courtier du compte démo dédié</b>, parce que les symboles et
+      les tailles minimales varient de l'un à l'autre ;</li>
+  <li>le <b>type de compte</b>, qui doit rester « démonstration » ;</li>
   <li>le <b>dernier problème rencontré</b> — un symbole introuvable, un trade
       refusé faute de volume minimum.</li>
 </ul>
 
 <div class="card">
   <h3 style="color:var(--green)">Ce qu'il ne transmet pas</h3>
-  <p class="muted" style="margin:0"><b>Ni ton solde, ni tes positions, ni tes
-  résultats.</b> Le dépannage n'en a aucun besoin, et collecter au-delà du
-  besoin n'apporte que des obligations. Le copieur ne transmet pas non plus
-  tes identifiants de courtage : il travaille depuis ton terminal et n'y a
-  jamais accès.</p>
+  <p class="muted" style="margin:0"><b>La télémétrie envoyée au serveur ne
+  contient ni solde, ni positions, ni résultats.</b> Le dépannage n'en a aucun
+  besoin. AlphaScalp administre toutefois le terminal et le compte démo créés
+  pour le pilote : leur activité est donc visible localement par l'équipe.
+  Aucun identifiant d'un compte personnel ou réel du testeur n'est demandé.</p>
 </div>
+
+<p>Quand un accès mobile est remis, il s'agit d'un accès de consultation au
+compte démo du pilote. Il ne doit pas être publié ou transmis à un tiers.</p>
 
 <p>Une clé d'accès technique est générée automatiquement et associée à ton
 inscription. Elle est créée <b>inactive</b> et ne donne accès à rien tant
