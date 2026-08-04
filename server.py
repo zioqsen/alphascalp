@@ -54,6 +54,19 @@ MASTER_TOKEN = os.environ.get("ALPHASCALP_MASTER_TOKEN", "master-dev-changeme")
 ADMIN_TOKEN  = os.environ.get("ALPHASCALP_ADMIN_TOKEN",  "admin-dev-changeme")
 DB_PATH      = os.environ.get("ALPHASCALP_DB",           "alphascalp.db")
 
+# [04/08] Jeton d'ANNONCES, volontairement distinct du jeton admin.
+#
+# Il n'autorise qu'une chose : publier un message dans le groupe des testeurs.
+# Il est destiné à un agent externe qui rédige des annonces, et rien ne
+# justifiait de lui confier le jeton admin — celui-ci crée, active et supprime
+# des testeurs, renseigne leurs comptes démo et pose des webhooks. Un pouvoir
+# qu'on n'a pas accordé ne peut pas être mal utilisé, ni fuiter avec.
+#
+# Vide = route d'annonces DÉSACTIVÉE. Pas de valeur de repli : une valeur par
+# défaut vivrait dans ce dépôt public, c'est-à-dire une porte ouverte sur le
+# groupe pour quiconque sait lire.
+ANNONCE_TOKEN = os.environ.get("ALPHASCALP_ANNONCE_TOKEN", "")
+
 
 def _verifier_jetons():
     """Refuse de démarrer en écoute PUBLIQUE avec les jetons de développement.
@@ -80,6 +93,16 @@ def _verifier_jetons():
                           f"développement")
     if MASTER_TOKEN == ADMIN_TOKEN:
         fautes.append("les deux jetons sont identiques")
+    # Le jeton d'annonces est facultatif, mais s'il existe il doit valoir
+    # quelque chose : égal à un autre jeton, il ne cloisonne plus rien et on
+    # croirait avoir limité un pouvoir qu'on a en réalité donné en entier.
+    if ANNONCE_TOKEN:
+        if len(ANNONCE_TOKEN) < 24:
+            fautes.append("ALPHASCALP_ANNONCE_TOKEN trop court (24 caractères "
+                          "minimum)")
+        if ANNONCE_TOKEN in (MASTER_TOKEN, ADMIN_TOKEN):
+            fautes.append("le jeton d'annonces est identique à un autre jeton — "
+                          "il perdrait tout son intérêt")
     if fautes:
         raise SystemExit(
             "\n  DÉMARRAGE REFUSÉ — écoute publique avec des secrets faibles :\n"
@@ -835,6 +858,23 @@ def require_admin(token: Optional[str], entete: Optional[str] = None):
         raise HTTPException(status_code=401, detail="Jeton admin invalide")
 
 
+def annonce_ok(entete: Optional[str]) -> bool:
+    """Autorise le jeton d'annonces, ou le jeton admin qui l'englobe.
+
+    [04/08] L'admin est strictement plus puissant : lui refuser cette route
+    n'aurait protégé personne et aurait oblige à jongler avec deux secrets
+    depuis la page d'administration.
+
+    Comparaison à temps constant dans les deux cas : un jeton se devine
+    caractère par caractère quand la comparaison s'arrête au premier écart.
+    """
+    if not entete:
+        return False
+    if ANNONCE_TOKEN and secrets.compare_digest(entete, ANNONCE_TOKEN):
+        return True
+    return secrets.compare_digest(entete, ADMIN_TOKEN)
+
+
 def get_client(api_key: Optional[str], *, marquer_vu: bool = True) -> sqlite3.Row:
     """Retrouve un inscrit par sa clé.
 
@@ -1341,6 +1381,85 @@ def admin_compte(api_key: str,
                        "mdp_lecture": "(enregistré)"}}
 
 
+# [04/08] ANNONCES DANS LE GROUPE DES TESTEURS.
+#
+# C'est la SEULE route du serveur qui accepte un texte libre à destination du
+# groupe. Toutes les autres postent un message figé, écrit et relu à l'avance.
+# Celle-ci peut donc dire n'importe quoi à de vrais testeurs : d'où le jeton
+# dédié, la limite de longueur, l'intervalle minimal et le compte rendu honnête
+# de ce que Telegram a réellement répondu.
+ANNONCE_MAX_CARACTERES = 3500        # Telegram tronque au-delà de 4096
+ANNONCE_MIN_INTERVALLE_S = 60
+_DERNIERE_ANNONCE = {"a": 0.0}
+
+
+@app.post("/api/admin/annonce")
+def admin_annonce(charge: dict = Body(...),
+                  x_annonce_token: Optional[str] = Header(None),
+                  x_admin_token: Optional[str] = Header(None)):
+    """Publie une annonce dans le groupe des testeurs.
+
+    Le jeton passe par un en-tête, jamais par l'URL. Le texte passe par le
+    corps, pour la même raison : une URL finit dans les journaux d'accès.
+    """
+    if not annonce_ok(x_annonce_token or x_admin_token):
+        raise HTTPException(status_code=401, detail="Jeton d'annonce invalide")
+    if not TG_TOKEN:
+        raise HTTPException(status_code=400, detail="Jeton Telegram absent.")
+    if not TG_GROUPE_ID:
+        raise HTTPException(status_code=400,
+                            detail="ALPHASCALP_TG_GROUPE_ID non configuré.")
+
+    texte = str(charge.get("texte") or "").strip()
+    if not texte:
+        raise HTTPException(status_code=400, detail="Annonce vide.")
+    if len(texte) > ANNONCE_MAX_CARACTERES:
+        raise HTTPException(status_code=400,
+                            detail=f"Annonce trop longue ({len(texte)} "
+                                   f"caractères, maximum "
+                                   f"{ANNONCE_MAX_CARACTERES}).")
+
+    # Cadence : un agent qui boucle ne doit pas pouvoir inonder le groupe. Un
+    # bot qui répète se fait couper le son, et on perd alors les messages
+    # utiles en même temps que les autres.
+    reste = ANNONCE_MIN_INTERVALLE_S - (time.time() - _DERNIERE_ANNONCE["a"])
+    if reste > 0:
+        raise HTTPException(status_code=429,
+                            detail=f"Annonce précédente il y a moins d'une "
+                                   f"minute. Réessaie dans {int(reste) + 1} s.")
+
+    envoi = urllib.parse.urlencode({
+        "chat_id": TG_GROUPE_ID, "text": texte, "parse_mode": "HTML",
+        "disable_web_page_preview": "true"}).encode()
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                data=envoi), timeout=20) as r:
+            reponse = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        # On rend l'erreur de Telegram telle quelle. Répondre 200 sur un envoi
+        # raté laisserait croire que le groupe a reçu le message — et personne
+        # ne s'en apercevrait avant longtemps.
+        raise HTTPException(status_code=502,
+                            detail="Telegram a refusé (%d) : %s"
+                                   % (e.code, e.read().decode("utf-8", "replace")[:300]))
+    except Exception as e:                          # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Telegram injoignable : {e}")
+
+    if not reponse.get("ok"):
+        raise HTTPException(status_code=502,
+                            detail="Telegram a refusé : %s"
+                                   % reponse.get("description", "sans motif"))
+
+    _DERNIERE_ANNONCE["a"] = time.time()
+    identifiant = reponse.get("result", {}).get("message_id")
+    # On journalise la taille et l'identifiant, pas le texte : il part dans un
+    # groupe, il n'a pas besoin d'être recopié dans les journaux de l'hébergeur.
+    print(f"ANNONCE | {now_iso()} | {len(texte)} car. | message {identifiant}",
+          flush=True)
+    return {"ok": True, "message_id": identifiant, "caracteres": len(texte)}
+
+
 # ─────────────────────────────────────────────────────────────
 # PAGE ADMIN (HTML minimaliste, thème AlphaScalp)
 # ─────────────────────────────────────────────────────────────
@@ -1394,6 +1513,17 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
   <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire » (lecture seule)</button>
   <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
+</div>
+<!-- [04/08] Annonce libre vers le groupe. Meme route que celle ouverte a
+     l agent externe : ce que tu vois ici est exactement ce qu il peut faire,
+     ni plus ni moins. Une capacite qu on delegue doit rester visible. -->
+<div style="margin:10px 0 16px">
+  <textarea id="annonce" rows="4" placeholder="Annonce a publier dans le groupe des testeurs. HTML simple accepte : <b>gras</b>, <i>italique</i>, <a href=&quot;...&quot;>lien</a>."
+    style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;
+           border:1px solid #d7dde8;font:inherit;resize:vertical"></textarea>
+  <button class="ghost" onclick="publierAnnonce()">Publier l annonce</button>
+  <span id="compteurAnnonce" class="muted" style="font-size:12px"></span>
+  <div id="zoneAnnonce" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Copieur</th><th>État</th><th>Vu</th><th></th></tr></thead>
 <tbody id="rows"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody></table>
@@ -1525,6 +1655,31 @@ async function load(){
         <button class="danger" onclick="del('${c.api_key}')">Suppr.</button>
       </div></td></tr>`).join('');
   }catch(e){ document.getElementById('rows').innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(''+e.message)+'</td></tr>'; }
+}
+// [04/08] Annonce libre vers le groupe des testeurs. Le compte rendu affiche
+// ce que TELEGRAM a repondu, pas ce que le serveur a tente : un envoi rate
+// qui s annonce reussi ne se remarque qu au moment ou personne n a rien recu.
+async function publierAnnonce(){
+  const zone = document.getElementById('zoneAnnonce');
+  const champ = document.getElementById('annonce');
+  const texte = (champ.value || '').trim();
+  if(!texte){ zone.textContent = 'Rien a publier.'; return; }
+  if(!confirm('Publier cette annonce dans le groupe des testeurs ?\\n\\n'
+            + texte.slice(0, 300) + (texte.length > 300 ? '\\n[...]' : ''))) return;
+  zone.textContent = 'Envoi…';
+  try{
+    const r = await fetch('/api/admin/annonce', {
+      method: 'POST',
+      headers: {'X-Admin-Token': token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({texte: texte})
+    });
+    const j = await r.json().catch(function(){ return {}; });
+    if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+    zone.innerHTML = '<span style="color:#0ca30c">Publiee dans le groupe</span> '
+      + '(message n&deg;' + esc('' + j.message_id) + ', '
+      + esc('' + j.caracteres) + ' caracteres).';
+    champ.value = '';
+  }catch(e){ zone.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
 }
 // [04/08] Remise du compte demo. Le corps part en JSON, jamais en query :
 // un mot de passe dans une URL se retrouve dans l historique du navigateur,

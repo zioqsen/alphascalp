@@ -72,6 +72,26 @@ services:
       - key: ALPHASCALP_TG_BOT
         sync: false
 
+      # [04/08] JETON D'ANNONCES — pour un agent externe qui redige des
+      # messages destines au groupe des testeurs.
+      #
+      # Il n'ouvre QUE POST /api/admin/annonce. Il ne permet ni de creer, ni
+      # d'activer, ni de supprimer un testeur, ni de lire un compte demo :
+      # c'est precisement ce que le jeton admin aurait donne en plus, et qu'on
+      # ne voulait pas confier pour publier trois lignes.
+      #
+      # Vide = fonctionnalite inactive, le serveur demarre normalement. S'il
+      # est renseigne, il doit faire au moins 24 caracteres et differer des
+      # deux autres jetons, sinon le demarrage est refuse : un cloisonnement
+      # qui n'en est pas un est pire que pas de cloisonnement du tout, parce
+      # qu'on croit l'avoir.
+      #
+      # Genere une valeur forte et colle-la ici dans le tableau de bord, puis
+      # remets-la a l'agent. sync: false = Render la demande sans qu'elle
+      # figure dans ce depot public.
+      - key: ALPHASCALP_ANNONCE_TOKEN
+        sync: false
+
       # ── [01/08] PERSISTANCE DES INSCRITS DANS GOOGLE DRIVE ──────────
       # Le disque de ce plan est éphémère : au réveil de l'instance la table
       # `clients` est vide et toutes les clés bêta disparaissent. Ces quatre
