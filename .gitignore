@@ -44,3 +44,9 @@ Thumbs.db
 # Captures d ecran AVANT floutage : elles contiennent le numero de compte
 # et le solde. Elles restent en local, jamais dans un depot public.
 landing page/captures/_originaux/
+
+# [04/08] Sauvegardes locales de binaires compiles. Une copie .bak de l'EA
+# (69 Ko) est partie dans ce depot PUBLIC en meme temps qu'un « commite tout ».
+# Elle n'a aucune valeur hors du poste : le binaire courant est deja versionne,
+# et l'ancien se retrouve dans l'historique. On ferme la classe, pas le cas.
+*.bak
