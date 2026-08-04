@@ -1116,6 +1116,11 @@ def health():
         "notify_telegram": bool(TG_TOKEN and TG_CHAT_ID),
         "tg_token_present": bool(TG_TOKEN),
         "tg_chat_id_present": bool(TG_CHAT_ID),
+        # [04/08] Dit si le jeton d'annonces est arrivé jusqu'au processus,
+        # sans en révéler un caractère. Sans cet indicateur, la seule façon de
+        # vérifier qu'il est bien configuré serait de tenter une annonce —
+        # c'est-à-dire d'écrire pour de vrai dans le groupe des testeurs.
+        "annonces_ouvertes": bool(ANNONCE_TOKEN),
         # Le lien d'invitation n'est pas un secret : c'est justement ce qu'on
         # distribue. Les pages le lisent ici plutôt que de l'écrire en dur.
         "invitation": TG_INVITATION,

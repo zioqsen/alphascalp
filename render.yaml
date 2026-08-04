@@ -86,11 +86,16 @@ services:
       # qui n'en est pas un est pire que pas de cloisonnement du tout, parce
       # qu'on croit l'avoir.
       #
-      # Genere une valeur forte et colle-la ici dans le tableau de bord, puis
-      # remets-la a l'agent. sync: false = Render la demande sans qu'elle
-      # figure dans ce depot public.
+      # [04/08] generateValue plutot que sync: false. Render fabrique lui-meme
+      # une valeur forte a la creation de la variable, exactement comme pour
+      # les jetons maitre et admin plus haut. Personne n'a a en inventer une,
+      # et surtout personne n'a besoin d'un terminal : la valeur se lit dans le
+      # tableau de bord, y compris depuis un telephone.
+      #
+      # Elle n'apparait jamais dans ce depot public : Render la garde, ce
+      # fichier ne fait que la reclamer.
       - key: ALPHASCALP_ANNONCE_TOKEN
-        sync: false
+        generateValue: true
 
       # ── [01/08] PERSISTANCE DES INSCRITS DANS GOOGLE DRIVE ──────────
       # Le disque de ce plan est éphémère : au réveil de l'instance la table
