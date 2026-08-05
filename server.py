@@ -1245,6 +1245,15 @@ def admin_list(token: Optional[str] = Query(None),
         # navigateur et n'a aucune raison d'y descendre.
         d["tg_lie"] = bool(d.get("tg_chat"))
         d.pop("tg_chat", None)
+        # [05/08] Lien de liaison personnel, pour les testeurs qui ne l'ont pas
+        # fait eux-memes. Telegram interdit a un bot d'ecrire le premier : le
+        # geste doit venir du testeur, et tout ce qu'on peut faire c'est le
+        # reduire a un clic. Sans ce lien ici, l'admin n'avait aucun moyen de
+        # le lui transmettre — le code n'etait affiche nulle part.
+        # Il disparait une fois la liaison faite : plus rien a proposer.
+        d["lien_liaison"] = ("" if d["tg_lie"] or not TG_BOT_NOM else
+                             f"https://t.me/{TG_BOT_NOM}?start="
+                             f"{code_liaison(d['api_key'])}")
         return d
 
     return {"clients": [_sans_secret(r) for r in rows]}
@@ -1791,9 +1800,17 @@ function copieurCell(c){
   return h;
 }
 function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+// [05/08] Liste gardee en memoire. Les actions par ligne ont besoin d autre
+// chose que la cle — le lien de liaison, l etat Telegram — et les faire
+// transiter par des chaines construites dans un gabarit HTML est exactement
+// ce qui a casse la page d inscription le 04/08 : une apostrophe echappee
+// cote Python devient une apostrophe nue cote navigateur, et tout le script
+// cesse de se charger. On passe la cle, on relit ici.
+let clientsCache = [];
 async function load(){
   try{
     const {clients} = await api('/api/admin/clients');
+    clientsCache = clients;
     const t = document.getElementById('rows');
     if(!clients.length){ t.innerHTML='<tr><td colspan="6" class="empty">Aucune clé. Crée la première ci-dessus.</td></tr>'; return; }
     t.innerHTML = clients.map(c=>`<tr>
@@ -1805,6 +1822,7 @@ async function load(){
       <td><div class="acts">
         <button class="ghost" onclick="toggle('${c.api_key}')">${c.active?'Désactiver':'Activer'}</button>
         <button class="ghost" onclick="compte('${c.api_key}')">${c.compte_remis?'Compte ✓':'Compte…'}</button>
+        <button class="ghost" onclick="lienTg('${c.api_key}')">${c.tg_lie?'TG lié ✓':'Lien TG…'}</button>
         <button class="ghost" onclick="renvoyer('${c.api_key}')">Renvoyer…</button>
         <button class="danger" onclick="del('${c.api_key}')">Suppr.</button>
       </div></td></tr>`).join('');
@@ -1837,6 +1855,37 @@ async function publierAnnonce(){
           : '');
     champ.value = '';
   }catch(e){ zone.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
+// [05/08] Lien de liaison personnel d un testeur, a lui transmettre.
+//
+// Telegram INTERDIT a un bot d ecrire le premier : tant que le testeur n a
+// pas ouvert une conversation avec lui, aucun message ne peut partir, et
+// aucune manipulation cote serveur n y change quoi que ce soit. Le geste doit
+// venir de lui. Tout ce qu on peut faire, c est le reduire a un clic.
+//
+// A ENVOYER EN PRIVE : celui qui ouvre ce lien devient le destinataire des
+// notifications de ce testeur. Aucun identifiant n y transite, mais ce n est
+// pas une raison pour le coller dans un groupe.
+async function lienTg(cle){
+  const c = clientsCache.find(function(x){ return x.api_key === cle; });
+  if(!c){ alert('Testeur introuvable — recharge la page.'); return; }
+  if(c.tg_lie){ alert('Ce testeur a deja relie son Telegram. Rien a envoyer.'); return; }
+  if(!c.lien_liaison){
+    alert('Le nom du bot Telegram n est pas configure sur le serveur '
+        + '(ALPHASCALP_TG_BOT) : impossible de fabriquer le lien.');
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(c.lien_liaison);
+    alert('Lien copie. Envoie-le a ' + c.name + ' EN PRIVE :\\n\\n'
+        + c.lien_liaison + '\\n\\n'
+        + 'Un clic de sa part suffit. Telegram interdit au bot d ecrire\\n'
+        + 'le premier, donc ce geste ne peut venir que de lui.');
+  }catch(_){
+    // Presse-papier refuse : on montre quand meme le lien, selectionnable.
+    prompt('Copie ce lien et envoie-le a ' + c.name + ' en prive :',
+           c.lien_liaison);
+  }
 }
 // [05/08] Rejouer un message manque. Le cas reel : un testeur relie son
 // Telegram APRES la creation de sa cle et la remise de son compte. Les deux
