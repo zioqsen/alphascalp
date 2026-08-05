@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 05/08/2026 à 09:11 par Codex.
+Dernière mise à jour : 05/08/2026 à 09:26 par Codex.
 
 ## Documents de référence
 
@@ -62,9 +62,7 @@ secret.
 
 ## Travail en cours
 
-- Codex — publication Git du correctif Telegram validée par le propriétaire ;
-  fichiers : `server.py` et présent suivi. Le changement généré de
-  `landing page/performance.html` reste explicitement hors périmètre.
+- Aucun travail déclaré.
 
 Si une ligne apparaît ici, ne pas toucher aux fichiers concernés sans faire
 valider le chevauchement par le propriétaire du projet.
@@ -102,13 +100,14 @@ valider le chevauchement par le propriétaire du projet.
   `📢 Annonces` enregistrée. La cible est persistée avec les inscrits ; un
   administrateur peut relier le sujet existant avec `/lier_annonces` et les
   futurs sujets créés par l'aménagement sont enregistrés automatiquement.
-- Ce correctif n'est pas encore commité, poussé ni déployé. Le sujet existant
-  n'est donc pas encore relié et l'annonce validée par Flo n'a pas été envoyée.
+- Ce correctif est commité et poussé sur `codex/cible-topic-annonces`
+  (`a669235`), mais pas fusionné ni déployé. Le sujet existant n'est donc pas
+  encore relié et l'annonce validée par Flo n'a pas été envoyée.
 
 ## Prochaines actions prioritaires
 
-1. Après autorisation, commiter et pousser le correctif des annonces, puis
-   attendre et vérifier le déploiement Render.
+1. Relire puis fusionner la pull request du correctif des annonces, attendre
+   le déploiement Render et vérifier `/api/health`.
 2. Ouvrir temporairement `📢 Annonces`, y envoyer `/lier_annonces` avec un
    compte administrateur non anonyme, puis vérifier le booléen public
    `annonces_topic_configure` sans exposer d'identifiant.
@@ -123,6 +122,30 @@ valider le chevauchement par le propriétaire du projet.
 8. Valider le parcours complet avec un compte de test avant tout déploiement.
 
 ## Journal partagé
+
+### 2026-08-05 09:26 — Codex — publication du correctif Telegram
+
+- Demande : commiter et pousser le correctif après validation explicite du
+  propriétaire.
+- Fichiers consultés : présent suivi, document détaillé de mise en place,
+  différences Git, état de `C:\bot`, remote et authentification GitHub.
+- Fichiers modifiés : présent suivi pour consigner la publication. Le commit
+  métier contient également `server.py`. `landing page/performance.html` est
+  resté hors index et hors commit.
+- Décisions et hypothèses : conserver la branche dédiée existante et ne pas
+  fusionner sans nouvelle validation ; la publication d'une branche ne
+  déclenche pas le déploiement Render de production.
+- Vérifications exécutées et résultats : analyse syntaxique Python valide ;
+  JavaScript rendu valide avec `node --check -` ; `git diff --check` et
+  `git diff --cached --check` valides ; index vérifié à exactement deux
+  fichiers avant le commit ; accès Git distant vérifié puis push réussi.
+- Points non vérifiés : déploiement Render, liaison réelle du sujet Telegram
+  et publication de l'annonce. Aucun message réel n'a été envoyé.
+- Prochaines actions : ouvrir et relire la pull request, la fusionner après
+  validation, attendre Render, relier `📢 Annonces`, puis publier le texte
+  validé par Flo avec contrôle strict de la réponse.
+- Git/déploiement : commit `a669235` poussé sur
+  `origin/codex/cible-topic-annonces`. Aucun déploiement ni fusion.
 
 ### 2026-08-05 09:11 — Codex — ciblage fiable du sujet Telegram Annonces
 
