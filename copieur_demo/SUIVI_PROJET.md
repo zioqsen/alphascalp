@@ -106,8 +106,8 @@ valider le chevauchement par le propriétaire du projet.
 
 ## Prochaines actions prioritaires
 
-1. Relire puis fusionner la pull request du correctif des annonces, attendre
-   le déploiement Render et vérifier `/api/health`.
+1. Créer manuellement la pull request du correctif des annonces, la relire puis
+   la fusionner ; attendre le déploiement Render et vérifier `/api/health`.
 2. Ouvrir temporairement `📢 Annonces`, y envoyer `/lier_annonces` avec un
    compte administrateur non anonyme, puis vérifier le booléen public
    `annonces_topic_configure` sans exposer d'identifiant.
@@ -140,12 +140,16 @@ valider le chevauchement par le propriétaire du projet.
   `git diff --cached --check` valides ; index vérifié à exactement deux
   fichiers avant le commit ; accès Git distant vérifié puis push réussi.
 - Points non vérifiés : déploiement Render, liaison réelle du sujet Telegram
-  et publication de l'annonce. Aucun message réel n'a été envoyé.
-- Prochaines actions : ouvrir et relire la pull request, la fusionner après
-  validation, attendre Render, relier `📢 Annonces`, puis publier le texte
-  validé par Flo avec contrôle strict de la réponse.
+  et publication de l'annonce. Aucun message réel n'a été envoyé. La création
+  automatique de la pull request a été refusée par l'intégration GitHub avec
+  un statut 403 ; aucune pull request n'a été prétendue créée.
+- Prochaines actions : créer manuellement la pull request depuis la branche,
+  la relire et la fusionner après validation, attendre Render, relier
+  `📢 Annonces`, puis publier le texte validé par Flo avec contrôle strict de
+  la réponse.
 - Git/déploiement : commit `a669235` poussé sur
-  `origin/codex/cible-topic-annonces`. Aucun déploiement ni fusion.
+  `origin/codex/cible-topic-annonces`, suivi par `8cf7a8a`. Aucun déploiement,
+  aucune fusion et aucune pull request créée.
 
 ### 2026-08-05 09:11 — Codex — ciblage fiable du sujet Telegram Annonces
 
