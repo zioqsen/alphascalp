@@ -1240,6 +1240,11 @@ def admin_list(token: Optional[str] = Query(None),
         d["compte_remis"] = bool(d.get("mt5_login") and d.get("mt5_serveur")
                                  and d.get("mt5_mdp_lecture"))
         d.pop("mt5_mdp_lecture", None)
+        # [05/08] Joignable ou non — la seule chose que l'admin ait besoin de
+        # savoir. L'identifiant de conversation lui-meme ne sert a rien dans un
+        # navigateur et n'a aucune raison d'y descendre.
+        d["tg_lie"] = bool(d.get("tg_chat"))
+        d.pop("tg_chat", None)
         return d
 
     return {"clients": [_sans_secret(r) for r in rows]}
@@ -1304,7 +1309,7 @@ COMPTE_PRET = (
 )
 
 
-def _prevenir_compte_pret(api_key: str) -> None:
+def _prevenir_compte_pret(api_key: str) -> bool:
     """Previent le testeur que son compte demo est disponible sur le site.
 
     [04/08] Le message ne contient AUCUN identifiant. Telegram n'est pas un
@@ -1314,13 +1319,20 @@ def _prevenir_compte_pret(api_key: str) -> None:
 
     Sans ce message, la remise ne prevenait personne : le compte serait pret
     et le testeur l'apprendrait en repassant par hasard sur la page.
-    Silencieux s'il n'a pas lie son Telegram -- c'est facultatif.
+
+    [05/08] Renvoie desormais SI quelqu'un a ete joint. Avant, l'absence de
+    Telegram lie rendait la fonction muette : l'admin voyait « compte remis »
+    et repartait convaincu que le testeur etait prevenu, alors que rien
+    n'etait parti et que rien ne le disait. Un envoi qui n'a pas lieu doit se
+    remarquer au moment ou il n'a pas lieu.
     """
     with db() as conn:
         r = conn.execute("SELECT tg_chat FROM clients WHERE api_key = ?",
                          (api_key,)).fetchone()
-    if r and r["tg_chat"]:
-        _notify_telegram_a(r["tg_chat"], COMPTE_PRET)
+    if not (r and r["tg_chat"]):
+        return False
+    _notify_telegram_a(r["tg_chat"], COMPTE_PRET)
+    return True
 
 
 def _notify_telegram_a(destination: str, texte: str) -> None:
@@ -1418,10 +1430,10 @@ def admin_compte(api_key: str,
                      (login, serveur, mdp, now_iso(), api_key))
 
     planifier_sauvegarde()   # le compte remis fait partie de la fiche inscrit
-    _prevenir_compte_pret(api_key)   # sinon il l'apprendrait par hasard
+    prevenu = _prevenir_compte_pret(api_key)   # sinon il l'apprendrait par hasard
     # On ne renvoie JAMAIS le mot de passe, même à l'admin : l'écrire dans une
     # réponse, c'est l'écrire dans un journal quelque part.
-    return {"ok": True, "api_key": api_key,
+    return {"ok": True, "api_key": api_key, "prevenu": prevenu,
             "compte": {"login": login, "serveur": serveur,
                        "mdp_lecture": "(enregistré)"}}
 
@@ -1716,7 +1728,7 @@ async function load(){
     t.innerHTML = clients.map(c=>`<tr>
       <td>${esc(c.name)}</td>
       <td><code>${esc(c.api_key)}</code></td>
-      <td class="muted">${copieurCell(c)}</td>
+      <td class="muted">${copieurCell(c)}<div style="margin-top:3px;font-size:12px">${c.tg_lie?'Telegram lié':'<b style="color:#c2410c">Telegram NON lié</b> — injoignable'}</div></td>
       <td><span class="pill ${c.active?'on':'off'}">${c.active?'● actif':'○ inactif'}</span></td>
       <td class="muted">${c.last_seen?esc(c.last_seen.replace('T',' ').replace('Z','')):'jamais'}</td>
       <td><div class="acts">
@@ -1779,10 +1791,18 @@ async function compte(cle){
     });
     const j = await r.json().catch(function(){ return {}; });
     if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
-    alert(j.compte
-      ? 'Compte remis. Le testeur est prevenu sur Telegram s il a lie son compte ;\\n'
-        + 'les identifiants restent sur le site, derriere sa cle.'
-      : 'Remise effacee. Le testeur revoit "terminal en preparation".');
+    // [05/08] On dit ce qui s est REELLEMENT passe. « prevenu sur Telegram
+    // s il a lie son compte » laissait le doute entier : l admin repartait en
+    // croyant le testeur informe, et personne ne savait le contraire.
+    alert(!j.compte
+      ? 'Remise effacee. Le testeur revoit "terminal en preparation".'
+      : (j.prevenu
+          ? 'Compte remis. Le testeur vient d etre prevenu sur Telegram ;\\n'
+            + 'les identifiants restent sur le site, derriere sa cle.'
+          : 'Compte remis, MAIS le testeur n a PAS ete prevenu :\\n'
+            + 'il n a jamais lie son Telegram, il n existe aucun moyen de le\\n'
+            + 'joindre depuis ici. Previens-le toi-meme et demande-lui\\n'
+            + 'd ouvrir le lien de liaison depuis la page /telecharger.'));
     load();
   }catch(e){ alert('Echec : ' + e.message); }
 }
