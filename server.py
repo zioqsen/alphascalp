@@ -3521,7 +3521,24 @@ async def telegram_webhook(request: Request):
         print("TOPIC_ANNONCES_LIE", flush=True)
         return {"ok": True}
 
-    if prive and commande in ("/moi", "/aide", "/help", "/start"):
+    # [05/08] `/start` RETIRÉ de cette liste. Il y figurait depuis a669235, un
+    # effet de bord de la refonte du webhook pour le topic Annonces.
+    #
+    # Ce bloc répond puis fait `return`. Or le code de liaison — celui qui
+    # compare le code reçu et écrit `tg_chat` — vit une cinquantaine de lignes
+    # plus bas. Tout « /start <code> » privé était donc intercepté ici,
+    # recevait l'état personnel, et repartait sans que rien ne soit enregistré.
+    #
+    # Le testeur appuyait sur DÉMARRER, le bot répondait, et personne n'était
+    # relié. Aucune erreur nulle part : le message partait bien, simplement
+    # vers la mauvaise branche. Toutes les notifications qui dépendent de
+    # `tg_chat` — activation, compte démo prêt, veille du copieur — sont donc
+    # sorties par la branche silencieuse depuis ce commit.
+    #
+    # Sans `/start` ici, un « /start » nu redescend vers le bloc de liaison qui
+    # le reconnaît déjà (payload absent) et répond son message d'accueil. Les
+    # trois autres commandes sont inchangées.
+    if prive and commande in ("/moi", "/aide", "/help"):
         cmd = commande
         try:
             rep = _AIDE if cmd in ("/aide", "/help") else _etat_personnel(chat)
