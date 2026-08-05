@@ -260,6 +260,21 @@ function afficherCompte(compte) {
 }
 
 bouton.addEventListener('click', verifier);
+
+// [05/08] Reprise de la clé déposée par la page d’inscription. Le testeur
+// arrive ici depuis sa confirmation, sa clé vient de lui être donnée : lui
+// demander de la recopier deux minutes plus tard est une friction gratuite, et
+// c’est là qu’on perd les gens. La vérification se lance seule.
+// sessionStorage, pas localStorage : elle disparaît à la fermeture du
+// navigateur. Une clé qui survit sur un appareil partagé est une clé
+// distribuée sans l’avoir voulu.
+(function reprendreCle(){
+  let cle = null;
+  try { cle = sessionStorage.getItem('as_cle'); } catch (_) { return; }
+  if (!cle) return;
+  champ.value = cle;
+  verifier();
+})();
 champ.addEventListener('keydown', event => { if (event.key === 'Enter') verifier(); });
 
 (async function chargerGroupe(){

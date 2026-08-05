@@ -2157,7 +2157,15 @@ def public_signup(body: SignupIn):
     # l'archive : même si la base SQLite disparaît au prochain réveil de
     # l'instance, aucun béta-testeur n'est perdu.
     _notify_signup(email, rang=rang, prenom=prenom, nom=nom)
-    return {"ok": True, "already": False, "api_key": key, "active": False}
+    # [05/08] Le lien de liaison part AVEC la cle, au moment ou le testeur la
+    # recoit. C'est le seul instant ou il est certainement devant son ecran et
+    # motive. Lui demander d'aller sur une autre page pour le faire plus tard,
+    # c'est le perdre : la liaison ne peut pas etre automatisee — Telegram
+    # interdit a un bot d'ecrire le premier — mais elle peut tenir en un
+    # geste, au bon moment.
+    return {"ok": True, "already": False, "api_key": key, "active": False,
+            "lien_tg": (f"https://t.me/{TG_BOT_NOM}?start={code_liaison(key)}"
+                        if TG_BOT_NOM else "")}
 
 
 REJOINDRE_HTML = """<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -2313,6 +2321,25 @@ async function inscrire(){
         +'Ecrire au support &rarr;</a></div>';
       return;
     }
+    // [05/08] La cle voyage jusqu a la page de suivi, pour que le testeur n ait
+    // pas a la recopier a la main deux minutes apres l avoir recue. sessionStorage
+    // et non localStorage : elle disparait a la fermeture du navigateur, comme le
+    // jeton d administration. Une cle qui survit sur un appareil partage est une
+    // cle qu on a distribuee sans le vouloir.
+    try{ sessionStorage.setItem('as_cle', j.api_key); }catch(_){}
+    // Bouton de liaison Telegram, propose ICI parce que c est le seul instant ou
+    // le testeur est certainement devant son ecran, sa cle sous les yeux.
+    const blocTg = j.lien_tg
+      ? '<a href="'+j.lien_tg+'" target="_blank" rel="noopener noreferrer" '
+        +'style="display:block;background:#22c55e;color:#fff;text-decoration:none;'
+        +'border-radius:10px;padding:14px;text-align:center;font-weight:600;'
+        +'margin:0 0 8px;min-height:46px">Relier mon Telegram &rarr;</a>'
+        +'<p style="color:#6b7a99;font-size:12.5px;margin:0 0 14px">'
+        +'Ouvre-le <b>depuis ton téléphone</b>, puis appuie sur <b>DÉMARRER</b> '
+        +'dans Telegram : la conversation reste vide tant que tu n&#39;as pas '
+        +'appuyé. Sans ça, personne ne peut te prévenir quand ton compte est '
+        +'prêt.</p>'
+      : '';
     document.getElementById('form').innerHTML =
       '<div class="msg"><span class="ok">✅ Inscription reçue !</span>'
       +'<p style="margin-top:10px;color:#6b7a99">Voici ta clé bêta (garde-la) :</p>'
@@ -2320,6 +2347,7 @@ async function inscrire(){
       +'<p style="color:#6b7a99;font-size:12.5px;margin:-4px 0 14px">'
       +'Note-la. Si tu la perds, demande sa recuperation depuis ton adresse '
       +'email d&#39;inscription.</p>'
+      +blocTg
       +'<a href="/telecharger" style="display:block;background:#3b82f6;color:#fff;'
       +'text-decoration:none;border-radius:10px;padding:14px;text-align:center;'
       +'font-weight:600;margin:0 0 6px;min-height:46px">Suivre l&#39;activation &rarr;</a>'
