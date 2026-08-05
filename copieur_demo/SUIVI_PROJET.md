@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 04/08/2026 à 21:23 par Codex.
+Dernière mise à jour : 05/08/2026 à 09:11 par Codex.
 
 ## Documents de référence
 
@@ -62,7 +62,9 @@ secret.
 
 ## Travail en cours
 
-Aucune intervention déclarée.
+- Codex — publication Git du correctif Telegram validée par le propriétaire ;
+  fichiers : `server.py` et présent suivi. Le changement généré de
+  `landing page/performance.html` reste explicitement hors périmètre.
 
 Si une ligne apparaît ici, ne pas toucher aux fichiers concernés sans faire
 valider le chevauchement par le propriétaire du projet.
@@ -96,19 +98,60 @@ valider le chevauchement par le propriétaire du projet.
 - `landing page/performance.html` contenait des changements générés antérieurs
   qu'il faut préserver.
 - Seul le bot scalping alimente actuellement automatiquement le relais.
+- Le correctif local des annonces refuse désormais tout envoi sans cible
+  `📢 Annonces` enregistrée. La cible est persistée avec les inscrits ; un
+  administrateur peut relier le sujet existant avec `/lier_annonces` et les
+  futurs sujets créés par l'aménagement sont enregistrés automatiquement.
+- Ce correctif n'est pas encore commité, poussé ni déployé. Le sujet existant
+  n'est donc pas encore relié et l'annonce validée par Flo n'a pas été envoyée.
 
 ## Prochaines actions prioritaires
 
-1. Faire relire les différences actuelles par le prochain agent sans modifier.
-2. Confirmer avec le propriétaire que les comptes démo sont créés par
+1. Après autorisation, commiter et pousser le correctif des annonces, puis
+   attendre et vérifier le déploiement Render.
+2. Ouvrir temporairement `📢 Annonces`, y envoyer `/lier_annonces` avec un
+   compte administrateur non anonyme, puis vérifier le booléen public
+   `annonces_topic_configure` sans exposer d'identifiant.
+3. Publier le texte déjà validé par Flo et ne déclarer l'envoi réussi qu'après
+   une réponse HTTP 200 contenant `ok: true` et la destination `annonces`.
+4. Confirmer avec le propriétaire que les comptes démo sont créés par
    AlphaScalp, puis remis au testeur en accès de consultation.
-3. Finaliser `beta_02` manuellement et vérifier l'accès mobile en lecture seule.
-4. Mettre en place une supervision distincte pour chaque terminal.
-5. Tester progressivement la charge avec cinq terminaux, puis davantage après
+5. Finaliser `beta_02` manuellement et vérifier l'accès mobile en lecture seule.
+6. Mettre en place une supervision distincte pour chaque terminal.
+7. Tester progressivement la charge avec cinq terminaux, puis davantage après
    le passage de 16 à 32 Go de RAM.
-6. Valider le parcours complet avec un compte de test avant tout déploiement.
+8. Valider le parcours complet avec un compte de test avant tout déploiement.
 
 ## Journal partagé
+
+### 2026-08-05 09:11 — Codex — ciblage fiable du sujet Telegram Annonces
+
+- Demande : corriger l'envoi refusé par Telegram avec `TOPIC_CLOSED` lors de
+  la publication depuis l'administration.
+- Fichiers consultés : présent suivi, document détaillé de mise en place,
+  `server.py`, états et différences Git de `C:\PROJET AlphaScalp` et `C:\bot`.
+- Fichiers modifiés : `server.py` et le présent suivi. Le changement généré
+  antérieur de `landing page/performance.html` a été préservé sans modification.
+- Décisions et hypothèses : la cause vérifiée est l'absence de
+  `message_thread_id` dans l'envoi, qui visait alors le sujet général fermé
+  (« A lire »). Aucun repli vers le général n'est permis. Le sujet existant se
+  lie par un message Telegram authentifié, envoyé dans le sujet par un
+  administrateur vérifié avec `getChatMember`; son identifiant est stocké en
+  SQLite et dans l'instantané Google Drive. L'envoi rouvre explicitement le
+  bon sujet, publie dedans, puis le referme.
+- Vérifications exécutées et résultats : analyse syntaxique Python valide ;
+  JavaScript rendu extrait puis validé par `node --check -` ; `git diff
+  --check` valide ; harnais isolé couvrant absence de cible (409), envoi
+  nominal, erreur Telegram, échec de refermeture, liaison administrateur,
+  refus d'un membre et message privé vide : tous valides ; aller-retour du
+  nouveau format de persistance et compatibilité de l'ancien format : valides.
+- Points non vérifiés : comportement avec le vrai groupe Telegram, permission
+  effective du bot pour gérer les sujets, persistance Drive réelle et page
+  Render après déploiement. Aucun message réel n'a été envoyé.
+- Prochaines actions : commiter/pousser après autorisation, vérifier Render,
+  relier le sujet existant puis publier l'annonce déjà validée par Flo.
+- Git/déploiement : branche locale `codex/cible-topic-annonces`; aucun commit,
+  push ou déploiement effectué.
 
 ### 2026-08-04 21:23 — Codex — création du remote privé de `C:\bot`
 

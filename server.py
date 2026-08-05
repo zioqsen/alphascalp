@@ -506,6 +506,11 @@ def _creer_tables(conn):
         regime      TEXT,                    -- info contextuelle (TREND/RANGE...)
         created_at  TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS telegram_topics (
+        nom         TEXT PRIMARY KEY,
+        thread_id   INTEGER NOT NULL,
+        updated_at  TEXT NOT NULL
+    );
     """)
     # [28/07] Migration sûre : colonne email pour l'inscription publique.
     # ALTER TABLE ADD COLUMN est idempotent si on avale l'erreur "duplicate".
@@ -648,7 +653,7 @@ def _drive_token() -> Optional[str]:
         return None
 
 
-def _drive_lire() -> Optional[list]:
+def _drive_lire() -> Optional[dict]:
     jeton = _drive_token()
     if not jeton:
         return None
@@ -659,19 +664,30 @@ def _drive_lire() -> Optional[list]:
         with urllib.request.urlopen(req, timeout=45) as r:
             brut = r.read().decode("utf-8").strip()
         if not brut:
-            return []                                   # fichier neuf : normal
+            return {"clients": [], "telegram_topics": []}
         contenu = json.loads(brut)
-        return contenu.get("clients", []) if isinstance(contenu, dict) else contenu
+        # Les anciens instantanés étaient une simple liste de clients. On les
+        # accepte encore, mais tout nouvel instantané transporte aussi les
+        # quelques réglages durables du groupe Telegram.
+        if isinstance(contenu, list):
+            return {"clients": contenu, "telegram_topics": []}
+        if not isinstance(contenu, dict):
+            raise ValueError("format d'instantané inconnu")
+        return {
+            "clients": contenu.get("clients", []),
+            "telegram_topics": contenu.get("telegram_topics", []),
+        }
     except Exception as e:                              # noqa: BLE001
         _drive_alerte(f"lecture impossible ({e})")
         return None
 
 
-def _drive_ecrire(lignes: list) -> bool:
+def _drive_ecrire(lignes: list, telegram_topics: Optional[list] = None) -> bool:
     jeton = _drive_token()
     if not jeton:
         return False
-    corps = json.dumps({"maj": now_iso(), "n": len(lignes), "clients": lignes},
+    corps = json.dumps({"maj": now_iso(), "n": len(lignes), "clients": lignes,
+                       "telegram_topics": telegram_topics or []},
                        ensure_ascii=False, indent=1).encode("utf-8")
     try:
         req = urllib.request.Request(
@@ -703,13 +719,16 @@ def restaurer_clients() -> None:
               "la base reste éphémère.", flush=True)
         return
     _drive_etat["actif"] = True
-    lignes = _drive_lire()
-    if lignes is None:
+    instantane = _drive_lire()
+    if instantane is None:
         _drive_etat["restaure"] = False
         _drive_alerte("RESTAURATION ÉCHOUÉE au démarrage — le serveur repart "
                       "sur une base vide, les copieurs vont recevoir 401.")
         return
+    lignes = instantane.get("clients", [])
+    sujets = instantane.get("telegram_topics", [])
     remis = 0
+    sujets_remis = 0
     with db() as conn:
         colonnes = [d[1] for d in conn.execute("PRAGMA table_info(clients)")]
         for ligne in lignes:
@@ -724,10 +743,25 @@ def restaurer_clients() -> None:
                 remis += cur.rowcount
             except Exception:                           # noqa: BLE001
                 continue
+        for sujet in sujets:
+            try:
+                nom = str(sujet.get("nom") or "").strip()
+                thread_id = int(sujet.get("thread_id"))
+                updated_at = str(sujet.get("updated_at") or now_iso())
+                if not nom or thread_id <= 0:
+                    continue
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO telegram_topics "
+                    "(nom, thread_id, updated_at) VALUES (?,?,?)",
+                    (nom, thread_id, updated_at))
+                sujets_remis += cur.rowcount
+            except Exception:                           # noqa: BLE001
+                continue
     _drive_etat["restaure"] = True
     _drive_etat["lignes"] = len(lignes)
     print(f"DRIVE | restauration : {remis} inscrit(s) réinjecté(s) "
-          f"sur {len(lignes)} dans l'instantané", flush=True)
+          f"sur {len(lignes)} dans l'instantané ; "
+          f"{sujets_remis} sujet(s) Telegram réinjecté(s)", flush=True)
 
 
 def purger_dates_naissance() -> int:
@@ -773,7 +807,9 @@ def _boucle_sauvegarde() -> None:
                 with db() as conn:
                     lignes = [dict(r) for r in conn.execute(
                         "SELECT * FROM clients ORDER BY created_at")]
-                _drive_ecrire(lignes)
+                    sujets = [dict(r) for r in conn.execute(
+                        "SELECT * FROM telegram_topics ORDER BY nom")]
+                _drive_ecrire(lignes, sujets)
         except Exception as e:                          # noqa: BLE001
             _drive_alerte(f"boucle de sauvegarde : {e}")
 
@@ -1121,6 +1157,10 @@ def health():
         # vérifier qu'il est bien configuré serait de tenter une annonce —
         # c'est-à-dire d'écrire pour de vrai dans le groupe des testeurs.
         "annonces_ouvertes": bool(ANNONCE_TOKEN),
+        # Une route disponible ne suffit pas : sans identifiant de sujet,
+        # Telegram accepterait éventuellement un envoi vers le sujet général.
+        # On expose donc séparément la présence de la cible attendue.
+        "annonces_topic_configure": _topic_id(TOPIC_ANNONCES) is not None,
         # Le lien d'invitation n'est pas un secret : c'est justement ce qu'on
         # distribue. Les pages le lisent ici plutôt que de l'écrire en dur.
         "invitation": TG_INVITATION,
@@ -1424,6 +1464,14 @@ def admin_annonce(charge: dict = Body(...),
                                    f"caractères, maximum "
                                    f"{ANNONCE_MAX_CARACTERES}).")
 
+    thread_id = _topic_id(TOPIC_ANNONCES)
+    if thread_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Topic Annonces non relié. Ouvre temporairement le topic "
+                   "📢 Annonces dans Telegram puis envoie /lier_annonces. "
+                   "Le bot vérifiera le rôle admin et refermera le topic.")
+
     # Cadence : un agent qui boucle ne doit pas pouvoir inonder le groupe. Un
     # bot qui répète se fait couper le son, et on perd alors les messages
     # utiles en même temps que les autres.
@@ -1433,28 +1481,34 @@ def admin_annonce(charge: dict = Body(...),
                             detail=f"Annonce précédente il y a moins d'une "
                                    f"minute. Réessaie dans {int(reste) + 1} s.")
 
-    envoi = urllib.parse.urlencode({
-        "chat_id": TG_GROUPE_ID, "text": texte, "parse_mode": "HTML",
-        "disable_web_page_preview": "true"}).encode()
-    try:
-        with urllib.request.urlopen(urllib.request.Request(
-                f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
-                data=envoi), timeout=20) as r:
-            reponse = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        # On rend l'erreur de Telegram telle quelle. Répondre 200 sur un envoi
-        # raté laisserait croire que le groupe a reçu le message — et personne
-        # ne s'en apercevrait avant longtemps.
-        raise HTTPException(status_code=502,
-                            detail="Telegram a refusé (%d) : %s"
-                                   % (e.code, e.read().decode("utf-8", "replace")[:300]))
-    except Exception as e:                          # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"Telegram injoignable : {e}")
+    params_topic = {"chat_id": TG_GROUPE_ID,
+                    "message_thread_id": thread_id}
+    reouverture = _tg_appel("reopenForumTopic", params_topic)
+    if not reouverture.get("ok") and not _topic_deja_ouvert(reouverture):
+        raise HTTPException(
+            status_code=502,
+            detail="Telegram n'a pas rouvert le topic Annonces : %s"
+                   % reouverture.get("description", "sans motif"))
+
+    reponse = _tg_appel("sendMessage", {
+        "chat_id": TG_GROUPE_ID,
+        "message_thread_id": thread_id,
+        "text": texte,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": "true",
+    })
+    # Le topic est annoncé « lecture seule ». On le referme même si l'envoi a
+    # échoué, afin qu'une erreur Telegram ne change pas silencieusement les
+    # droits visibles par les testeurs.
+    fermeture = _tg_appel("closeForumTopic", params_topic)
 
     if not reponse.get("ok"):
+        motif = reponse.get("description", "sans motif")
+        if not fermeture.get("ok"):
+            motif += "; refermeture également refusée : " + str(
+                fermeture.get("description", "sans motif"))
         raise HTTPException(status_code=502,
-                            detail="Telegram a refusé : %s"
-                                   % reponse.get("description", "sans motif"))
+                            detail="Telegram a refusé : %s" % motif)
 
     _DERNIERE_ANNONCE["a"] = time.time()
     identifiant = reponse.get("result", {}).get("message_id")
@@ -1462,7 +1516,13 @@ def admin_annonce(charge: dict = Body(...),
     # groupe, il n'a pas besoin d'être recopié dans les journaux de l'hébergeur.
     print(f"ANNONCE | {now_iso()} | {len(texte)} car. | message {identifiant}",
           flush=True)
-    return {"ok": True, "message_id": identifiant, "caracteres": len(texte)}
+    topic_referme = bool(fermeture.get("ok"))
+    if not topic_referme:
+        print("ANNONCE_TOPIC_OUVERT | fermeture refusée : %s"
+              % fermeture.get("description", "sans motif"), flush=True)
+    return {"ok": True, "message_id": identifiant,
+            "caracteres": len(texte), "destination": "annonces",
+            "topic_referme": topic_referme}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1523,6 +1583,11 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
      l agent externe : ce que tu vois ici est exactement ce qu il peut faire,
      ni plus ni moins. Une capacite qu on delegue doit rester visible. -->
 <div style="margin:10px 0 16px">
+  <div class="muted" style="margin-bottom:8px;font-size:12px;line-height:1.5">
+    Première liaison uniquement : ouvre temporairement le sujet 📢 Annonces
+    dans Telegram, puis envoie <code>/lier_annonces</code> à l'intérieur.
+    Le bot vérifie que tu es administrateur, mémorise ce sujet et le referme.
+  </div>
   <textarea id="annonce" rows="4" placeholder="Annonce a publier dans le groupe des testeurs. HTML simple accepte : <b>gras</b>, <i>italique</i>, <a href=&quot;...&quot;>lien</a>."
     style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;
            border:1px solid #d7dde8;font:inherit;resize:vertical"></textarea>
@@ -1680,9 +1745,12 @@ async function publierAnnonce(){
     });
     const j = await r.json().catch(function(){ return {}; });
     if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
-    zone.innerHTML = '<span style="color:#0ca30c">Publiee dans le groupe</span> '
+    zone.innerHTML = '<span style="color:#0ca30c">Publiée dans 📢 Annonces</span> '
       + '(message n&deg;' + esc('' + j.message_id) + ', '
-      + esc('' + j.caracteres) + ' caracteres).';
+      + esc('' + j.caracteres) + ' caractères).'
+      + (j.topic_referme === false
+          ? ' <span style="color:#ef4444">Attention : Telegram n&#39;a pas refermé le sujet.</span>'
+          : '');
     champ.value = '';
   }catch(e){ zone.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
 }
@@ -2330,6 +2398,47 @@ SUJETS_GROUPE = [
     ("💬 Discussion",      "Tout le reste."),
 ]
 
+TOPIC_ANNONCES = "annonces"
+COMMANDE_LIER_ANNONCES = "/lier_annonces"
+
+
+def _topic_id(nom: str) -> Optional[int]:
+    """Retourne l'identifiant durable d'un topic, jamais celui d'un repli.
+
+    Publier dans le sujet général quand « Annonces » n'est pas configuré
+    serait un succès vers la mauvaise destination. L'absence reste donc
+    visible et bloque l'envoi.
+    """
+    with db() as conn:
+        ligne = conn.execute(
+            "SELECT thread_id FROM telegram_topics WHERE nom = ?", (nom,)
+        ).fetchone()
+    if not ligne:
+        return None
+    try:
+        valeur = int(ligne["thread_id"])
+        return valeur if valeur > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _memoriser_topic(nom: str, thread_id: int) -> None:
+    valeur = int(thread_id)
+    if valeur <= 0:
+        raise ValueError("message_thread_id invalide")
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO telegram_topics (nom, thread_id, updated_at) "
+            "VALUES (?,?,?) ON CONFLICT(nom) DO UPDATE SET "
+            "thread_id = excluded.thread_id, updated_at = excluded.updated_at",
+            (nom, valeur, now_iso()))
+    planifier_sauvegarde()
+
+
+def _topic_deja_ouvert(reponse: dict) -> bool:
+    description = str(reponse.get("description") or "").upper()
+    return "TOPIC_NOT_MODIFIED" in description
+
 DESCRIPTION_GROUPE = (
     "Bêta privée d'AlphaScalp — copie de trades sur comptes de DÉMONSTRATION. "
     "Argent fictif, aucune coordonnée bancaire. "
@@ -2537,6 +2646,21 @@ def admin_amenager(token: Optional[str] = Query(None),
         r = _tg_appel("createForumTopic", {"chat_id": TG_GROUPE_ID, "name": nom})
         if r.get("ok"):
             rapport["sujets"].append({"nom": nom, "etat": "créé"})
+            # Lors d'une création neuve Telegram nous donne l'identifiant
+            # exact. Le conserver tout de suite évite une liaison manuelle et,
+            # surtout, tout repli ultérieur vers le sujet général.
+            if nom == "📢 Annonces":
+                thread_id = r.get("result", {}).get("message_thread_id")
+                try:
+                    _memoriser_topic(TOPIC_ANNONCES, int(thread_id))
+                    fermeture = _tg_appel("closeForumTopic", {
+                        "chat_id": TG_GROUPE_ID,
+                        "message_thread_id": int(thread_id),
+                    })
+                    rapport["sujets"][-1]["lecture_seule"] = bool(
+                        fermeture.get("ok"))
+                except (TypeError, ValueError):
+                    rapport["sujets"][-1]["cible_memorisee"] = False
         else:
             # Cause n°1 : le mode Forum n'est pas activé sur le groupe. C'est
             # un réglage manuel, aucune permission de bot ne le remplace.
@@ -3136,8 +3260,76 @@ async def telegram_webhook(request: Request):
 
     # Commandes personnelles, en conversation privée uniquement.
     prive = (msg.get("chat") or {}).get("type") == "private"
-    if prive and texte.split()[0].lower() in ("/moi", "/aide", "/help", "/start@"):
-        cmd = texte.split()[0].lower()
+    commande = (texte.split(maxsplit=1)[0].split("@", 1)[0].lower()
+                if texte else "")
+
+    # Telegram ne propose pas d'API pour retrouver les sujets existants. Un
+    # administrateur lie donc une fois le sujet courant ; son identifiant vient
+    # du message Telegram authentifié, pas d'une saisie libre dans l'admin.
+    if commande == COMMANDE_LIER_ANNONCES:
+        if prive or str(chat) != str(TG_GROUPE_ID):
+            return {"ok": True}
+        thread_id = msg.get("message_thread_id")
+        auteur = (msg.get("from") or {}).get("id")
+        params_reponse = {
+            "chat_id": chat,
+            "text": "",
+            "disable_web_page_preview": "true",
+        }
+        if thread_id:
+            params_reponse["message_thread_id"] = thread_id
+        if not thread_id:
+            params_reponse["text"] = (
+                "Cette commande doit être envoyée à l'intérieur du sujet "
+                "📢 Annonces, pas dans le sujet général.")
+            _tg_appel("sendMessage", params_reponse)
+            return {"ok": True}
+        if not auteur:
+            params_reponse["text"] = (
+                "Je ne peux pas vérifier l'administrateur de ce message. "
+                "Désactive temporairement l'envoi anonyme puis recommence.")
+            _tg_appel("sendMessage", params_reponse)
+            return {"ok": True}
+
+        membre = _tg_appel("getChatMember", {
+            "chat_id": TG_GROUPE_ID,
+            "user_id": auteur,
+        })
+        statut = str(membre.get("result", {}).get("status") or "")
+        if not membre.get("ok") or statut not in ("administrator", "creator"):
+            params_reponse["text"] = "Commande réservée à un administrateur du groupe."
+            _tg_appel("sendMessage", params_reponse)
+            print("TOPIC_ANNONCES_REFUSE | auteur non administrateur", flush=True)
+            return {"ok": True}
+
+        try:
+            _memoriser_topic(TOPIC_ANNONCES, int(thread_id))
+        except (TypeError, ValueError):
+            print("TOPIC_ANNONCES_KO | identifiant invalide", flush=True)
+            return {"ok": True}
+
+        # La commande elle-même n'a pas vocation à rester dans un sujet de
+        # lecture seule. Son effacement n'est toutefois pas une condition de
+        # la liaison : certaines permissions Telegram peuvent le refuser.
+        if msg.get("message_id"):
+            _tg_appel("deleteMessage", {
+                "chat_id": chat,
+                "message_id": msg["message_id"],
+            })
+        params_reponse["text"] = (
+            "Sujet 📢 Annonces relié. Je le referme en lecture seule.")
+        _tg_appel("sendMessage", params_reponse)
+        fermeture = _tg_appel("closeForumTopic", {
+            "chat_id": TG_GROUPE_ID,
+            "message_thread_id": thread_id,
+        })
+        if not fermeture.get("ok"):
+            print("TOPIC_ANNONCES_OUVERT | fermeture refusée", flush=True)
+        print("TOPIC_ANNONCES_LIE", flush=True)
+        return {"ok": True}
+
+    if prive and commande in ("/moi", "/aide", "/help", "/start"):
+        cmd = commande
         try:
             rep = _AIDE if cmd in ("/aide", "/help") else _etat_personnel(chat)
         except Exception as e:                          # noqa: BLE001
