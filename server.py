@@ -3540,6 +3540,10 @@ def verifier_cle(x_api_key: Optional[str] = Header(None)):
 
     return {"ok": True, "nom": c["name"], "active": bool(c["active"]),
             "lien_tg": code_liaison(c["api_key"]),
+            # [05/08] Dit si le Telegram est DEJA relie. Sans ca, la page
+            # proposerait indefiniment de relier un compte qui l'est deja, et
+            # le testeur n'aurait aucun moyen de savoir s'il est joignable.
+            "tg_lie": bool(c["tg_chat"]),
             "vu_min": _age(c["last_seen"]) if c["last_seen"] else None,
             "courtier": c["etat_courtier"] or "",
             "probleme": c["etat_probleme"] or "",

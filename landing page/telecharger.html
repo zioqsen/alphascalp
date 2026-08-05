@@ -45,6 +45,7 @@
   <button id="btnCle" type="button">Vérifier ma place</button>
   <div id="resultat" class="resultat" hidden aria-live="polite"></div>
 </div>
+<div id="zoneLiaison"></div>
 <div id="zoneCompte"></div>
 <div id="zoneGroupe"></div>
 
@@ -83,6 +84,7 @@ async function verifier() {
     // Le compte s'affiche dès qu'AlphaScalp l'a préparé, avant même les
     // messages d'état : c'est la seule chose que le testeur vient chercher.
     afficherCompte(etat.compte);
+    afficherLiaison(etat);
     if (!etat.active) { afficher('Ta place est enregistrée mais pas encore activée. Aucun téléchargement n’est nécessaire.', 'attention'); return; }
     if (etat.vu_min === null || etat.vu_min === undefined) { afficher('Ta place est activée. Le terminal dédié est encore en préparation.', 'attention'); return; }
     const minutes = Math.max(0, Math.round(etat.vu_min));
@@ -93,6 +95,50 @@ async function verifier() {
   } finally {
     bouton.disabled = false;
   }
+}
+
+// [05/08] Lien de liaison Telegram. Le serveur savait déjà fabriquer le code
+// (lien_tg) et traiter le /start correspondant — mais AUCUNE page ne donnait
+// jamais ce lien au testeur. La chaîne était coupée au milieu : personne ne
+// pouvait relier son compte, donc rien n’était joignable, donc toutes les
+// notifications partaient dans le vide sans que rien ne le signale.
+let _sante = null;
+async function sante() {
+  if (_sante) return _sante;
+  try {
+    const reponse = await fetch('/api/health');
+    _sante = await reponse.json();
+  } catch (_) { _sante = {}; }
+  return _sante;
+}
+
+async function afficherLiaison(etat) {
+  const zone = document.getElementById('zoneLiaison');
+  zone.textContent = '';
+  if (!etat || !etat.lien_tg || etat.tg_lie) return;   // déjà relié : rien à proposer
+  const s = await sante();
+  if (!s.bot) return;                 // sans nom de bot, le lien serait invalide
+
+  const bloc = document.createElement('div');
+  bloc.className = 'card';
+  bloc.style.marginTop = '16px';
+  const titre = document.createElement('h3');
+  titre.textContent = 'Être prévenu quand ton compte est prêt';
+  const texte = document.createElement('p');
+  texte.className = 'muted';
+  texte.textContent = 'Relie ton Telegram en une fois. Tu recevras un message dès '
+    + 'que ton compte de démonstration sera disponible, et si ton terminal cesse '
+    + 'de répondre. Sans ça, personne ne peut te joindre et il faut revenir '
+    + 'vérifier cette page à la main.';
+  const lien = document.createElement('a');
+  lien.className = 'btn';
+  lien.href = 'https://t.me/' + encodeURIComponent(s.bot)
+            + '?start=' + encodeURIComponent(etat.lien_tg);
+  lien.target = '_blank';
+  lien.rel = 'noopener noreferrer';
+  lien.textContent = 'Relier mon Telegram';
+  bloc.append(titre, texte, lien);
+  zone.appendChild(bloc);
 }
 
 function ligneChamp(libelle, valeur, secret) {
