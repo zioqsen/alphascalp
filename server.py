@@ -1438,6 +1438,63 @@ def admin_compte(api_key: str,
                        "mdp_lecture": "(enregistré)"}}
 
 
+@app.post("/api/admin/clients/{api_key}/renvoyer")
+def admin_renvoyer(api_key: str,
+                   charge: dict = Body(...),
+                   token: Optional[str] = Query(None),
+                   x_admin_token: Optional[str] = Header(None)):
+    """Rejoue un message qu'un testeur n'a pas pu recevoir.
+
+    [05/08] Le cas qui rend cette route necessaire : un testeur relie son
+    Telegram APRES la creation de sa cle et la remise de son compte. Les deux
+    messages automatiques sont deja partis -- dans le vide, puisqu'il n'etait
+    pas encore joignable. Il n'existait aucun moyen de les rejouer, et l'admin
+    devait tout retaper a la main.
+
+    On ne renvoie JAMAIS la cle d'API. Elle resterait en clair dans
+    l'historique de sa conversation : c'est exactement la raison pour laquelle
+    elle a ete retiree des liens profonds le 31/07.
+    """
+    require_admin(token, x_admin_token)
+
+    messages = {"activation": MODE_EMPLOI, "compte": COMPTE_PRET}
+    quoi = str(charge.get("quoi") or "").strip()
+    if quoi not in messages:
+        raise HTTPException(status_code=400,
+                            detail="Message inconnu : attendu 'activation' "
+                                   "ou 'compte'.")
+
+    with db() as conn:
+        r = conn.execute("SELECT tg_chat, mt5_login, active FROM clients "
+                         "WHERE api_key = ?", (api_key,)).fetchone()
+    if r is None:
+        raise HTTPException(status_code=404, detail="Clé inconnue")
+    if not r["tg_chat"]:
+        raise HTTPException(status_code=409,
+                            detail="Ce testeur n'a pas relié son Telegram : il "
+                                   "n'existe aucun moyen de le joindre d'ici. "
+                                   "Demande-lui d'ouvrir /telecharger avec sa "
+                                   "clé et de cliquer sur « Relier mon "
+                                   "Telegram ».")
+    # On refuse d'annoncer ce qui n'existe pas : un message « ton compte est
+    # pret » sur un compte non renseigne enverrait le testeur chercher une
+    # page vide, et il croirait la panne chez lui.
+    if quoi == "compte" and not r["mt5_login"]:
+        raise HTTPException(status_code=409,
+                            detail="Aucun compte démo n'est renseigné pour ce "
+                                   "testeur : le message annoncerait quelque "
+                                   "chose qui n'existe pas encore.")
+    if quoi == "activation" and not r["active"]:
+        raise HTTPException(status_code=409,
+                            detail="Cette clé n'est pas active : le message "
+                                   "annoncerait une place ouverte qui ne l'est "
+                                   "pas.")
+
+    _notify_telegram_a(r["tg_chat"], messages[quoi])
+    print(f"RENVOI | {now_iso()} | {quoi}", flush=True)
+    return {"ok": True, "envoye": quoi}
+
+
 # [04/08] ANNONCES DANS LE GROUPE DES TESTEURS.
 #
 # C'est la SEULE route du serveur qui accepte un texte libre à destination du
@@ -1574,23 +1631,36 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
   <select id="plan"><option value="beta">beta</option><option value="starter">starter</option><option value="pro">pro</option><option value="vip">vip</option></select>
   <button onclick="createClient()">Créer une clé</button>
 </div>
-<div style="margin:10px 0 16px">
-  <button class="ghost" onclick="chercherGroupes()">Trouver le groupe Telegram</button>
-  <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
-  <button class="ghost" onclick="amenager()">Aménager le groupe</button>
-  <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
-  <!-- [02/08] Renommé. Il s'appelait « Activer les notifications aux
-       testeurs » — son usage d'origine. Mais il enregistre le WEBHOOK, dont
-       dépend tout ce qui arrive depuis Telegram : le lien profond /start, le
-       support du groupe, /moi. Le libellé décrivait une conséquence, pas
-       l'action, et personne ne pouvait deviner qu'il fallait cliquer ici pour
-       que le bot reçoive quoi que ce soit. Il n'avait d'ailleurs jamais été
-       cliqué : le webhook était vide. -->
-  <button class="ghost" onclick="poserWebhook()">Brancher Telegram (webhook)</button>
-  <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
-  <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire » (lecture seule)</button>
-  <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
-</div>
+<!-- [05/08] Ces sept actions sont des gestes d'INSTALLATION, faits une fois :
+     trouver le groupe, poser le webhook, aménager les sujets, poster
+     l'accueil, créer l'invitation. Elles restent accessibles — un nouveau
+     groupe en aurait besoin — mais elles n'avaient plus rien à faire au
+     premier plan d'une page qu'on ouvre chaque jour pour gérer des testeurs.
+     Deux d'entre elles écrivent pour de vrai dans le groupe : les garder à
+     portée de clic à côté de « Supprimer » était un accident qui attendait
+     son tour. -->
+<details style="margin:10px 0 16px">
+  <summary style="cursor:pointer;font-size:13px;color:#5b6b8c">
+    Configuration du groupe Telegram — installation, déjà faite
+  </summary>
+  <div style="margin-top:10px">
+    <button class="ghost" onclick="chercherGroupes()">Trouver le groupe Telegram</button>
+    <!-- [02/08] Renommé. Il s'appelait « Activer les notifications aux
+         testeurs » — son usage d'origine. Mais il enregistre le WEBHOOK, dont
+         dépend tout ce qui arrive depuis Telegram : le lien profond /start, le
+         support du groupe, /moi. Le libellé décrivait une conséquence, pas
+         l'action, et personne ne pouvait deviner qu'il fallait cliquer ici pour
+         que le bot reçoive quoi que ce soit. Il n'avait d'ailleurs jamais été
+         cliqué : le webhook était vide. -->
+    <button class="ghost" onclick="poserWebhook()">Brancher Telegram (webhook)</button>
+    <button class="ghost" onclick="amenager()">Aménager le groupe</button>
+    <button class="ghost" onclick="lienInvitation()">Créer le lien d'invitation</button>
+    <button class="ghost" onclick="posterAccueil()">Poster le message d'accueil</button>
+    <button class="ghost" onclick="general('restaurer')">Restaurer le sujet Général</button>
+    <button class="ghost" onclick="general('verrouiller')">Verrouiller « A lire »</button>
+    <div id="zoneGroupes" class="muted" style="margin-top:8px;font-size:13px"></div>
+  </div>
+</details>
 <!-- [04/08] Annonce libre vers le groupe. Meme route que celle ouverte a
      l agent externe : ce que tu vois ici est exactement ce qu il peut faire,
      ni plus ni moins. Une capacite qu on delegue doit rester visible. -->
@@ -1604,7 +1674,8 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#85b7eb;word-break:
     style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;
            border:1px solid #d7dde8;font:inherit;resize:vertical"></textarea>
   <button class="ghost" onclick="publierAnnonce()">Publier l annonce</button>
-  <span id="compteurAnnonce" class="muted" style="font-size:12px"></span>
+  <!-- [05/08] Retire : un compteur de caracteres que rien n a jamais rempli.
+       Un element vide qui promet une information est pire qu'aucun element. -->
   <div id="zoneAnnonce" class="muted" style="margin-top:8px;font-size:13px"></div>
 </div>
 <table><thead><tr><th>Nom</th><th>Clé API</th><th>Copieur</th><th>État</th><th>Vu</th><th></th></tr></thead>
@@ -1734,6 +1805,7 @@ async function load(){
       <td><div class="acts">
         <button class="ghost" onclick="toggle('${c.api_key}')">${c.active?'Désactiver':'Activer'}</button>
         <button class="ghost" onclick="compte('${c.api_key}')">${c.compte_remis?'Compte ✓':'Compte…'}</button>
+        <button class="ghost" onclick="renvoyer('${c.api_key}')">Renvoyer…</button>
         <button class="danger" onclick="del('${c.api_key}')">Suppr.</button>
       </div></td></tr>`).join('');
   }catch(e){ document.getElementById('rows').innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(''+e.message)+'</td></tr>'; }
@@ -1765,6 +1837,30 @@ async function publierAnnonce(){
           : '');
     champ.value = '';
   }catch(e){ zone.innerHTML = '<span style="color:#ef4444">' + esc(e.message) + '</span>'; }
+}
+// [05/08] Rejouer un message manque. Le cas reel : un testeur relie son
+// Telegram APRES la creation de sa cle et la remise de son compte. Les deux
+// messages automatiques sont deja partis, dans le vide, puisqu il n etait pas
+// encore joignable. Sans ca, il n existait aucun moyen de les rejouer.
+async function renvoyer(cle){
+  const choix = prompt('Quel message renvoyer a ce testeur ?\\n\\n'
+                     + '1 = sa place est active (mode d emploi)\\n'
+                     + '2 = son compte demo est pret\\n\\n'
+                     + 'Sa cle beta n est jamais renvoyee : elle resterait en\\n'
+                     + 'clair dans l historique de sa conversation.', '2');
+  if(choix === null) return;
+  const cible = {'1': 'activation', '2': 'compte'}[(choix || '').trim()];
+  if(!cible){ alert('Tape 1 ou 2.'); return; }
+  try{
+    const r = await fetch('/api/admin/clients/' + encodeURIComponent(cle) + '/renvoyer', {
+      method: 'POST',
+      headers: {'X-Admin-Token': token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({quoi: cible})
+    });
+    const j = await r.json().catch(function(){ return {}; });
+    if(!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+    alert('Message renvoye sur son Telegram.');
+  }catch(e){ alert('Pas envoye — ' + e.message); }
 }
 // [04/08] Remise du compte demo. Le corps part en JSON, jamais en query :
 // un mot de passe dans une URL se retrouve dans l historique du navigateur,
