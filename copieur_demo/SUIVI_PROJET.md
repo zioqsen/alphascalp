@@ -163,9 +163,10 @@ valider le chevauchement par le propriétaire du projet.
 - Prochaines actions : suivre la liste prioritaire ci-dessus. Ne jamais déclarer
   beta_03 à 05 terminés avant présence du compte démo, chargement du preset et
   contrôle visuel des journaux Experts.
-- Git/déploiement : génération locale effectuée ; commit et push consignés dans
-  le compte rendu final de cette intervention. Le déploiement Render doit être
-  vérifié séparément après prise en compte de la branche de production.
+- Git/déploiement : commit métier `66f895e` poussé sur
+  `codex/cible-topic-annonces` et directement sur `main`. Déploiement Render
+  vérifié : la page publique montre 90 trades XAUUSD, PF 1,04 et les meilleures
+  périodes ; le contrôle de cohérence final donne 38/38 sans écart.
 
 ### 2026-08-05 — Codex — harmonisation du risque des comptes bêta
 
