@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 14/08/2026 à 16:10 par Codex.
+Dernière mise à jour : 15/08/2026 à 08:36 par Codex.
 
 ## Documents de référence
 
@@ -62,7 +62,7 @@ secret.
 
 ## Travail en cours
 
-- Aucun travail déclaré.
+Aucun chantier déclaré.
 
 Si une ligne apparaît ici, ne pas toucher aux fichiers concernés sans faire
 valider le chevauchement par le propriétaire du projet.
@@ -102,7 +102,11 @@ valider le chevauchement par le propriétaire du projet.
   complet de 90 jours que les KPI scalp. Elle affiche aussi les meilleures
   semaines/mois observés avec leur nombre de trades, sans retirer le bilan
   global ni le drawdown.
-- Seul le bot scalping alimente actuellement automatiquement le relais.
+- Le relais SignalBot dédié est implémenté localement mais désactivé par
+  défaut. Il utilise des routes et une table distinctes du flux scalpeur.
+- Sa politique de zone utilise trois paliers : premier bord, bord optimal,
+  puis milieu entre l'optimal et le SL. Chaque palier reçoit un tiers du risque
+  total ; un prix déjà traversé devient une entrée marché si SL/TP restent valides.
 - Le correctif des annonces refuse désormais tout envoi sans cible
   `📢 Annonces` enregistrée. La cible est persistée avec les inscrits ; un
   administrateur peut relier le sujet existant avec `/lier_annonces` et les
@@ -112,6 +116,10 @@ valider le chevauchement par le propriétaire du projet.
   `annonces_topic_configure=true`. L'historique local ne permet toutefois pas
   de prouver que l'ancienne annonce validée a finalement été publiée : ne pas
   l'affirmer sans réponse HTTP 200 conservée au moment de l'envoi.
+- Un runtime FTMO Free Trial distinct est préparé dans
+  `C:\bot\ftmo_signal_demo`. Il contient un MT5 générique MetaQuotes sans
+  compte, l'EA SignalBot dédié compilé et un preset prudent. Le serveur et le
+  relais ne sont pas déployés/activés ; aucun ordre de test n'a été envoyé.
 
 ## Prochaines actions prioritaires
 
@@ -128,8 +136,115 @@ valider le chevauchement par le propriétaire du projet.
    le passage de 16 à 32 Go de RAM.
 7. Après validation explicite d'une écriture externe, exécuter le test inerte
    de chaîne complète avec une clé bêta locale, sans jamais l'afficher.
+8. Relire puis publier le relais SignalBot, connecter manuellement le Free
+   Trial, effectuer un test inerte puis un seul signal démo contrôlé.
 
 ## Journal partagé
+
+### 2026-08-15 08:36 — Codex — grille de trois entrées à risque partagé
+
+- Demande : tenter une entrée au premier bord, une au meilleur bord et une
+  troisième après traversée favorable de la zone.
+- Fichiers consultés : suivis obligatoires, SignalBot et chemins Quick/complet,
+  outbox, contrat et stockage API, EA FTMO, preset, tests et documentation.
+- Fichiers modifiés : politique/test de zone, `signal_bot.py`, relais/test,
+  `server.py`, test API, EA/preset/vérificateur FTMO et suivis.
+- Décisions et hypothèses : P1=premier bord, P2=optimal, P3=milieu entre
+  optimal et SL. La demi-largeur de zone initialement proposée a été rejetée
+  car elle coïncidait avec le SL sur la géométrie observée. Chaque palier vaut
+  exactement un tiers du risque ; un lot minimal trop gros provoque un refus.
+  Les LIMIT sont posés chez le broker, sans promesse de polling milliseconde.
+- Vérifications exécutées et résultats : `py_compile` réussi ; 6/6 tests de
+  politique, 3/3 tests outbox, 9/9 tests API ; EA 1.100 compilé avec 0 erreur
+  et 0 avertissement ; binaire runtime identique ; vérificateur FTMO réussi.
+- Point de classe corrigé : le chemin Quick→Complet ajoute P2/P3 uniquement
+  pour les nouvelles Quick déjà limitées à un tiers. Une Quick legacy reste
+  seule. `CLOSE ALL` annule maintenant aussi les pending avant les positions.
+- Points non vérifiés : comportement broker réel, volume minimum FTMO,
+  slippage, remplissage partiel et chaîne déployée de bout en bout.
+- Prochaines actions : relecture, commit/push/déploiement autorisés, test
+  inerte, puis un unique signal démo observé avant toute extension.
+- Git/déploiement : aucun commit, push, déploiement, redémarrage, appel public
+  ou ordre effectué.
+
+### 2026-08-15 08:18 — Codex — entrée au premier contact de zone
+
+- Demande : garantir qu'un signal soit pris dès que le prix entre dans sa
+  zone, même s'il n'atteint jamais le prix le plus avantageux.
+- Fichiers consultés : suivi partagé, logique d'ouverture SignalBot, relais,
+  validation serveur, tests API et documentation FTMO.
+- Fichiers modifiés : `signal_bot.py`, nouveau `zone_entry.py` et son test,
+  `server.py`, test API, suivis et configuration FTMO.
+- Décisions et hypothèses : BUY attend le haut de zone, SELL le bas ; si le
+  signal arrive avec le cours déjà dans la zone, entrée marché immédiate ; les
+  niveaux SL/TP absolus et les gardes de risque restent obligatoires.
+- Vérifications exécutées et résultats : `py_compile` réussi ;
+  `python -m unittest -v test_zone_entry.py test_signal_bot_relay.py` : 5/5 ;
+  `python -m unittest -v test_signal_bot_api.py` : 7/7. Les deux directions,
+  l'arrivée dans la zone, la déduplication et le mauvais bord sont couverts.
+- Points non vérifiés : remplissage réel chez FTMO, spread, slippage et
+  chaîne publique de bout en bout.
+- Prochaines actions : relecture, commit/push/déploiement autorisés, puis test
+  inerte avant un unique ordre démo contrôlé.
+- Git/déploiement : aucun commit, push, déploiement, redémarrage, appel public
+  ou ordre effectué. Le dossier temporaire des dépendances de test a été supprimé.
+
+### 2026-08-14 23:40 — Codex — relais SignalBot isolé et EA FTMO
+
+- Demande : mettre en place le relais SignalBot et vérifier la fidélité des
+  zones d'entrée et des TP.
+- Fichiers consultés : suivi partagé, SignalBot, relais du scalpeur, serveur
+  AlphaScalp, EA 1.13 et environnement FTMO séparé.
+- Fichiers modifiés : `server.py`, test API, `signal_bot.py`, nouveau relais et
+  ses tests, EA/preset/documentation FTMO, vérificateur et suivis.
+- Décisions : flux `/api/signal-bot` et table distincte ; outbox persistante ;
+  garde DEMO+login ; niveaux SL/TP absolus ; meilleur bord de zone ; repli TP1
+  total explicite si le volume broker ne permet pas les partiels.
+- Vérification : 2 tests outbox et 6 tests API réussis ; compilations Python
+  réussies ; EA compilé avec 0 erreur et 0 avertissement ; vérificateur runtime
+  réussi. Le test API confirme que la table `signals` du scalpeur reste vide.
+- Point corrigé : l'ancienne décision marché/limite entrait dans la zone à un
+  prix moins bon et pouvait produire un BUY_LIMIT/SELL_LIMIT invalide dans le
+  chemin opposé. Le bot en cours n'a pas été redémarré.
+- Points non vérifiés : déploiement public, compte et symbole FTMO, WebRequest,
+  réception réelle, écarts de spread/slippage et ordre démo de bout en bout.
+- Prochaines actions : relecture Claude/Flo, commit/push/déploiement autorisés,
+  configuration locale sans exposer de secret, test inerte puis signal démo.
+- Git/déploiement : aucun commit, push, déploiement, redémarrage, appel public
+  ou ordre effectué pendant ce chantier.
+
+### 2026-08-14 22:54 — Codex — runtime FTMO Free Trial pour SignalBot
+
+- Demande : pousser les commits précédents, consigner le projet puis préparer
+  une installation MT5 neuve et séparée, sans binaire ni configuration IC
+  Markets, pour tester SignalBot sur FTMO Free Trial.
+- Fichiers consultés : présent suivi, suivi général de `C:\bot`, installateurs
+  locaux, signature du MT5 générique, runtime générique existant, EA client
+  1.13 et presets des terminaux bêta.
+- Fichiers modifiés : nouveau dossier versionnable
+  `C:\bot\ftmo_signal_demo` (documentation, lanceur, preset exemple et
+  vérificateur), `C:\bot\.gitignore`, `C:\bot\SUIVI.md` et présent suivi.
+  Le runtime local ignoré contient les cinq fichiers programme MT5, l'EA 1.13
+  et le preset FTMO.
+- Décisions et hypothèses : Free Trial et fonds fictifs uniquement ; aucun
+  identifiant dans un fichier ; terminal portable dédié ; compte réel refusé ;
+  risque 0,25 %, lot plafonné à 0,01 et une position pour le premier test. Le
+  relais SignalBot n'est pas inventé : il reste à développer, car seul le
+  Scalper publie aujourd'hui vers l'API AlphaScalp.
+- Vérifications exécutées et résultats : commits antérieurs poussés ; binaire
+  source signé par MetaQuotes ; aucune base/configuration/session copiée ;
+  empreintes EA source/runtime identiques ; preset sans clé ; aucun
+  `accounts.dat` ; `VERIFIER_FTMO.ps1` réussi.
+- Points non vérifiés : lancement visuel, choix de FTMO Global Markets Ltd,
+  serveur exact, connexion Free Trial, WebRequest, Trading Algo, symbole et
+  tailles de contrat FTMO, relais SignalBot et exécution bout en bout.
+- Prochaines actions : lorsque Flo a accès au PC, lancer
+  `LANCER_FTMO.cmd`, connecter manuellement le Free Trial, charger le preset
+  et contrôler l'onglet Experts. Concevoir ensuite le relais avec réservation
+  persistante avant tout effet et test anti-doublon.
+- Git/déploiement : les commits précédents `530afb2` et `d624e3a` ont été
+  poussés. Le nouveau chantier FTMO n'est pas encore commité ni poussé. Aucun
+  déploiement, redémarrage de bot ou ordre externe.
 
 ### 2026-08-14 16:10 — Codex — contrôle global bêta et performances publiques
 
