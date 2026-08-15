@@ -1216,14 +1216,19 @@ def _valider_signal_bot(sig: SignalBotSignalIn) -> dict:
             bas, haut = float(sig.zone_low), float(sig.zone_high)
             if bas >= haut:
                 raise HTTPException(status_code=400, detail="zone inversee ou nulle")
-            stage = int(entry_stage or 1)
             premier = haut if direction == "BUY" else bas
             optimal = bas if direction == "BUY" else haut
-            attendu = (premier if stage == 1 else optimal if stage == 2
+            # Sans metadonnees de palier, le relais est en mode historique :
+            # parse_signal utilise le bord optimal. Avec un palier explicite,
+            # le contrat strict P1/P2/P3 s'applique.
+            stage = int(entry_stage) if entry_stage is not None else None
+            attendu = (optimal if stage is None else premier if stage == 1
+                       else optimal if stage == 2
                        else optimal + (float(sig.sl) - optimal) / 2.0)
             if order_kind == "LIMIT" and abs(float(sig.price) - attendu) > 1e-6:
+                cible = "legacy (bord optimal)" if stage is None else f"palier {stage}"
                 raise HTTPException(status_code=400,
-                                    detail=f"LIMIT hors du prix attendu pour le palier {stage}")
+                                    detail=f"LIMIT hors du prix attendu pour {cible}")
         elif entry_stage is not None and entry_stage != 1:
             raise HTTPException(status_code=400, detail="paliers 2/3 interdits sans zone")
 

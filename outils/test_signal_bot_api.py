@@ -38,6 +38,7 @@ class SignalBotApiTests(unittest.TestCase):
             symbol="XAUUSD", direction="SELL", order_kind="LIMIT",
             price=4393.0, zone_low=4393.0, zone_high=4405.0,
             sl=4411.0, tp1=4388.0, tp2=4380.0, tp3=4370.0,
+            entry_stage=1, risk_fraction=1 / 3,
             expires_at=(now + timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             emitted_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
@@ -76,6 +77,33 @@ class SignalBotApiTests(unittest.TestCase):
             "master-test-local-only",
         )
         self.assertTrue(result["ok"])
+
+    def test_mode_legacy_accepte_le_bord_optimal_sell_et_buy(self):
+        cas = (
+            dict(event_id="signalbot:legacy:sell", price=4405.0),
+            dict(
+                event_id="signalbot:legacy:buy", direction="BUY", price=4393.0,
+                sl=4387.0, tp1=4410.0, tp2=4420.0, tp3=4430.0,
+            ),
+        )
+        for changements in cas:
+            with self.subTest(direction=changements.get("direction", "SELL")):
+                result = self.server.publish_signal_bot(
+                    self.payload(entry_stage=None, risk_fraction=None, **changements),
+                    "master-test-local-only",
+                )
+                self.assertTrue(result["ok"])
+
+    def test_mode_legacy_refuse_un_autre_prix_de_zone(self):
+        with self.assertRaises(self.server.HTTPException) as ctx:
+            self.server.publish_signal_bot(
+                self.payload(
+                    event_id="signalbot:legacy:bad", entry_stage=None,
+                    risk_fraction=None, price=4393.0,
+                ),
+                "master-test-local-only",
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
 
     def test_sell_paliers_deux_et_trois_acceptes(self):
         for stage, price in ((2, 4405.0), (3, 4408.0)):

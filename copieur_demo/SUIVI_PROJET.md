@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 15/08/2026 à 08:36 par Codex.
+Dernière mise à jour : 15/08/2026 à 11:09 par Codex.
 
 ## Documents de référence
 
@@ -106,7 +106,10 @@ valider le chevauchement par le propriétaire du projet.
   défaut. Il utilise des routes et une table distinctes du flux scalpeur.
 - Sa politique de zone utilise trois paliers : premier bord, bord optimal,
   puis milieu entre l'optimal et le SL. Chaque palier reçoit un tiers du risque
-  total ; un prix déjà traversé devient une entrée marché si SL/TP restent valides.
+  total ; un prix déjà traversé devient une entrée marché si SL/TP restent
+  valides. Cette politique reste désactivée par défaut (`ZONE_LADDER=false`) en
+  attente de contre-validation ; le mode désactivé conserve le risque entier et
+  le bord optimal historiques.
 - Le correctif des annonces refuse désormais tout envoi sans cible
   `📢 Annonces` enregistrée. La cible est persistée avec les inscrits ; un
   administrateur peut relier le sujet existant avec `/lier_annonces` et les
@@ -140,6 +143,58 @@ valider le chevauchement par le propriétaire du projet.
    Trial, effectuer un test inerte puis un seul signal démo contrôlé.
 
 ## Journal partagé
+
+### 2026-08-15 11:09 — Codex — retour Claude et test d'intégration du garde
+
+- Demande : récupérer la contre-validation terminée et poursuivre le plan.
+- Fichiers consultés : conversation locale Claude en lecture ciblée, suivis,
+  diffs, historique Git et fonction `update_quick_to_complete`.
+- Fichiers modifiés : nouveau
+  `C:\bot\signal_bot\test_signal_bot_zone_ladder_gate.py`, en-tête de
+  `mesure_paliers_zone.py`, `C:\bot\SUIVI.md` et le présent suivi.
+- Décisions et hypothèses : Claude ne relève aucun P0/P1, mais conditionne le
+  commit à un test de non-appel de P2/P3 avec un ancien état à un tiers et
+  `ZONE_LADDER=false`. Le test exécute le corps AST exact de la fonction de
+  production sans importer `.env` ni contacter MT5.
+- Vérifications exécutées et résultats : `py_compile` réussi ; commande
+  `python -m unittest test_zone_entry.py test_signal_bot_relay.py
+  test_signal_bot_zone_ladder_gate.py`, 13/13. Les branches faux/vrai vérifient
+  également les métadonnées du relais. Claude autorise commit/push,
+  déploiement serveur et redémarrage marché fermé après ce test.
+- Points non vérifiés : comportement broker, volume minimal, slippage et chaîne
+  publique de bout en bout ; la mesure reste non décisionnelle.
+- Prochaines actions : commit/push ciblés sans inclure la modification locale
+  indépendante de `landing page/performance.html`, vérifier la branche Render,
+  puis redémarrer SignalBot de façon contrôlée avec l'interrupteur sûr.
+- Git/déploiement : aucun ordre, déploiement ou redémarrage à ce stade ; état à
+  compléter après livraison.
+
+### 2026-08-15 10:03 — Codex — fermeture des deux chemins incomplets de ZONE_LADDER
+
+- Demande : suivre le plan proposé après contre-audit, corriger les deux P1,
+  tester les modes actif/inactif et préparer la validation avant redémarrage.
+- Fichiers consultés : suivis obligatoires, commit Claude `f87ad28`, politique
+  de zone, chemins Quick/complet, mesure, contrat serveur et tests API.
+- Fichiers modifiés : `signal_bot.py`, `zone_entry.py`, leurs tests,
+  `mesure_paliers_zone.py`, `PROMPT_VALIDATION_ZONE_LADDER.md`, `server.py`,
+  `outils/test_signal_bot_api.py`, `C:\bot\SUIVI.md` et le présent suivi.
+- Décisions et hypothèses : `ZONE_LADDER=false` signifie comportement historique
+  strict (Quick à risque entier et LIMIT au bord optimal sans métadonnée) ;
+  `true` signifie Quick/P1 à un tiers puis P2/P3. La mesure OHLC est une
+  contre-épreuve non décisionnelle, pas une reproduction du courtier.
+- Vérifications exécutées et résultats : `py_compile` réussi ; commande
+  `python -m unittest test_zone_entry.py test_signal_bot_relay.py`, 11/11 ;
+  commande `python -m unittest outils\\test_signal_bot_api.py`, 11/11 ; mesure
+  relancée sur 183 signaux, écart B−A `+0,074 R` moyen avec IC95
+  `[−0,007 ; +0,151]`, contenant zéro. Dépendances de test temporaires
+  supprimées après usage.
+- Points non vérifiés : comportement broker, volumes minimums, slippage,
+  marché-sur-traversée historique, déploiement Render et chaîne de bout en bout.
+- Prochaines actions : faire exécuter à Claude la consigne
+  `C:\bot\signal_bot\PROMPT_VALIDATION_ZONE_LADDER.md` ; seulement ensuite
+  décider commit/push/déploiement et redémarrage contrôlé pendant marché fermé.
+- Git/déploiement : aucun redémarrage, ordre, appel public ou déploiement.
+  État commit/push à compléter après préparation de la livraison.
 
 ### 2026-08-15 08:36 — Codex — grille de trois entrées à risque partagé
 
