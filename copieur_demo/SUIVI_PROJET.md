@@ -164,8 +164,10 @@ valider le chevauchement par le propriétaire du projet.
   slippage, remplissage partiel et chaîne déployée de bout en bout.
 - Prochaines actions : relecture, commit/push/déploiement autorisés, test
   inerte, puis un unique signal démo observé avant toute extension.
-- Git/déploiement : aucun commit, push, déploiement, redémarrage, appel public
-  ou ordre effectué.
+- Git/déploiement : commits `6e6df98` (bot/EA) et `825a0d2` (serveur/API)
+  poussés respectivement sur `claude/controles-parcours-heberge` et
+  `codex/cible-topic-annonces` pour validation Claude. Aucun déploiement,
+  redémarrage, appel public ou ordre effectué.
 
 ### 2026-08-15 08:18 — Codex — entrée au premier contact de zone
 
