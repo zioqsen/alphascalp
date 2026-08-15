@@ -362,6 +362,10 @@ _LIMITES = {
     # suiveurs actifs. Le jeton fait 44 caracteres aleatoires, un forcage est
     # hors de portee — mais laisser une route d'ecriture sans aucune limite
     # est une invitation, et ca ne coute rien de la fermer.
+    # Flux SignalBot ISOLE du flux scalpeur. Le prefixe le plus long doit
+    # preceder /api/signal, sinon le middleware lui appliquerait implicitement
+    # la regle du scalpeur et l'isolation ne serait plus visible dans le code.
+    "/api/signal-bot": (60, 30),
     "/api/signal": (60, 30),        # le bot maitre en emet quelques-uns par heure
     "/api/admin": (300, 20),        # jeton admin : forçage brutal
     "/api/retrouver": (300, 10),    # énumération d'adresses
@@ -506,6 +510,26 @@ def _creer_tables(conn):
         regime      TEXT,                    -- info contextuelle (TREND/RANGE...)
         created_at  TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS signal_bot_signals (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id    TEXT NOT NULL UNIQUE,
+        action      TEXT NOT NULL,
+        ref_id      TEXT NOT NULL,
+        symbol      TEXT NOT NULL,
+        direction   TEXT,
+        order_kind  TEXT,
+        entry_stage INTEGER,
+        risk_fraction REAL,
+        price       REAL,
+        zone_low    REAL,
+        zone_high   REAL,
+        sl          REAL,
+        tp1         REAL,
+        tp2         REAL,
+        tp3         REAL,
+        expires_at  TEXT,
+        created_at  TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS telegram_topics (
         nom         TEXT PRIMARY KEY,
         thread_id   INTEGER NOT NULL,
@@ -518,6 +542,11 @@ def _creer_tables(conn):
         conn.execute("ALTER TABLE clients ADD COLUMN email TEXT")
     except sqlite3.OperationalError:
         pass  # colonne déjà présente
+    for definition in ("entry_stage INTEGER", "risk_fraction REAL"):
+        try:
+            conn.execute(f"ALTER TABLE signal_bot_signals ADD COLUMN {definition}")
+        except sqlite3.OperationalError:
+            pass
     # [04/08] La date de naissance n'est plus collectée. La majorité est une
     # déclaration sur l'honneur via une case obligatoire ; le projet reste en
     # comptes de démonstration et n'a pas besoin d'une date civile complète.
@@ -833,6 +862,27 @@ class SignalIn(BaseModel):
 # ─────────────────────────────────────────────────────────────
 # AUTH HELPERS
 # ─────────────────────────────────────────────────────────────
+class SignalBotSignalIn(BaseModel):
+    """Evenement multi-TP du SignalBot, isole du flux du scalpeur."""
+    event_id: str
+    action: str
+    ref_id: str
+    symbol: str
+    direction: Optional[str] = None
+    order_kind: Optional[str] = None
+    entry_stage: Optional[int] = None
+    risk_fraction: Optional[float] = None
+    price: Optional[float] = None
+    zone_low: Optional[float] = None
+    zone_high: Optional[float] = None
+    sl: Optional[float] = None
+    tp1: Optional[float] = None
+    tp2: Optional[float] = None
+    tp3: Optional[float] = None
+    expires_at: Optional[str] = None
+    emitted_at: Optional[str] = None
+
+
 def require_master(x_master_token: Optional[str]):
     if not x_master_token or not secrets.compare_digest(x_master_token, MASTER_TOKEN):
         raise HTTPException(status_code=401, detail="Jeton maître invalide")
@@ -1091,6 +1141,200 @@ def _instant_emission(brut: Optional[str]) -> str:
               f"heure serveur utilisée", flush=True)
         return now_iso()
     return d.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _valider_signal_bot(sig: SignalBotSignalIn) -> dict:
+    """Valide le contrat du flux SignalBot sans valeur de repli plausible.
+
+    Le flux pilote un compte de demonstration distinct. Une date illisible, un
+    niveau manquant ou un identifiant rejoue avec un autre contenu est un refus
+    visible, jamais une correction silencieuse cote serveur.
+    """
+    event_id = (sig.event_id or "").strip()
+    ref_id = (sig.ref_id or "").strip()
+    symbol = (sig.symbol or "").strip().upper()
+    action = (sig.action or "").strip().lower()
+    if not event_id or len(event_id) > 128:
+        raise HTTPException(status_code=400, detail="event_id absent ou trop long")
+    if not ref_id or len(ref_id) > 128:
+        raise HTTPException(status_code=400, detail="ref_id absent ou trop long")
+    if not symbol or len(symbol) > 32:
+        raise HTTPException(status_code=400, detail="symbol absent ou trop long")
+    if action not in {"open", "cancel", "close", "move_sl"}:
+        raise HTTPException(status_code=400, detail=f"action SignalBot inconnue : {action!r}")
+
+    if not sig.emitted_at:
+        raise HTTPException(status_code=400, detail="emitted_at obligatoire")
+    try:
+        emis = datetime.fromisoformat(str(sig.emitted_at).replace("Z", "+00:00"))
+        if emis.tzinfo is None:
+            emis = emis.replace(tzinfo=timezone.utc)
+        emis = emis.astimezone(timezone.utc)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400,
+                            detail=f"emitted_at illisible : {sig.emitted_at!r}") from e
+    age = (datetime.now(timezone.utc) - emis).total_seconds()
+    if age < -60:
+        raise HTTPException(status_code=400, detail="emitted_at dans le futur")
+    if action == "open" and age > AGE_MAX_OUVERTURE_S:
+        raise HTTPException(status_code=400,
+                            detail=f"ouverture perimee ({age:.0f} s)")
+
+    direction = (sig.direction or "").strip().upper() or None
+    order_kind = (sig.order_kind or "").strip().upper() or None
+    entry_stage = sig.entry_stage
+    risk_fraction = sig.risk_fraction
+    if action == "open":
+        if direction not in {"BUY", "SELL"}:
+            raise HTTPException(status_code=400, detail="direction BUY/SELL obligatoire")
+        if order_kind not in {"MARKET", "LIMIT"}:
+            raise HTTPException(status_code=400, detail="order_kind MARKET/LIMIT obligatoire")
+        if entry_stage is not None and entry_stage not in {1, 2, 3}:
+            raise HTTPException(status_code=400, detail="entry_stage doit valoir 1, 2 ou 3")
+        if risk_fraction is not None:
+            if not _nombre_sain(risk_fraction) or not 0 < float(risk_fraction) <= 1:
+                raise HTTPException(status_code=400, detail="risk_fraction invalide")
+        if entry_stage is not None:
+            if risk_fraction is None or abs(float(risk_fraction) - 1.0 / 3.0) > 1e-6:
+                raise HTTPException(status_code=400,
+                                    detail="un palier doit porter exactement un tiers du risque")
+        for nom in ("price", "sl", "tp1"):
+            if not _nombre_sain(getattr(sig, nom)):
+                raise HTTPException(status_code=400, detail=f"{nom} invalide")
+        if sig.tp3 is not None and sig.tp2 is None:
+            raise HTTPException(status_code=400, detail="tp3 fourni sans tp2")
+        if sig.tp2 is not None and sig.tp1 is None:
+            raise HTTPException(status_code=400, detail="tp2 fourni sans tp1")
+        for nom in ("tp2", "tp3", "zone_low", "zone_high"):
+            valeur = getattr(sig, nom)
+            if valeur is not None and not _nombre_sain(valeur):
+                raise HTTPException(status_code=400, detail=f"{nom} invalide")
+        if (sig.zone_low is None) != (sig.zone_high is None):
+            raise HTTPException(status_code=400,
+                                detail="zone_low et zone_high doivent etre fournis ensemble")
+        if sig.zone_low is not None:
+            bas, haut = float(sig.zone_low), float(sig.zone_high)
+            if bas >= haut:
+                raise HTTPException(status_code=400, detail="zone inversee ou nulle")
+            premier = haut if direction == "BUY" else bas
+            optimal = bas if direction == "BUY" else haut
+            # Sans metadonnees de palier, le relais est en mode historique :
+            # parse_signal utilise le bord optimal. Avec un palier explicite,
+            # le contrat strict P1/P2/P3 s'applique.
+            stage = int(entry_stage) if entry_stage is not None else None
+            attendu = (optimal if stage is None else premier if stage == 1
+                       else optimal if stage == 2
+                       else optimal + (float(sig.sl) - optimal) / 2.0)
+            if order_kind == "LIMIT" and abs(float(sig.price) - attendu) > 1e-6:
+                cible = "legacy (bord optimal)" if stage is None else f"palier {stage}"
+                raise HTTPException(status_code=400,
+                                    detail=f"LIMIT hors du prix attendu pour {cible}")
+        elif entry_stage is not None and entry_stage != 1:
+            raise HTTPException(status_code=400, detail="paliers 2/3 interdits sans zone")
+
+        prix, sl = float(sig.price), float(sig.sl)
+        tps = [float(x) for x in (sig.tp1, sig.tp2, sig.tp3) if x is not None]
+        if direction == "BUY":
+            if sl >= prix or any(tp <= prix for tp in tps):
+                raise HTTPException(status_code=400, detail="niveaux BUY incoherents")
+            if tps != sorted(tps):
+                raise HTTPException(status_code=400, detail="TP BUY non croissants")
+        else:
+            if sl <= prix or any(tp >= prix for tp in tps):
+                raise HTTPException(status_code=400, detail="niveaux SELL incoherents")
+            if tps != sorted(tps, reverse=True):
+                raise HTTPException(status_code=400, detail="TP SELL non decroissants")
+    elif action == "move_sl" and not _nombre_sain(sig.sl):
+        raise HTTPException(status_code=400, detail="SL obligatoire pour move_sl")
+
+    expiration = None
+    expiration_dt = None
+    if sig.expires_at:
+        try:
+            exp = datetime.fromisoformat(str(sig.expires_at).replace("Z", "+00:00"))
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            expiration_dt = exp.astimezone(timezone.utc)
+            expiration = expiration_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=400,
+                                detail=f"expires_at illisible : {sig.expires_at!r}") from e
+    if action == "open" and order_kind == "LIMIT" and not expiration:
+        raise HTTPException(status_code=400, detail="expires_at obligatoire pour un LIMIT")
+    if action == "open" and order_kind == "LIMIT":
+        reste = (expiration_dt - datetime.now(timezone.utc)).total_seconds()
+        if reste <= 0 or reste > 86400:
+            raise HTTPException(status_code=400,
+                                detail="expires_at deja passe ou trop lointain")
+
+    return {
+        "event_id": event_id, "action": action, "ref_id": ref_id,
+        "symbol": symbol, "direction": direction, "order_kind": order_kind,
+        "entry_stage": entry_stage, "risk_fraction": risk_fraction,
+        "price": sig.price, "zone_low": sig.zone_low, "zone_high": sig.zone_high,
+        "sl": sig.sl, "tp1": sig.tp1, "tp2": sig.tp2, "tp3": sig.tp3,
+        "expires_at": expiration,
+        "created_at": emis.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+@app.post("/api/signal-bot")
+def publish_signal_bot(sig: SignalBotSignalIn,
+                       x_master_token: Optional[str] = Header(None)):
+    require_master(x_master_token)
+    try:
+        data = _valider_signal_bot(sig)
+    except HTTPException as e:
+        print(f"SIGNALBOT_REFUSE | {sig.action} #{sig.ref_id} | {e.detail}", flush=True)
+        raise
+    colonnes = ("event_id", "action", "ref_id", "symbol", "direction",
+                "order_kind", "entry_stage", "risk_fraction", "price", "zone_low", "zone_high", "sl",
+                "tp1", "tp2", "tp3", "expires_at", "created_at")
+    valeurs = tuple(data[c] for c in colonnes)
+    with db() as conn:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO signal_bot_signals (" + ",".join(colonnes) + ") "
+            "VALUES (" + ",".join("?" for _ in colonnes) + ")", valeurs)
+        if cur.rowcount == 1:
+            return {"ok": True, "signal_id": cur.lastrowid, "duplicate": False}
+        existant = conn.execute(
+            "SELECT * FROM signal_bot_signals WHERE event_id = ?", (data["event_id"],)
+        ).fetchone()
+        # Meme event_id + autre contenu = conflit, pas un faux succes de dedup.
+        if not existant or any(existant[c] != data[c] for c in colonnes if c != "event_id"):
+            raise HTTPException(status_code=409,
+                                detail="event_id deja utilise avec un autre contenu")
+        return {"ok": True, "signal_id": existant["id"], "duplicate": True}
+
+
+@app.get("/api/signal-bot/status")
+def signal_bot_status(x_api_key: Optional[str] = Header(None)):
+    c = get_client(x_api_key)
+    with db() as conn:
+        latest = conn.execute(
+            "SELECT COALESCE(MAX(id),0) AS m FROM signal_bot_signals"
+        ).fetchone()["m"]
+    return {"active": bool(c["active"]), "name": c["name"],
+            "plan": c["plan"], "latest_signal_id": latest}
+
+
+@app.get("/api/signal-bot/signals")
+def get_signal_bot_signals(
+    since: int = Query(0, ge=0),
+    x_api_key: Optional[str] = Header(None),
+):
+    c = get_client(x_api_key)
+    if not c["active"]:
+        raise HTTPException(status_code=403, detail="Acces inactif - pause des nouvelles entrees")
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM signal_bot_signals WHERE id > ? ORDER BY id ASC LIMIT 200",
+            (since,),
+        ).fetchall()
+        latest = conn.execute(
+            "SELECT COALESCE(MAX(id),0) AS m FROM signal_bot_signals"
+        ).fetchone()["m"]
+    return {"active": True, "latest": latest, "signals": [dict(r) for r in rows]}
 
 
 @app.post("/api/signal")
