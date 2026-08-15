@@ -4,7 +4,7 @@ Ce fichier est la mémoire commune obligatoire du chantier. Codex et Claude
 doivent le lire **en entier avant chaque intervention**, puis le mettre à jour
 après toute modification. Il ne doit contenir aucun secret.
 
-Dernière mise à jour : 15/08/2026 à 11:09 par Codex.
+Dernière mise à jour : 15/08/2026 à 11:16 par Codex.
 
 ## Documents de référence
 
@@ -163,11 +163,17 @@ valider le chevauchement par le propriétaire du projet.
   déploiement serveur et redémarrage marché fermé après ce test.
 - Points non vérifiés : comportement broker, volume minimal, slippage et chaîne
   publique de bout en bout ; la mesure reste non décisionnelle.
-- Prochaines actions : commit/push ciblés sans inclure la modification locale
-  indépendante de `landing page/performance.html`, vérifier la branche Render,
-  puis redémarrer SignalBot de façon contrôlée avec l'interrupteur sûr.
-- Git/déploiement : aucun ordre, déploiement ou redémarrage à ce stade ; état à
-  compléter après livraison.
+- Prochaines actions : laisser `ZONE_LADDER=false` pendant l'observation ; ne
+  l'activer qu'après une décision séparée. Effectuer ensuite un test inerte du
+  relais FTMO, puis un seul signal démo contrôlé lorsque le terminal est prêt.
+- Git/déploiement : commit bot `e08eece` poussé ; commit API `351e91e` poussé ;
+  pull request AlphaScalp #3 fusionnée dans `main` au squash `e2a7045`. Statut
+  de déploiement Render `success` et `/api/health` à `ok=true`. SignalBot
+  redémarré volontairement à 11:14 par arrêt du seul enfant ; le watchdog
+  existant l'a repris avec un nouveau PID et un heartbeat frais. État rechargé,
+  zéro trade suivi, aucune position orpheline ; aucun ordre créé, fermé ou
+  modifié. La modification locale indépendante de `landing page/performance.html`
+  est restée hors des deux commits ciblés.
 
 ### 2026-08-15 10:03 — Codex — fermeture des deux chemins incomplets de ZONE_LADDER
 
