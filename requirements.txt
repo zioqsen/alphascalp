@@ -1,2 +1,10 @@
-fastapi>=0.110
-uvicorn>=0.27
+fastapi>=0.110,<1
+uvicorn>=0.27,<1
+# Dépendance transitive de fastapi, épinglée explicitement : corrige
+# CVE-2025-62727 (DoS par en-tête Range forgé dans starlette.responses.
+# FileResponse, utilisée ici par telecharger_client()). Affecte
+# starlette >=0.39.0,<0.49.1 ; corrigé en 0.49.1. La borne haute sur fastapi
+# suffit en pratique (les versions récentes de fastapi tirent une starlette
+# bien plus récente que 0.49.1), mais on la fixe quand même pour ne pas
+# dépendre silencieusement de la résolution de pip.
+starlette>=0.49.1,<1

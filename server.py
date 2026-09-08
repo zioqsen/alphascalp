@@ -333,7 +333,8 @@ def _alerte_base_vide() -> None:
             vers_groupe=True)
 
 
-app = FastAPI(title="AlphaScalp Server", version="0.1.0")
+app = FastAPI(title="AlphaScalp Server", version="0.1.0",
+              docs_url=None, redoc_url=None, openapi_url=None)
 
 # [31/07] Compression. Aucune n'était active : le HTML partait brut. Ces pages
 # sont du texte avec beaucoup de CSS répété, elles se compressent d'un facteur
@@ -377,13 +378,26 @@ _LIMITES = {
 def _ip_de(request: Request) -> str:
     """IP réelle derrière le frontal de l'hébergeur.
 
-    X-Forwarded-For est fourni par le proxy de Render ; on prend la PREMIÈRE
-    entrée, seule non falsifiable par le client (les suivantes sont ajoutées
-    en amont et peuvent être forgées).
+    [08/09] CORRIGÉ — l'ancienne version prenait la PREMIÈRE entrée de
+    X-Forwarded-For en la croyant non falsifiable. C'est l'inverse : ce champ
+    est fourni par le CLIENT dans sa requête initiale, donc entièrement sous
+    son contrôle (`X-Forwarded-For: <client>, <proxy1>, <proxy2>, ...`).
+    Chaque proxy de la chaîne ne fait qu'AJOUTER une entrée à la suite ; il ne
+    réécrit jamais celles qui précèdent. Render est ici l'unique proxy de
+    confiance devant l'application, donc la seule entrée qu'il a lui-même
+    ajoutée — et donc la seule non falsifiable — est la DERNIÈRE. Prendre la
+    première revenait à faire confiance à une valeur choisie par l'appelant,
+    ce qui permettait de contourner la limitation de débit (rate limiting) sur
+    /api/admin, /api/signup et /api/signal en changeant simplement cet
+    en-tête à chaque requête.
+
+    S'il y avait plusieurs proxies de confiance devant l'app, il faudrait
+    prendre la n-ième entrée en partant de la droite (n = nombre de proxies
+    de confiance) — ici n = 1, donc la dernière.
     """
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "?"
 
 

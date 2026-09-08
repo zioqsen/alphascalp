@@ -156,5 +156,50 @@ class SignalBotApiTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
 
 
+class _FausseRequete:
+    """Simule juste ce que _ip_de() lit : les en-têtes et l'IP de connexion."""
+
+    class _Client:
+        def __init__(self, host):
+            self.host = host
+
+    def __init__(self, xff="", host="203.0.113.9"):
+        self.headers = {"x-forwarded-for": xff} if xff else {}
+        self.client = self._Client(host) if host else None
+
+
+class IpDeTests(unittest.TestCase):
+    """Verrouille le correctif du 08/09 : Render AJOUTE l'IP réelle à la fin
+    de X-Forwarded-For, elle ne l'écrit jamais en premier. Le client contrôle
+    entièrement la ou les entrées de gauche. _ip_de() doit donc prendre la
+    DERNIÈRE entrée (l'unique proxy de confiance ici est Render lui-même),
+    jamais la première."""
+
+    @classmethod
+    def setUpClass(cls):
+        os.environ.setdefault("ALPHASCALP_DB", os.path.join(
+            tempfile.gettempdir(), "alphascalp_ipde_test.db"))
+        os.environ.setdefault("ALPHASCALP_MASTER_TOKEN", "master-test-local-only")
+        os.environ.setdefault("ALPHASCALP_ADMIN_TOKEN", "admin-test-local-only")
+        spec = importlib.util.spec_from_file_location(
+            "alphascalp_server_test_ipde", ROOT / "server.py")
+        cls.server = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.server)
+
+    def test_prend_la_derniere_entree_pas_la_premiere(self):
+        # Le client a forgé une fausse "IP d'origine" ; Render a ajouté la
+        # vraie à la fin. La vraie doit gagner.
+        req = _FausseRequete(xff="1.2.3.4-usurpee, 198.51.100.7")
+        self.assertEqual(self.server._ip_de(req), "198.51.100.7")
+
+    def test_une_seule_entree(self):
+        req = _FausseRequete(xff="198.51.100.7")
+        self.assertEqual(self.server._ip_de(req), "198.51.100.7")
+
+    def test_sans_en_tete_retombe_sur_l_ip_de_connexion(self):
+        req = _FausseRequete(xff="", host="203.0.113.9")
+        self.assertEqual(self.server._ip_de(req), "203.0.113.9")
+
+
 if __name__ == "__main__":
     unittest.main()
